@@ -12,7 +12,10 @@ use stitchwort_syntax::{Diagnostic, FileId, Span};
 
 use crate::Elaborator;
 use crate::module::{Ref, decl_refs};
+
+mod sketch;
 use crate::scope::{Qualifier, QualifierLevels, STD, WildcardSource, import_target, qualifier};
+pub use sketch::{FileSketch, ImportSketch};
 
 /// One file of a module: its display name (project-relative path, for
 /// messages) and its syntax.
@@ -258,20 +261,23 @@ impl Elaborator {
     /// (by file, then position) that uses it. Never `ns` itself. Sorted by
     /// target.
     pub fn namespace_edges(&self, ns: &NamespaceSyntax) -> Vec<Edge> {
+        let sketches: Vec<FileSketch> = ns.files.iter().map(|u| FileSketch::of(u.module)).collect();
+        self.namespace_edges_of(&ns.name, &sketches.iter().collect::<Vec<_>>())
+    }
+
+    /// [`Self::namespace_edges`], from the sketches of the namespace's
+    /// files.
+    pub fn namespace_edges_of(&self, ns_name: &str, files: &[&FileSketch]) -> Vec<Edge> {
         // What each file of the namespace declares and imports.
         let mut declared: HashSet<&str> = HashSet::default();
         // Qualified declarations: the first component of the written name,
         // and the file.
         let mut qualified: Vec<(&str, usize)> = Vec::new();
-        for (f, unit) in ns.files.iter().enumerate() {
-            for decl in &unit.module.decls {
-                let text = written(decl);
-                if text.is_empty() {
-                    continue;
-                }
+        for (f, unit) in files.iter().enumerate() {
+            for text in &unit.names {
                 match text.split_once('.') {
                     None => {
-                        declared.insert(text);
+                        declared.insert(text.as_str());
                     }
                     Some((first, _)) => qualified.push((first, f)),
                 }
@@ -279,13 +285,11 @@ impl Elaborator {
         }
         // Each import's namespace, read without any imports, as checking
         // reads it.
-        let own_root = format!("{}.", ns.name);
-        let no_names: Vec<HashSet<&str>> = vec![HashSet::default(); ns.files.len()];
-        let no_qualifiers: Vec<HashMap<&str, Vec<String>>> =
-            vec![HashMap::default(); ns.files.len()];
-        let none: Vec<HashSet<String>> = vec![HashSet::default(); ns.files.len()];
-        let targets: Vec<Vec<Option<String>>> = ns
-            .files
+        let own_root = format!("{ns_name}.");
+        let no_names: Vec<HashSet<&str>> = vec![HashSet::default(); files.len()];
+        let no_qualifiers: Vec<HashMap<&str, Vec<String>>> = vec![HashMap::default(); files.len()];
+        let none: Vec<HashSet<String>> = vec![HashSet::default(); files.len()];
+        let targets: Vec<Vec<Option<String>>> = files
             .iter()
             .enumerate()
             .map(|(f, unit)| {
@@ -298,10 +302,9 @@ impl Elaborator {
                     wildcard: &none,
                     file: f,
                     imports: false,
-                    ns: &ns.name,
+                    ns: ns_name,
                 };
-                unit.module
-                    .imports
+                unit.imports
                     .iter()
                     .map(|i| import_target(&path_levels, &i.path.text, &own_root))
                     .collect()
@@ -309,26 +312,25 @@ impl Elaborator {
             .collect();
         // The names each file imports by name, and the namespaces it
         // imports as qualifiers (`import Shop (Spec)` for `Shop.Spec`).
-        let mut imported: Vec<HashSet<&str>> = vec![HashSet::default(); ns.files.len()];
-        let mut qualifiers: Vec<HashMap<&str, Vec<String>>> =
-            vec![HashMap::default(); ns.files.len()];
-        for (f, unit) in ns.files.iter().enumerate() {
-            for (import, target) in unit.module.imports.iter().zip(&targets[f]) {
-                for item in &import.items {
+        let mut imported: Vec<HashSet<&str>> = vec![HashSet::default(); files.len()];
+        let mut qualifiers: Vec<HashMap<&str, Vec<String>>> = vec![HashMap::default(); files.len()];
+        for (f, unit) in files.iter().enumerate() {
+            for (import, target) in unit.imports.iter().zip(&targets[f]) {
+                for (item, local) in &import.items {
                     match target {
                         Some(k)
                             if self
                                 .session
                                 .project_prefixes
-                                .contains(&format!("{k}.{}", item.name.text)) =>
+                                .contains(&format!("{k}.{}", item.text)) =>
                         {
                             qualifiers[f]
-                                .entry(item.local().text.as_str())
+                                .entry(local.as_str())
                                 .or_default()
-                                .push(format!("{k}.{}", item.name.text));
+                                .push(format!("{k}.{}", item.text));
                         }
                         _ => {
-                            imported[f].insert(item.local().text.as_str());
+                            imported[f].insert(local.as_str());
                         }
                     }
                 }
@@ -339,17 +341,17 @@ impl Elaborator {
         // from the import's path and the same names routine. A file that
         // imports everything from a namespace whose files didn't parse is
         // blind: its names are unknown.
-        let mut wildcard: Vec<HashSet<String>> = vec![HashSet::default(); ns.files.len()];
-        let mut blind = vec![false; ns.files.len()];
-        for (f, unit) in ns.files.iter().enumerate() {
-            for (import, target) in unit.module.imports.iter().zip(&targets[f]) {
-                if import.everything.is_none() {
+        let mut wildcard: Vec<HashSet<String>> = vec![HashSet::default(); files.len()];
+        let mut blind = vec![false; files.len()];
+        for (f, unit) in files.iter().enumerate() {
+            for (import, target) in unit.imports.iter().zip(&targets[f]) {
+                if !import.everything {
                     continue;
                 }
                 let Some(k) = target else {
                     continue;
                 };
-                match self.wildcard_source(k, Some(&ns.name)) {
+                match self.wildcard_source(k, Some(ns_name)) {
                     Some(WildcardSource::Names(names)) => wildcard[f].extend(names),
                     Some(WildcardSource::Unknown) => blind[f] = true,
                     Some(WildcardSource::Refused(_)) | None => {}
@@ -358,7 +360,7 @@ impl Elaborator {
         }
 
         let mut edges: BTreeMap<String, Span> = BTreeMap::new();
-        for (f, unit) in ns.files.iter().enumerate() {
+        for (f, unit) in files.iter().enumerate() {
             let levels = PrePass {
                 e: self,
                 declared: &declared,
@@ -368,7 +370,7 @@ impl Elaborator {
                 wildcard: &wildcard,
                 file: f,
                 imports: true,
-                ns: &ns.name,
+                ns: ns_name,
             };
             // An import's path is read without the file's imports.
             let path_levels = PrePass {
@@ -378,21 +380,21 @@ impl Elaborator {
             let mut found = |target: String, span: Span| {
                 edges.entry(target).or_insert(span);
             };
-            for (import, target) in unit.module.imports.iter().zip(&targets[f]) {
+            for (import, target) in unit.imports.iter().zip(&targets[f]) {
                 let first = import.path.text.split('.').next().unwrap_or("");
                 if matches!(qualifier(&path_levels, first), Qualifier::Project)
                     && let Some(q) = self.longest_namespace(&import.path.text, true)
-                    && q != ns.name
+                    && q != ns_name
                 {
                     found(q, import.path.span);
                 }
                 // An item that is a project namespace is used by importing
                 // it, so it is checked first, whatever the order of names.
-                for item in &import.items {
+                for (item, _) in &import.items {
                     if let Some(k) = target {
-                        let key = format!("{k}.{}", item.name.text);
-                        if self.session.project_namespaces.contains(&key) && key != ns.name {
-                            found(key, item.name.span);
+                        let key = format!("{k}.{}", item.text);
+                        if self.session.project_namespaces.contains(&key) && key != ns_name {
+                            found(key, item.span);
                         }
                     }
                 }
@@ -400,24 +402,21 @@ impl Elaborator {
             if blind[f] {
                 continue;
             }
-            for (decl, equations) in grouped(&unit.module.decls) {
-                for (r, _) in decl_refs(decl, equations) {
-                    let Ref::Name(n) = r else { continue };
-                    let Some((first, rest)) = n.text.split_once('.') else {
-                        continue;
-                    };
-                    let full = match qualifier(&levels, first) {
-                        Qualifier::Project => n.text.clone(),
-                        // Through a namespace imported as a qualifier:
-                        // what it is a prefix of, if it isn't one itself.
-                        Qualifier::Imported(key) => format!("{key}.{rest}"),
-                        _ => continue,
-                    };
-                    if let Some(q) = self.longest_namespace(&full, false)
-                        && q != ns.name
-                    {
-                        found(q, n.span);
-                    }
+            for n in &unit.refs {
+                let Some((first, rest)) = n.text.split_once('.') else {
+                    continue;
+                };
+                let full = match qualifier(&levels, first) {
+                    Qualifier::Project => n.text.clone(),
+                    // Through a namespace imported as a qualifier:
+                    // what it is a prefix of, if it isn't one itself.
+                    Qualifier::Imported(key) => format!("{key}.{rest}"),
+                    _ => continue,
+                };
+                if let Some(q) = self.longest_namespace(&full, false)
+                    && q != ns_name
+                {
+                    found(q, n.span);
                 }
             }
         }

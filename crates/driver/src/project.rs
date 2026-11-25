@@ -7,13 +7,13 @@ use std::collections::{BTreeMap, BTreeSet, BinaryHeap, VecDeque};
 use std::path::{Path, PathBuf};
 
 use stitchwort_core::collections::HashSet;
-use stitchwort_elab::project::{
-    Edge, NamespaceSyntax, PlanNamespace, SourceUnit, direct_names, plan_theorems,
-};
-use stitchwort_syntax::ast::{Decl, Module};
+use stitchwort_elab::project::{Edge, FileSketch, PlanNamespace, SourceUnit, plan_theorems};
+use stitchwort_syntax::ast::{Decl, Module, NamespaceDecl};
 use stitchwort_syntax::{
     Diagnostic, FileId, Severity, SourceMap, Span, parse_module_recovering, parse_namespace_line,
 };
+
+use stitchwort_elab::cache::Store;
 
 use crate::driver::Session;
 
@@ -93,7 +93,14 @@ impl Session {
         target: &Target,
         load: Load,
     ) -> Result<Loaded, Vec<Diagnostic>> {
-        let analysis = analyse(self, project, files);
+        let analysis = match self.elab.check_cache() {
+            Some(store) => {
+                let stack = self.elab.options.limits.stack;
+                let scan = Scan::new(files, stack, project, Some(&*store));
+                analyse_scan(self, project, &scan)
+            }
+            None => analyse(self, project, files),
+        };
         self.load_analysis_for(project, analysis, target, load)
     }
 
@@ -163,8 +170,8 @@ impl Session {
                                 let suffix = format!(".{full}");
                                 let mut found = false;
                                 for ns in &analysis.namespaces {
-                                    let has =
-                                        ns.modules.iter().flat_map(|m| &m.decls).any(|decl| {
+                                    let has = ns.modules().into_iter().flat_map(|m| &m.decls).any(
+                                        |decl| {
                                             matches!(
                                                 decl,
                                                 Decl::Signature {
@@ -174,7 +181,8 @@ impl Session {
                                                 } if format!("{}.{}", ns.name, name.text)
                                                     .ends_with(&suffix)
                                             )
-                                        });
+                                        },
+                                    );
                                     if has {
                                         own.insert(ns.name.clone());
                                         found = true;
@@ -258,7 +266,7 @@ impl Session {
                     let ns = analysis.namespace(name).expect("a namespace");
                     PlanNamespace {
                         name,
-                        modules: ns.modules.iter().collect(),
+                        modules: ns.modules(),
                         pruned: pruned.contains(name),
                     }
                 })
@@ -401,7 +409,7 @@ impl Session {
                 // that is loaded (SW-3637).
                 let ns = analysis.namespace(name).expect("a namespace");
                 let mut warnings = warnings.clone();
-                let styled: Vec<_> = ns.files.iter().copied().zip(&ns.modules).collect();
+                let styled: Vec<_> = ns.files.iter().copied().zip(ns.modules()).collect();
                 self.statement_style(&mut warnings, &styled);
                 diagnostics.extend(warnings);
                 continue;
@@ -469,7 +477,9 @@ impl Session {
                     .iter()
                     .any(|e| uncertain.contains(e.target.as_str()));
             match planned {
-                Some(warnings) if certain && ns.modules.iter().all(|m| m.doc_links.is_empty()) => {
+                Some(warnings)
+                    if certain && ns.modules().iter().all(|m| m.doc_links.is_empty()) =>
+                {
                     fits.insert(name.clone(), warnings);
                 }
                 Some(_) if certain => loaded.push(name.clone()),
@@ -505,7 +515,7 @@ impl Session {
         let units: Vec<SourceUnit> = names
             .iter()
             .zip(&ns.files)
-            .zip(&ns.modules)
+            .zip(ns.modules())
             .map(|((name, id), module)| SourceUnit {
                 file: Some(*id),
                 name,
@@ -528,7 +538,7 @@ impl Session {
         // After the cache, which holds the elaborator's own diagnostics:
         // this one reads each file's text.
         if ns.parse_errors.is_empty() {
-            let styled: Vec<_> = ns.files.iter().copied().zip(&ns.modules).collect();
+            let styled: Vec<_> = ns.files.iter().copied().zip(ns.modules()).collect();
             self.statement_style(&mut found, &styled);
         } else {
             // No statement style for files that don't parse, but the
@@ -869,7 +879,7 @@ fn only_takes_theorems_hint(name: &str, analysis: &Analysis) -> Option<String> {
     let mut namespace_exists = false;
     for ns in &analysis.namespaces {
         namespace_exists |= ns.name == name;
-        for decl in ns.modules.iter().flat_map(|m| &m.decls) {
+        for decl in ns.modules().into_iter().flat_map(|m| &m.decls) {
             let Decl::Signature {
                 name: theorem,
                 theorem: true,
@@ -930,12 +940,73 @@ pub struct Namespace {
     pub name: String,
     /// Its files, by display name.
     pub files: Vec<FileId>,
-    /// Parsed, in the same order; a file with syntax errors keeps the
-    /// declarations that parsed (`parse_errors` has the errors).
-    pub modules: Vec<Module>,
+    /// Parsed, in the same order, on first use (see [`Namespace::modules`]).
+    modules: Vec<LazyModule>,
     pub parse_errors: Vec<Diagnostic>,
     /// The namespaces it uses directly.
     pub edges: Vec<Edge>,
+}
+
+/// A file's syntax: already parsed, or parsed from its text when first
+/// asked for. A file that parsed without errors and whose sketch was
+/// cached ([`FileSketch`]) is the second kind: a check of one namespace
+/// reads the syntax of the namespaces it uses, not of the whole project.
+pub struct LazyModule {
+    file: FileId,
+    /// What to parse, with the stack limit it was parsed under.
+    text: String,
+    stack: usize,
+    module: std::sync::OnceLock<Module>,
+}
+
+impl LazyModule {
+    /// A file parsed already.
+    pub fn parsed(file: FileId, module: Module) -> LazyModule {
+        LazyModule {
+            file,
+            text: String::new(),
+            stack: 0,
+            module: std::sync::OnceLock::from(module),
+        }
+    }
+
+    /// A file that parses, without errors, to what parsing `text` gives.
+    fn deferred(file: FileId, text: String, stack: usize) -> LazyModule {
+        LazyModule {
+            file,
+            text,
+            stack,
+            module: std::sync::OnceLock::new(),
+        }
+    }
+
+    pub fn get(&self) -> &Module {
+        self.module
+            .get_or_init(|| parse_module_recovering(self.file, &self.text, self.stack).0)
+    }
+}
+
+impl Namespace {
+    pub fn new(
+        name: String,
+        files: Vec<FileId>,
+        modules: Vec<LazyModule>,
+        parse_errors: Vec<Diagnostic>,
+        edges: Vec<Edge>,
+    ) -> Namespace {
+        Namespace {
+            name,
+            files,
+            modules,
+            parse_errors,
+            edges,
+        }
+    }
+
+    /// Its files' syntax, in the order of `files`.
+    pub fn modules(&self) -> Vec<&Module> {
+        self.modules.iter().map(LazyModule::get).collect()
+    }
 }
 
 impl Analysis {
@@ -1002,42 +1073,290 @@ pub fn analyse_parsed(
     project: &str,
     files: Vec<ParsedFile>,
 ) -> Analysis {
+    let stack = elab.options.limits.stack;
+    analyse_units(
+        elab,
+        project,
+        stack,
+        files
+            .into_iter()
+            .map(|f| Unit {
+                path: f.path,
+                display: f.display,
+                id: f.id,
+                text: f.text,
+                read: Read::Parsed {
+                    module: f.module,
+                    errors: f.errors,
+                },
+            })
+            .collect(),
+    )
+}
+
+/// A file of a project, as the analysis reads it.
+struct Unit {
+    path: String,
+    display: String,
+    id: FileId,
+    text: String,
+    read: Read,
+}
+
+enum Read {
+    /// Parsed in this process.
+    Parsed {
+        module: Module,
+        errors: Vec<Diagnostic>,
+    },
+    /// Known from an earlier parse, which had no errors: the syntax is
+    /// parsed from the text if a namespace's checking asks for it.
+    Sketched(FileSketch),
+}
+
+/// The files of a project, scanned: for each file that parses without
+/// errors, what the analysis reads of it ([`FileSketch`], encoded without
+/// the file's id). Made once and used by any number of sessions, which
+/// parse only the namespaces they check (SW-4813).
+pub struct Scan {
+    /// Sorted by path.
+    files: Vec<ScanFile>,
+    /// The stack limit the files were parsed under, which a parse that
+    /// fails on depth depends on.
+    stack: usize,
+}
+
+struct ScanFile {
+    path: String,
+    text: String,
+    /// `None` for a file with syntax errors, which a session parses itself
+    /// to report them.
+    sketch: Option<Vec<u8>>,
+}
+
+/// What the scan cache's entry for a project starts with.
+const SCAN_MAGIC: &[u8; 8] = b"SWSCAN\x01\0";
+
+/// Where a project's scan is kept in a check cache store: the unit (a
+/// letter, so the name is parsed as the store's own) and the key.
+fn scan_unit(project: &str) -> (String, stitchwort_elab::cache::Key) {
+    let digest = blake3::hash(project.as_bytes());
+    let unit = format!("scan{}", &digest.to_hex()[..16]);
+    (unit, [0; 32])
+}
+
+impl Scan {
+    /// Scans `files` (path within the project, text), parsing each whose
+    /// text isn't in `cache`'s entry for `project` under the same path, and
+    /// updating the entry if any wasn't. The entry holds each file's sketch
+    /// by the BLAKE3 hash of its text; the store's compiler build, which
+    /// every store keeps its entries by, and the stack limit decide whether
+    /// the entry is read at all. Nothing but a file's text is looked at to
+    /// reuse its sketch.
+    pub fn new(
+        mut files: Vec<(String, String)>,
+        stack: usize,
+        project: &str,
+        cache: Option<&dyn Store>,
+    ) -> Scan {
+        files.sort();
+        let (unit, key) = scan_unit(project);
+        let salted = |store: &dyn Store| {
+            let mut k = key;
+            k.copy_from_slice(blake3::hash(&store.salt()).as_bytes());
+            k
+        };
+        let stored = cache.and_then(|c| c.read(&unit, &salted(c)));
+        let mut previous = stored
+            .as_deref()
+            .and_then(|bytes| ScanEntry::read(bytes, stack))
+            .unwrap_or_default();
+        let mut reused = 0;
+        let files: Vec<ScanFile> = files
+            .into_iter()
+            .map(|(path, text)| {
+                let hash = *blake3::hash(text.as_bytes()).as_bytes();
+                let sketch = match previous.remove(&path) {
+                    Some((h, sketch)) if h == hash => {
+                        reused += 1;
+                        Some(sketch)
+                    }
+                    _ => {
+                        let (module, errors) =
+                            parse_module_recovering(FileId::SCRATCH, &text, stack);
+                        errors.is_empty().then(|| {
+                            let mut out = Vec::new();
+                            FileSketch::of(&module).encode(&mut out);
+                            out
+                        })
+                    }
+                };
+                ScanFile { path, text, sketch }
+            })
+            .collect();
+        if let Some(cache) = cache {
+            // Unchanged: every file reused and none gone.
+            let clean = files.iter().filter(|f| f.sketch.is_some()).count();
+            if stored.is_none() || reused != clean || !previous.is_empty() {
+                let bytes = ScanEntry::write(&files, stack);
+                cache.write(&unit, &salted(cache), &bytes);
+            }
+        }
+        Scan { files, stack }
+    }
+
+    /// The paths and texts, sorted by path.
+    pub fn texts(&self) -> impl Iterator<Item = (&str, &str)> {
+        self.files
+            .iter()
+            .map(|f| (f.path.as_str(), f.text.as_str()))
+    }
+}
+
+/// A scan's entry: the files' sketches by hash, to read back.
+/// A file's text hash and its encoded sketch.
+type Sketched = ([u8; 32], Vec<u8>);
+
+struct ScanEntry;
+
+impl ScanEntry {
+    /// The entry's files, by path: each text's hash and its encoded sketch.
+    /// `None` if `bytes` isn't an entry written for this stack limit.
+    fn read(bytes: &[u8], stack: usize) -> Option<BTreeMap<String, Sketched>> {
+        let rest = bytes.strip_prefix(SCAN_MAGIC)?;
+        let (limit, mut rest) = rest.split_first_chunk::<8>()?;
+        if u64::from_le_bytes(*limit) != stack as u64 {
+            return None;
+        }
+        let mut found = BTreeMap::new();
+        let take = |rest: &mut &[u8], n: usize| -> Option<Vec<u8>> {
+            let (head, tail) = rest.split_at_checked(n)?;
+            *rest = tail;
+            Some(head.to_vec())
+        };
+        let number = |rest: &mut &[u8]| -> Option<usize> {
+            let (n, tail) = rest.split_first_chunk::<4>()?;
+            *rest = tail;
+            Some(u32::from_le_bytes(*n) as usize)
+        };
+        let count = number(&mut rest)?;
+        for _ in 0..count {
+            let n = number(&mut rest)?;
+            let path = String::from_utf8(take(&mut rest, n)?).ok()?;
+            let hash: [u8; 32] = take(&mut rest, 32)?.try_into().ok()?;
+            let n = number(&mut rest)?;
+            let sketch = take(&mut rest, n)?;
+            found.insert(path, (hash, sketch));
+        }
+        rest.is_empty().then_some(found)
+    }
+
+    fn write(files: &[ScanFile], stack: usize) -> Vec<u8> {
+        let mut out = SCAN_MAGIC.to_vec();
+        out.extend_from_slice(&(stack as u64).to_le_bytes());
+        let kept: Vec<&ScanFile> = files.iter().filter(|f| f.sketch.is_some()).collect();
+        out.extend_from_slice(&(kept.len() as u32).to_le_bytes());
+        for f in kept {
+            out.extend_from_slice(&(f.path.len() as u32).to_le_bytes());
+            out.extend_from_slice(f.path.as_bytes());
+            out.extend_from_slice(blake3::hash(f.text.as_bytes()).as_bytes());
+            let sketch = f.sketch.as_deref().unwrap_or_default();
+            out.extend_from_slice(&(sketch.len() as u32).to_le_bytes());
+            out.extend_from_slice(sketch);
+        }
+        out
+    }
+}
+
+/// [`analyse`], from a scan: adds the files to the session's sources, and
+/// parses only those the scan found errors in.
+pub fn analyse_scan(session: &mut Session, project: &str, scan: &Scan) -> Analysis {
+    let stack = scan.stack;
+    let units = scan
+        .files
+        .iter()
+        .map(|f| {
+            let display = format!("{project}/{}", f.path);
+            let id = session.sources.add(display.clone(), f.text.clone());
+            session.elab.set_include_location(id, f.path.clone());
+            let sketched = (f.sketch.as_deref()).and_then(|mut b| FileSketch::decode(&mut b, id));
+            let read = match sketched {
+                Some(sketch) => Read::Sketched(sketch),
+                None => {
+                    let (module, errors) = parse_module_recovering(id, &f.text, stack);
+                    Read::Parsed { module, errors }
+                }
+            };
+            Unit {
+                path: f.path.clone(),
+                display,
+                id,
+                text: f.text.clone(),
+                read,
+            }
+        })
+        .collect();
+    analyse_units(&mut session.elab, project, stack, units)
+}
+
+fn analyse_units(
+    elab: &mut stitchwort_elab::Elaborator,
+    project: &str,
+    stack: usize,
+    files: Vec<Unit>,
+) -> Analysis {
     let mut diagnostics = Vec::new();
     // Each namespace's files: id, then parse result.
     struct Found {
         files: Vec<FileId>,
-        displays: Vec<String>,
-        modules: Vec<Module>,
+        modules: Vec<LazyModule>,
+        sketches: Vec<FileSketch>,
         parse_errors: Vec<Diagnostic>,
     }
     let mut found: BTreeMap<String, Found> = BTreeMap::new();
     for file in files {
-        let ParsedFile {
+        let Unit {
             path,
             display,
             id,
             text,
-            module: parsed,
-            errors,
+            read,
         } = file;
-        let (namespace, errors, module) = match errors {
-            errors if errors.is_empty() => (parsed.namespace.clone(), errors, Some(parsed)),
-            errors => {
-                if let Some(not_first) = errors.iter().find(|d| d.code == "E-NAMESPACE-NOT-FIRST") {
-                    diagnostics.push(not_first.clone());
-                    continue;
-                }
-                match parse_namespace_line(id, &text) {
-                    Ok(line) => (line, errors, Some(parsed)),
-                    Err(d) => {
-                        // The namespace line itself is the trouble.
-                        diagnostics.push(d);
+        let (line, errors, sketch, module) = match read {
+            Read::Sketched(sketch) => {
+                let line =
+                    (sketch.namespace.clone()).map(|(path, span)| NamespaceDecl { path, span });
+                (
+                    line,
+                    Vec::new(),
+                    sketch,
+                    LazyModule::deferred(id, text, stack),
+                )
+            }
+            Read::Parsed { module, errors } => {
+                let namespace = if errors.is_empty() {
+                    module.namespace.clone()
+                } else {
+                    if let Some(not_first) =
+                        errors.iter().find(|d| d.code == "E-NAMESPACE-NOT-FIRST")
+                    {
+                        diagnostics.push(not_first.clone());
                         continue;
                     }
-                }
+                    match parse_namespace_line(id, &text) {
+                        Ok(line) => line,
+                        Err(d) => {
+                            // The namespace line itself is the trouble.
+                            diagnostics.push(d);
+                            continue;
+                        }
+                    }
+                };
+                let sketch = FileSketch::of(&module);
+                (namespace, errors, sketch, LazyModule::parsed(id, module))
             }
         };
-        let Some(line) = namespace else {
+        let Some(line) = line else {
             diagnostics.push(no_namespace(project, &path, &display));
             continue;
         };
@@ -1049,21 +1368,21 @@ pub fn analyse_parsed(
             .entry(line.path.text.clone())
             .or_insert_with(|| Found {
                 files: Vec::new(),
-                displays: Vec::new(),
                 modules: Vec::new(),
+                sketches: Vec::new(),
                 parse_errors: Vec::new(),
             });
         entry.files.push(id);
-        entry.displays.push(display);
         // A file with syntax errors keeps the declarations that parsed.
-        entry.modules.extend(module);
+        entry.modules.push(module);
+        entry.sketches.push(sketch);
         entry.parse_errors.extend(errors);
     }
-    let mut display_names: Vec<Vec<String>> = Vec::new();
+    let mut sketches: Vec<Vec<FileSketch>> = Vec::new();
     let mut namespaces: Vec<Namespace> = found
         .into_iter()
         .map(|(name, f)| {
-            display_names.push(f.displays);
+            sketches.push(f.sketches);
             Namespace {
                 name,
                 files: f.files,
@@ -1073,7 +1392,7 @@ pub fn analyse_parsed(
             }
         })
         .collect();
-    diagnostics.extend(clashes(&namespaces));
+    diagnostics.extend(clashes(&namespaces, &sketches));
     // A namespace that lost a declaration to a syntax error says so where
     // one of its importers names it, rather than there being no such name
     // (docs/proposals/tests-with-errors.md §4.2).
@@ -1088,33 +1407,24 @@ pub fn analyse_parsed(
     elab.set_project_namespaces(namespaces.iter().map(|n| n.name.clone()));
     // Every namespace's names first, since an import of everything from one
     // is read while another's edges are found.
-    let syntax_of = |i: usize| {
-        let ns = &namespaces[i];
-        NamespaceSyntax {
-            name: ns.name.clone(),
-            files: display_names[i]
-                .iter()
-                .zip(&ns.files)
-                .zip(&ns.modules)
-                .map(|((name, id), module)| SourceUnit {
-                    file: Some(*id),
-                    name,
-                    module,
-                })
-                .collect(),
-        }
-    };
     let names: BTreeMap<String, BTreeSet<String>> = (0..namespaces.len())
         .filter(|i| namespaces[*i].parse_errors.is_empty())
-        .map(|i| (namespaces[i].name.clone(), direct_names(&syntax_of(i))))
+        .map(|i| {
+            let direct = sketches[i].iter().flat_map(FileSketch::direct_names);
+            (
+                namespaces[i].name.clone(),
+                direct.map(str::to_string).collect(),
+            )
+        })
         .collect();
     elab.set_project_names(names);
     let edges: Vec<Vec<Edge>> = (0..namespaces.len())
         .map(|i| {
-            if namespaces[i].modules.is_empty() {
+            if namespaces[i].files.is_empty() {
                 Vec::new()
             } else {
-                elab.namespace_edges(&syntax_of(i))
+                let files: Vec<&FileSketch> = sketches[i].iter().collect();
+                elab.namespace_edges_of(&namespaces[i].name, &files)
             }
         })
         .collect();
@@ -1160,41 +1470,33 @@ fn no_namespace(project: &str, path: &str, display: &str) -> Diagnostic {
 
 /// `E-NAMESPACE-CLASH`: a declaration of namespace `P` that is, or is
 /// inside, the namespace `Q` that is also nested in `P`.
-fn clashes(namespaces: &[Namespace]) -> Vec<Diagnostic> {
+fn clashes(namespaces: &[Namespace], sketches: &[Vec<FileSketch>]) -> Vec<Diagnostic> {
     let mut out = Vec::new();
     for q in namespaces {
-        for p in namespaces {
+        for (p, files) in namespaces.iter().zip(sketches) {
             if p.name == q.name || !q.name.starts_with(&format!("{}.", p.name)) {
                 continue;
             }
-            for module in &p.modules {
-                for decl in &module.decls {
-                    let (name, what) = match decl {
-                        Decl::Data { name, .. } => (name, "type"),
-                        Decl::Ability { name, .. } => (name, "ability"),
-                        Decl::Signature { name, .. } => (name, "definition"),
-                        _ => continue,
-                    };
-                    let full = format!("{}.{}", p.name, name.text);
-                    let message = if full == q.name {
-                        format!(
-                            "`{}` is both the {what} `{}` in namespace {} and a namespace of its own",
-                            q.name, name.text, p.name
-                        )
-                    } else if full.starts_with(&format!("{}.", q.name)) {
-                        format!(
-                            "`{}` is both a namespace inside {} (from `{}`) and a namespace of its own",
-                            q.name, p.name, name.text
-                        )
-                    } else {
-                        continue;
-                    };
-                    out.push(
-                        Diagnostic::error("E-NAMESPACE-CLASH", message)
-                            .with_label(name.span, "declared here")
-                            .with_note("rename one of them"),
-                    );
-                }
+            for (name, what) in files.iter().flat_map(|f| &f.things) {
+                let full = format!("{}.{}", p.name, name.text);
+                let message = if full == q.name {
+                    format!(
+                        "`{}` is both the {what} `{}` in namespace {} and a namespace of its own",
+                        q.name, name.text, p.name
+                    )
+                } else if full.starts_with(&format!("{}.", q.name)) {
+                    format!(
+                        "`{}` is both a namespace inside {} (from `{}`) and a namespace of its own",
+                        q.name, p.name, name.text
+                    )
+                } else {
+                    continue;
+                };
+                out.push(
+                    Diagnostic::error("E-NAMESPACE-CLASH", message)
+                        .with_label(name.span, "declared here")
+                        .with_note("rename one of them"),
+                );
             }
         }
     }

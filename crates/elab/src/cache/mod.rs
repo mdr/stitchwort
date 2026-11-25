@@ -472,6 +472,11 @@ impl Elaborator {
         self.options.check_cache = Some(store);
     }
 
+    /// The check cache in use, if any.
+    pub fn check_cache(&self) -> Option<Rc<dyn Store>> {
+        self.options.check_cache.clone()
+    }
+
     /// Stops using a check cache: files are checked, not replayed, until
     /// [`Elaborator::set_check_cache`] is called again. (A rewind keeps the
     /// cache, which is not part of what it restores.)

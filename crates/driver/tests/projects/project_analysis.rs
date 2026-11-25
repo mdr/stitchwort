@@ -374,3 +374,236 @@ fn refused_wildcards_add_no_names() {
     let analysis = read(&[("aoc.sw", aoc), ("other.sw", OTHER), ("day.sw", day)]);
     assert_eq!(edges(&analysis, "Day"), ["Aoc", "Other"]);
 }
+
+// ---- the scan cache (SW-4813) -------------------------------------------
+
+mod scan_cache {
+    use std::cell::{Cell, RefCell};
+    use std::collections::BTreeMap;
+    use std::rc::Rc;
+
+    use stitchwort_driver::driver::Session;
+    use stitchwort_driver::project::{Analysis, Scan, Target, analyse, analyse_scan};
+    use stitchwort_elab::cache::{Key, Store};
+
+    /// A store in memory that counts its writes.
+    #[derive(Default)]
+    struct Memory {
+        entries: RefCell<BTreeMap<(String, Key), Vec<u8>>>,
+        writes: Cell<usize>,
+    }
+
+    impl Store for Memory {
+        fn compiler(&self) -> &str {
+            "scan-cache-test"
+        }
+        fn salt(&self) -> [u8; 16] {
+            [7; 16]
+        }
+        fn read(&self, unit: &str, key: &Key) -> Option<Vec<u8>> {
+            self.entries
+                .borrow()
+                .get(&(unit.to_string(), *key))
+                .cloned()
+        }
+        fn write(&self, unit: &str, key: &Key, entry: &[u8]) {
+            self.writes.set(self.writes.get() + 1);
+            self.entries
+                .borrow_mut()
+                .insert((unit.to_string(), *key), entry.to_vec());
+        }
+    }
+
+    const STACK: usize = 16 * 1024 * 1024;
+
+    fn owned(files: &[(&str, &str)]) -> Vec<(String, String)> {
+        files
+            .iter()
+            .map(|(p, t)| (p.to_string(), t.to_string()))
+            .collect()
+    }
+
+    /// Everything a reader of an analysis can see, as text: the namespaces,
+    /// their files, what each uses and where, their syntax, the errors, and
+    /// what `import N (..)` brings.
+    fn describe(session: &Session, analysis: &Analysis) -> String {
+        let mut out = String::new();
+        for d in &analysis.diagnostics {
+            out += &format!(
+                "diagnostic {} {} {:?}\n",
+                d.code,
+                d.message,
+                d.primary_span()
+            );
+        }
+        for ns in &analysis.namespaces {
+            out += &format!("namespace {} files {:?}\n", ns.name, ns.files);
+            for e in &ns.edges {
+                out += &format!("  uses {} at {:?}\n", e.target, e.span);
+            }
+            for d in &ns.parse_errors {
+                out += &format!("  error {} {} {:?}\n", d.code, d.message, d.primary_span());
+            }
+            for m in ns.modules() {
+                out += &format!("  module {m:?}\n");
+            }
+            out += &format!("  names {:?}\n", session.elab.project_names(&ns.name));
+        }
+        out
+    }
+
+    fn fresh(files: &[(&str, &str)]) -> String {
+        let mut session = Session::new();
+        let analysis = analyse(&mut session, "proj", owned(files));
+        describe(&session, &analysis)
+    }
+
+    fn scanned(files: &[(&str, &str)], store: &Memory) -> String {
+        let mut session = Session::new();
+        let scan = Scan::new(owned(files), STACK, "proj", Some(store));
+        let analysis = analyse_scan(&mut session, "proj", &scan);
+        describe(&session, &analysis)
+    }
+
+    const LIB: &str = "namespace Lib\n\ndef f(): Nat := 1\n";
+    const OTHER: &str = "namespace Other\n\ndef g(): Nat := 1\n";
+    const DAY: &str = "namespace Day\n\nimport Other (g)\n\ndef x(): Nat := Lib.f() + g()\n";
+
+    /// Each edit changes what the analysis reads of one file; after each,
+    /// the cached scan describes the project as a fresh analysis does, and
+    /// a second run on the same files reads the entry without writing it.
+    #[test]
+    fn a_scan_of_edited_files_reads_like_a_fresh_analysis() {
+        let store = Memory::default();
+        let versions: Vec<Vec<(&str, &str)>> = vec![
+            vec![("lib.sw", LIB), ("other.sw", OTHER), ("day.sw", DAY)],
+            // The namespace line of a file.
+            vec![
+                ("lib.sw", "namespace Library\n\ndef f(): Nat := 1\n"),
+                ("other.sw", OTHER),
+                ("day.sw", DAY),
+            ],
+            // An import, and a declaration another file refers to.
+            vec![
+                ("lib.sw", LIB),
+                (
+                    "other.sw",
+                    "namespace Other\n\ndef g(): Nat := 1\ndef h(): Nat := 2\n",
+                ),
+                (
+                    "day.sw",
+                    "namespace Day\n\nimport Other (g, h)\n\ndef x(): Nat := Lib.f() + g() + h()\n",
+                ),
+            ],
+            // A file that is a namespace of its own inside another's.
+            vec![
+                ("lib.sw", LIB),
+                ("lib_f.sw", "namespace Lib.f\n\ndef y(): Nat := 1\n"),
+            ],
+            // No namespace line.
+            vec![("lib.sw", LIB), ("bare.sw", "def x(): Nat := 1\n")],
+            // A file added, a file removed.
+            vec![
+                ("lib.sw", LIB),
+                ("day.sw", DAY),
+                ("extra.sw", "namespace Extra\n"),
+            ],
+        ];
+        for files in &versions {
+            let expected = fresh(files);
+            assert_eq!(scanned(files, &store), expected, "first run on {files:?}");
+            let writes = store.writes.get();
+            assert_eq!(scanned(files, &store), expected, "second run on {files:?}");
+            assert_eq!(store.writes.get(), writes, "a hit wrote the entry again");
+        }
+    }
+
+    /// A file with a syntax error is reported as it always was, in another
+    /// namespace's way too, whether the rest of the project came from the
+    /// cache or not.
+    #[test]
+    fn a_syntax_error_is_reported_as_before_cached_or_not() {
+        let store = Memory::default();
+        let good = [("lib.sw", LIB), ("other.sw", OTHER), ("day.sw", DAY)];
+        scanned(&good, &store);
+        let broken: Vec<(&str, &str)> = vec![
+            ("lib.sw", LIB),
+            ("other.sw", "namespace Other\n\ndef g(: Nat := 1\n"),
+            ("day.sw", DAY),
+        ];
+        let expected = fresh(&broken);
+        assert!(
+            expected.contains("error "),
+            "no syntax error in\n{expected}"
+        );
+        assert_eq!(scanned(&broken, &store), expected, "with a warm entry");
+        assert_eq!(scanned(&broken, &store), expected, "again");
+        assert_eq!(
+            scanned(&broken, &Memory::default()),
+            expected,
+            "with no entry"
+        );
+        // The error's file isn't in the entry, and the others are.
+        scanned(&good, &store);
+        let writes = store.writes.get();
+        assert_eq!(scanned(&good, &store), fresh(&good));
+        assert_eq!(store.writes.get(), writes);
+    }
+
+    /// An entry written for another stack limit, or that is not an entry,
+    /// is ignored.
+    #[test]
+    fn an_entry_that_does_not_fit_is_ignored() {
+        let store = Memory::default();
+        let files = [("lib.sw", LIB), ("day.sw", DAY)];
+        let expected = fresh(&files);
+        scanned(&files, &store);
+        let mut session = Session::new();
+        let scan = Scan::new(owned(&files), STACK / 2, "proj", Some(&store));
+        let analysis = analyse_scan(&mut session, "proj", &scan);
+        assert_eq!(describe(&session, &analysis), expected);
+        for entry in store.entries.borrow_mut().values_mut() {
+            entry.truncate(entry.len() / 2);
+        }
+        assert_eq!(scanned(&files, &store), expected, "a truncated entry");
+        for entry in store.entries.borrow_mut().values_mut() {
+            *entry = vec![0; 5];
+        }
+        assert_eq!(scanned(&files, &store), expected, "junk");
+    }
+
+    /// Checking a project whose scan comes from the cache gives the check
+    /// cache the keys a fresh analysis does: the second run replays every
+    /// namespace from the first's entries.
+    #[test]
+    fn a_cached_scan_gives_the_check_cache_the_same_keys() {
+        stitchwort_driver::driver::with_stack(STACK, || {
+            let files = [("lib.sw", LIB), ("other.sw", OTHER), ("day.sw", DAY)];
+            let store = Rc::new(Memory::default());
+            let run = |store: &Rc<Memory>| {
+                let mut session = Session::for_stack(STACK);
+                session.elab.set_check_cache(store.clone());
+                let loaded = session
+                    .load_project_sources("proj", owned(&files), &Target::Everything)
+                    .expect("checks");
+                (loaded.checked, session.elab.check_cache_stats())
+            };
+            let (_, cold) = run(&store);
+            assert_eq!(cold.namespace_hits, 0);
+            assert!(cold.namespace_written > 0, "nothing written: {cold:?}");
+            let (_, warm) = run(&store);
+            assert_eq!(warm.namespace_hits, cold.namespace_written, "{warm:?}");
+            // An edit to a file's text makes that namespace and its users miss.
+            let mut edited = owned(&files);
+            edited[1].1 = "namespace Other\n\ndef g(): Nat := 3\n".to_string();
+            let mut session = Session::for_stack(STACK);
+            session.elab.set_check_cache(store.clone());
+            session
+                .load_project_sources("proj", edited, &Target::Everything)
+                .expect("checks");
+            let stats = session.elab.check_cache_stats();
+            assert!(stats.namespace_misses >= 2, "{stats:?}");
+            assert!(stats.namespace_hits >= 1, "{stats:?}");
+        });
+    }
+}
