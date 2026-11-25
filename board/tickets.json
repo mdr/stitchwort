@@ -34797,14 +34797,14 @@
     {
       "id": 4768,
       "title": "[Sonnet] Stage 3 review follow-ups (docs/reviews/SW-4767-stage3-review.md): R1 count worker panics in Fill and the --timings note, assert zero in the random-schedule test; T1 add the false-promise and fixed-proof reuse probes (docs/reviews/SW-4767-stage3-probes.rs.txt) as tests, assert rule 3 rewinds and interface-entry loads happen in some schedules, the odd shapes; optional guard: Elaborator::mark asserts no pending definition; R3 a line in the design note on workers' still-checking notes",
-      "status": "backlog",
+      "status": "doing",
       "agent": "",
       "where": "",
       "labels": [],
       "epic": "elaborator-kernel",
       "body": "",
       "created": "2026-11-24",
-      "updated": "2026-11-24",
+      "updated": "2026-11-25",
       "commits": []
     },
     {
