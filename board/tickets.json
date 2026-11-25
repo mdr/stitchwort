@@ -36036,12 +36036,12 @@
     {
       "id": 4845,
       "title": "[Sonnet] Rerun the Lean checking-comparison bench after core-from-cache (SW-4814) and today's other start-up fixes; add then-and-now against SW-4818's run (SW-4814 follow-up)",
-      "status": "doing",
+      "status": "review",
       "agent": "Sonnet",
       "where": "",
       "labels": [],
       "epic": "performance",
-      "body": "",
+      "body": "Bench rerun 18:13-18:17 (load 2.35/5.76 start, 3.31/4.62 end): whole day cached 0.91-0.98x Lean's file time, floor 68-89 ms, core cache confirmed via timings row. Written up in docs/reviews/SW-4608-proof-checking-speed.md.",
       "created": "2026-11-25",
       "updated": "2026-11-25",
       "commits": []
