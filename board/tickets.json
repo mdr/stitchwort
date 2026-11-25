@@ -35123,7 +35123,7 @@
     {
       "id": 4787,
       "title": "[Sonnet] Count the inline proofs in computing definitions across std, aoc, games/rogue and tools/fmt: declarations whose proofless and content hashes differ for a reason other than a theorem reference, grouped by kind (invariant, decreasing, Quot.lift, lifted match, a def whose type is a proposition). A one-off report that decides whether lifting inline proofs into hidden theorems is worth designing (SW-4782)",
-      "status": "backlog",
+      "status": "review",
       "agent": "",
       "where": "",
       "labels": [],
