@@ -878,37 +878,53 @@ pub(super) fn choose(
     // 4. The registered lemma.
     if !matches!(callee, Callee::Local(_)) {
         let g = cx.g();
-        let registered: Vec<DefId> = (cx.e.tables.walk_tags.iter())
+        let all: Vec<(DefId, Vec<Callee>)> = (cx.e.tables.walk_tags.iter())
             .filter(|(lemma, (tag, _))| tag == WALK && crate::auto::visible(cx.e, **lemma))
-            .map(|(lemma, _)| *lemma)
-            .filter(|lemma| {
-                statement(g.def(*lemma).ty()).is_some_and(|s| {
-                    s.args.iter().any(|a| match (thunk_head(&g, a), callee) {
-                        (Some(head), _) if head == callee => true,
-                        // An operation the goal shows already unfolded
-                        // (a `match` in the proof reads the goal back
-                        // with `look()` stepped to `Parse.next …`): a
-                        // lemma about a function whose body performs
-                        // it can still fit, which unifying decides.
-                        (Some(Callee::Def(_)), Callee::Op(..)) => true,
-                        _ => false,
-                    })
-                })
+            .filter_map(|(lemma, _)| {
+                let s = statement(g.def(*lemma).ty())?;
+                Some((
+                    *lemma,
+                    s.args.iter().filter_map(|a| thunk_head(&g, a)).collect(),
+                ))
             })
             .collect();
-        let mut fits = first_rank(ranks, |families| {
-            let mut fits = Vec::new();
-            for &lemma in &registered {
-                if !statement(g.def(lemma).ty()).is_some_and(|s| families.contains(&s.head)) {
-                    continue;
+        // First the lemmas about the call's own head; only if none fits,
+        // for an operation the goal shows already unfolded (a `match` in
+        // the proof reads it back with `look()` stepped to `Parse.next …`),
+        // those about a function whose body performs it, which unifying
+        // decides. Two that fit within a tier is an error, so a proof that
+        // had one lemma about the operation keeps it.
+        let mut fits = Vec::new();
+        for wide in [false, true] {
+            let registered: Vec<DefId> = (all.iter())
+                .filter(|(_, heads)| {
+                    heads.iter().any(|h| {
+                        if wide {
+                            matches!((h, callee), (Callee::Def(_), Callee::Op(..)))
+                        } else {
+                            *h == callee
+                        }
+                    })
+                })
+                .map(|(lemma, _)| *lemma)
+                .collect();
+            fits = first_rank(ranks, |families| {
+                let mut fits = Vec::new();
+                for &lemma in &registered {
+                    if !statement(g.def(lemma).ty()).is_some_and(|s| families.contains(&s.head)) {
+                        continue;
+                    }
+                    let ty = cx.eval(g.def(lemma).ty())?;
+                    if let Some(fit) = fit_type(cx, &ty, calls, families)? {
+                        fits.push((lemma, fit));
+                    }
                 }
-                let ty = cx.eval(g.def(lemma).ty())?;
-                if let Some(fit) = fit_type(cx, &ty, calls, families)? {
-                    fits.push((lemma, fit));
-                }
+                Ok(fits)
+            })?;
+            if !fits.is_empty() {
+                break;
             }
-            Ok(fits)
-        })?;
+        }
         if fits.len() > 1 {
             return Err(two_fit(
                 cx,

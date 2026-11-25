@@ -1,0 +1,8 @@
+---
+source: crates/driver/tests/library/hash_stability.rs
+expression: "lines(session, d, f)"
+---
+Main.markHere 1f01934f437637d9aeeb4b02ba46a880518eaa0ed4b5757407d0d844a5adf2cf
+Main.givesMarkHere 92f8a85b89d894f2948c70bb61a6ade660ab17b43e17a17a8e46fd0f1a852851
+Main.marked e7549972389dcd91e7345f8cbd4cd9392610f9ea47ef8ed633b70702a53fe2d7
+Main.givesMarked 52c95f711daf5d3c08bc14f78d7c2c21b51854519da99783ce7d9adb6c5a632f
