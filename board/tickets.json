@@ -1,5 +1,5 @@
 {
-  "next": 4810,
+  "next": 4816,
   "tickets": [
     {
       "id": 47,
@@ -35475,12 +35475,93 @@
     {
       "id": 4809,
       "title": "[Opus] Profile what small AoC proofs spend checking time on (D3743): 2024 day 2, 2020 day 18, 2021 day 15, own theorems with the library cached; phases, read-back, kernel, allocation; compare with Lean on the same ports; rank the changes that would close the 3-5x gap (measurement only)",
-      "status": "review",
+      "status": "done",
       "agent": "",
       "where": "",
       "labels": [],
       "epic": "performance",
       "body": "D3743, Matt 25 Nov 2026: 'Yes, profiling sounds very sensible before we attempt optimizations.'\n\nLane (Opus, 25 Nov 12:26-13:00): docs/reviews/SW-4809-small-proof-profile.md. The days' own namespaces are 0.6-1.3x Lean net; the bench's 3-5x is its probe missing std files (975 ms on day 18, 800 ms on day 15), a fixed per-run cost (std index ~230 ms, aoc project scan ~190 ms, core ~95 ms) and a dev build (validate_marks, 23% of a cached day 18 run). Ranked candidates in section 4.\n",
+      "created": "2026-11-25",
+      "updated": "2026-11-25",
+      "commits": [
+        "e75c0507f",
+        "0d6b3a24b"
+      ]
+    },
+    {
+      "id": 4810,
+      "title": "[Sonnet] bench:compare:proofs measures wrongly (SW-4809 item 1): the probe file misses std files the day loads (day 18: 975 ms of Parse proofs in 'sw net'; day 15: 16 files, 800 ms), the bench builds with dev features (validate_marks, 12-25% of a cached check), and there is no library-cached whole-file column; take net from the day's own --timings rows or a complete probe, build without dev features, add the cached column, document it in bench/compare/lean-proofs/README.md, read hyperfine 2.0's JSON; rerun and update the SW-4608 review",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "epic": "performance",
+      "body": "",
+      "created": "2026-11-25",
+      "updated": "2026-11-25",
+      "commits": []
+    },
+    {
+      "id": 4811,
+      "title": "[Sonnet] Dev builds: reference::validate_marks re-checks every declaration on cache replays too, 264 ms (23%) of a library-cached AoC day; skip it for replayed entries (they were validated when written) and correct docs/testing.md's 'under 1%' (SW-4809 item 5)",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "epic": "performance",
+      "body": "",
+      "created": "2026-11-25",
+      "updated": "2026-11-25",
+      "commits": []
+    },
+    {
+      "id": 4812,
+      "title": "[Opus] Cache the std name index instead of parsing all 133 std files on every run (216-254 ms of every check; SW-4809 item 2); name resolution must give the same answers",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "epic": "performance",
+      "body": "",
+      "created": "2026-11-25",
+      "updated": "2026-11-25",
+      "commits": []
+    },
+    {
+      "id": 4813,
+      "title": "[Sonnet] A project check parses every file in the project to find its namespaces (aoc: 633 files, 175-207 ms per check); cache each file's analysis by content hash or read headers only (SW-4809 item 3)",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "epic": "performance",
+      "body": "",
+      "created": "2026-11-25",
+      "updated": "2026-11-25",
+      "commits": []
+    },
+    {
+      "id": 4814,
+      "title": "[Opus] Load the core prelude from the check cache instead of elaborating it each run (about 95 ms, plus 444 Std declarations re-elaborated through core, about 84 ms; SW-4809 item 4); core is the trusted base, Fable review",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "epic": "performance",
+      "body": "",
+      "created": "2026-11-25",
+      "updated": "2026-11-25",
+      "commits": []
+    },
+    {
+      "id": 4815,
+      "title": "[Opus] Profile data declarations' checking cost: AoC 2020 day 18's Expression takes 19.5 ms with a 10,001-node read-back, deriving equality is 20% of the day's own time (SW-4809 item 6)",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "epic": "performance",
+      "body": "",
       "created": "2026-11-25",
       "updated": "2026-11-25",
       "commits": []
