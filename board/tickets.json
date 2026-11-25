@@ -35667,15 +35667,18 @@
     {
       "id": 4821,
       "title": "[Sonnet] Wire the std name index cache (SW-4812) into run, test and the language server: each still parses all of std on start (about 190 ms each, estimated); one use_index_cache call before their first session (SW-4812 finding)",
-      "status": "backlog",
+      "status": "done",
       "agent": "",
       "where": "",
       "labels": [],
       "epic": "performance",
-      "body": "",
+      "body": "Orchestrator review: index cache set before each command's first session; LSP uses the first workspace folder's existing cache only. Board moves done by the orchestrator. Model result: sonnet, needed fixes (ran to 3x: 70 min against 25, board and clippy left undone), est. 25.",
       "created": "2026-11-25",
       "updated": "2026-11-25",
-      "commits": []
+      "commits": [
+        "a855e4bef",
+        "7b1e790a5"
+      ]
     },
     {
       "id": 4822,
