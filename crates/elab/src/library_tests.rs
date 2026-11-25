@@ -40,7 +40,7 @@ fn units(index: &LibraryIndex, f: usize) -> Vec<Unit> {
         }
     }
     let file = &index.files[f];
-    let groups = grouped(&file.module.decls);
+    let groups = grouped(&file.module().decls);
     let mut owner_unit: HashMap<String, usize> = HashMap::default();
     let mut out: Vec<Unit> = Vec::new();
     for (i, (decl, _)) in groups.iter().enumerate() {
@@ -48,13 +48,14 @@ fn units(index: &LibraryIndex, f: usize) -> Vec<Unit> {
             path: String::new(),
             id: file.id,
             text: String::new(),
-            module: Module {
+            parsed: std::sync::OnceLock::from(Module {
                 namespace: None,
                 imports: Vec::new(),
                 decls: vec![(*decl).clone()],
                 failed: Vec::new(),
                 doc_links: Vec::new(),
-            },
+            }),
+            stack: 0,
             parse_errors: Vec::new(),
             names: Vec::new(),
             edges: Vec::new(),
@@ -124,7 +125,7 @@ fn decidable_procedures(index: &LibraryIndex, f: usize, units: &[Unit]) -> BTree
         .filter_map(|(i, u)| u.keys.first().map(|k| (k.as_str(), i)))
         .collect();
     let mut out = BTreeSet::new();
-    for (decl, _) in grouped(&file.module.decls) {
+    for (decl, _) in grouped(&file.module().decls) {
         if let Decl::Signature { name, ty, .. } = decl
             && result_head(ty).is_some_and(|h| h.text == "Decidable")
             && let Some(&u) = by_first.get(format!("Std.{}", name.text).as_str())
@@ -163,7 +164,7 @@ fn core_closure(index: &LibraryIndex, units: &[Unit]) -> BTreeSet<usize> {
     // Every instance stays with its laws (D170), and so does each name
     // generated code writes in full (`PRELUDE_ROOTS`: a file of keys, one
     // per line).
-    for (decl, _) in grouped(&index.files[0].module.decls) {
+    for (decl, _) in grouped(&index.files[0].module().decls) {
         if let Decl::Signature {
             name,
             instance: true,

@@ -26,6 +26,10 @@ enum Library<'a> {
     None,
     /// These instead, for tests.
     Files(&'a [(&'a str, &'a str)]),
+    /// The standard library, from this index of it rather than the
+    /// process's: for tests that an index read from its cache works as the
+    /// one built.
+    Index(&'a Arc<LibraryIndex>),
 }
 
 /// What a session does as it starts, besides loading its prelude.
@@ -668,6 +672,19 @@ impl Session {
         )
     }
 
+    /// A session whose library is the standard one, with `index` as its
+    /// name index instead of the process's: for tests of the index cache.
+    #[doc(hidden)]
+    pub fn with_library_index(index: &Arc<LibraryIndex>) -> Result<Self, String> {
+        Self::start(
+            prelude(),
+            Library::Index(index),
+            SessionOptions::default(),
+            Limits::default(),
+            StdCache::Source,
+        )
+    }
+
     /// A session with every library file loaded, and the `test`s of the core
     /// and the library files checked: what [`Session::run_library_tests`]
     /// runs.
@@ -761,6 +778,7 @@ impl Session {
         let stack = session.elab.options.limits.stack;
         let index = match library {
             Library::Standard | Library::None => LibraryIndex::standard(stack),
+            Library::Index(index) => Ok(index.clone()),
             Library::Files(files) => {
                 LibraryIndex::build(stitchwort_elab::prelude(), files, stack).map(Arc::new)
             }
@@ -788,7 +806,7 @@ impl Session {
         // The index has parsed the core, unless a test changed its text.
         let parsed;
         let module = if prelude == index.files[0].text {
-            &index.files[0].module
+            index.files[0].module()
         } else {
             parsed = parse_module_within(file, prelude, stack)
                 .map_err(|ds| report(&session.sources, "the prelude doesn't parse", &ds))?;
@@ -831,7 +849,7 @@ impl Session {
         if let Err(missing) = session.elab.finish_core() {
             return Err(format!("internal error: {}", missing.message));
         }
-        if matches!(library, Library::Standard) {
+        if matches!(library, Library::Standard | Library::Index(_)) {
             stitchwort_core::registry::check_library_declares_all(|n| {
                 index.owner(&format!("Std.{n}"))
             })

@@ -6344,7 +6344,7 @@ impl Elaborator {
         let Some(span) = (file.names.iter()).find(|n| n.key == key).map(|n| n.span) else {
             return Ok(());
         };
-        let Some((signature, equations)) = crate::project::grouped(&file.module.decls)
+        let Some((signature, equations)) = crate::project::grouped(&file.module().decls)
             .into_iter()
             .find(|(d, _)| matches!(d, Decl::Signature { name, .. } if name.span == span))
         else {
@@ -6409,7 +6409,7 @@ impl Elaborator {
         let mut files = vec![0];
         files.extend(lib.order.iter().copied());
         for f in files {
-            let keys: Vec<String> = crate::project::grouped(&index.files[f].module.decls)
+            let keys: Vec<String> = crate::project::grouped(&index.files[f].module().decls)
                 .into_iter()
                 .filter(|(d, e)| {
                     matches!(
