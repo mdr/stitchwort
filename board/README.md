@@ -225,14 +225,13 @@ The JSON API used by the page: `GET /api/board` (tickets, plus `epics` with coun
    progress.
 5. Keep ticket bodies as the place for the full detail (decisions, links,
    commit hashes, dates). One ticket per piece of work.
-6. Worktrees and clones each have their own copy of `tickets.json`. The board
-   Matt sees is the one on `main`'s checkout, so agents that should show up
-   live point the CLI at that file: `export BOARD_FILE=<main checkout>/board/tickets.json`
-   (the orchestrator says which path). Only the orchestrator commits
-   `tickets.json`, together with the merge it describes; agents do not commit it
-   from their lane branches (that would conflict). Agents in scratch clones
-   without access to that path report their ticket changes in their final report
-   and the orchestrator applies them.
+6. Worktrees and clones each have their own copy of `tickets.json`. A lane
+   moves its own ticket in its worktree's copy and commits that change on its
+   branch as its own commit; the orchestrator merges it with the lane
+   (`task lane:merge` allows it) and then sets the final state on `main`
+   (`CLAUDE.md`, "Lane agents"; D3740). Paper lanes that follow `dev/briefs/`
+   and DeepSeek's scratch clones don't touch the board; the orchestrator
+   applies their ticket changes.
 
 Process notes (lanes, model tiers, the commit gate) are in
 [../docs/workflow.md](../docs/workflow.md); what was done before the board is in

@@ -300,7 +300,10 @@ of work to fit it:
   following `dev/briefs/` don't touch the board.
 - The shell's `sed` is GNU, not macOS's: `sed -i 's/a/b/' f`, never
   `sed -i '' …` (it failed in four lanes on 22 Nov 2026). The shell is zsh:
-  an unquoted `$files` is one word, so loop with `xargs` or an array. To
+  an unquoted `$files` is one word, so loop with `xargs` or an array;
+  quote globs in arguments (`--include='*.sw'`), and use the Edit tool for
+  source edits, not scripts (a script's anchor can match twice or nothing;
+  D3740). To
   squash your commits, reset onto `git merge-base HEAD main`, never onto
   `main` itself, which stages reversals of everything merged since you
   started. Copy the release binary to your scratch folder before a long
@@ -409,7 +412,9 @@ Matt. Every `-E` filter names a `binary(...)` or `package(...)`.
   roguelike namespace it edited is fine, D3517), the benchmark, or a
   workspace-wide build of test targets, and runs one test command at a
   time, prefixed `STITCHWORT_TEST_THREADS=2 NEXTEST_TEST_THREADS=2 nice -n 19`,
-  and at most three build lanes run at once (D3542; D3548 raised two to three, Matt, 13 Nov 2026: "tune in-flight work to be filling but not overloading the machine": the orchestrator reads `uptime` before starting a lane and holds new lanes while the 5-minute load, the middle of `uptime`'s three numbers, is above 15 on Speedwell's 10 cores (Matt, 18 Nov 2026: "Let's update the load limit to 15", raised from 12); lane builds run 4 compiler jobs each, from `.claude/worktrees/.cargo/config.toml`, D3554, Matt, 13 Nov 2026: "2x the number of cores feels like we are maybe over parallelizing") (D3542, Matt, 13 Nov 2026: "it's good
+  and at most three build lanes run at once, held while the 5-minute load
+  is above 15 (the rules and their history: `docs/workflow.md`, "Lane count
+  and load"; D3542, Matt, 13 Nov 2026: "it's good
   for the lanes to have lighter CPU load ... targeted, intelligent tests,
   selecting individual test cases that might have been impacted by the change.
   And then we catch bigger regressions through other mechanisms"). A lane that thinks it needs one stops and asks. Briefs never ask for these

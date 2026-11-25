@@ -700,6 +700,51 @@ lane missed it and a batch failed:
 - **Design notes and reviews** point at `dev/briefs/` ("Paper lanes" above)
   and ask for few D questions.
 
+#### Brief-writing rules (D3740)
+
+From the first agent-feedback review (`docs/reviews/SW-3779-agent-feedback-review.md`,
+section 4): wrong or unchecked briefs were the largest single cost in the
+lanes' friction notes (about 180 entries, over 280 stated minutes).
+
+1. **Check every name before sending**: each function, namespace, file,
+   flag, task and test filter in a brief is grepped or `--help`ed in the
+   lane's base.
+2. **Mark guesses as guesses**: a suspected cause says "unconfirmed; first
+   show it with a five-line repro on the base".
+3. **A proof brief says "if a statement is false, stop and report"** and
+   doesn't assert that a step or fact holds unless a check showed it.
+4. **Give a pasteable repro, replayed on the base**: a `.sw` file or command
+   and its output, not "see SW-N" or a summary. Replay fuzz cases first.
+5. **Times and expected results come from a run, not memory**
+   (`target/test-timings.json`, the last report); give each named test's
+   duration so the lane knows to background it.
+6. **Paste or path the reports and notes a lane needs**: never "see SW-N's
+   report" unless it is in `docs/reviews/`; never a path in another lane's
+   scratch or a deleted worktree.
+7. **Say what else is moving**: lanes editing the same files, and tickets
+   about to merge that the lane should wait for.
+8. **Never ask for what the lane may not run** (whole-package tests,
+   full-repo numbers, `ALL=1`): the verifier measures after merging.
+9. **Give clock times**: "started 08:33, report at 09:18, stop at 10:03", so
+   a compacted context can still tell.
+10. **Write briefs with the Write tool or a quoted heredoc**: an unquoted one
+    eats backticks. Create the scratch subfolder first.
+11. **Kind-specific line**: "ticket: none, don't touch the board" for paper
+    lanes; the full `package(...) & binary(...) & test(...)` filter for every
+    named test; the commit to compare against for "before" numbers.
+
+### Lane count and load
+
+At most three build lanes run at once (D3542; D3548 raised two to three,
+Matt, 13 Nov 2026: "tune in-flight work to be filling but not overloading
+the machine"). The orchestrator reads `uptime` before starting a lane and
+holds new lanes while the 5-minute load, the middle of `uptime`'s three
+numbers, is above 15 on Speedwell's 10 cores (Matt, 18 Nov 2026: "Let's
+update the load limit to 15", raised from 12). Lane builds run 4 compiler
+jobs each, from `.claude/worktrees/.cargo/config.toml` (D3554, Matt, 13 Nov
+2026: "2x the number of cores feels like we are maybe over
+parallelizing"). Moved here from `CLAUDE.md` by D3740.
+
 ### Reporting to Matt
 
 **Proposals.** For a proposal or D question, three short labelled parts:
