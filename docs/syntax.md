@@ -2,6 +2,20 @@
 
 **Status:** describes `crates/syntax` as of 1 November 2026. DESIGN.md §4 shows the intended language. Not yet implemented: anonymous record types and functions over any record with a field (records stages 3 and 4) and a `case` expression.
 
+## Crib for probe files
+
+For a lane writing a small fixture or probe project (every line below was checked in a two-namespace project):
+
+- **Project:** a folder with `stitchwort.yaml` (`sources: [src]`) and `src/Probe/Types.sw`, `src/Probe/Main.sw`. Each file starts `namespace Probe.Types` (without it: `E-NO-NAMESPACE`). From the folder: `/path/to/target/release/stitchwort check Probe.Types Probe.Main`, and `stitchwort test Probe.Main`.
+- **Imports:** `import Std (Show)` before `Show.fromText`; `import Probe.Types (Q2, MkQ2, two)` across files; `IO.print "hi"` in full (or `import Std.IO (print)`).
+- **Declarations:** `test "name" := e`; `def main(): {IO} () := IO.print "hi"`; a type is `type Q2 = | MkQ2 (n: Nat) | MkQ3` or `type Pt = { x: Nat, y: Nat }`; an instance is `instance Pt.instShow: Show Pt := Show.fromText (p => "(${p.x}, ${p.y})")`.
+- **Implicits:** `def head [a: Type] (xs: List a) (d: a): a := match xs with`, then `| [x, ..rest] => x` and `| [] => d`.
+- **Clauses:** `def Q2.val: Q2 -> Nat` then `| MkQ2 w => w` and `| MkQ3 => 5`; with two parameters, `def pick: Nat -> Q2 -> Nat` then `| x, MkQ2 w => 5` and `| x, MkQ3 => x`.
+- **Lambdas:** `n => n + 1` and `(n: Nat) => n + 1`; there is no `\n =>` (`unexpected character`).
+- **Booleans and proofs:** `True`, `False`; `theorem t: two 2 = 4 := byComputing`; `rfl` doesn't exist (`E-UNKNOWN-NAME`). `≠` is a proposition, which `byComputing` can't prove (`E-TYPE-MISMATCH`); to test an inequality by computing, write `theorem t: (3 == 4) = False := byComputing`.
+- **Record eta** (`theorem Pt.eta ∀ (p: Pt): { x = p.x, y = p.y } = p := byComputing`) holds for a type declared with braces; for a one-constructor type such as `type Wrap = | MkWrap (n: Nat)`, `MkWrap w.n = w` by `byComputing` fails (`E-REFL`).
+- **Lists:** `[1, 2]`, `[x, ..xs]`, `[]`.
+
 ## Where to add syntax (for contributors)
 
 The parser (`crates/syntax/src/parser.rs` and `parser/`) decides only how
