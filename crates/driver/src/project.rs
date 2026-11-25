@@ -981,8 +981,11 @@ impl LazyModule {
     }
 
     pub fn get(&self) -> &Module {
-        self.module
-            .get_or_init(|| parse_module_recovering(self.file, &self.text, self.stack).0)
+        self.module.get_or_init(|| {
+            let (module, errors) = parse_module_recovering(self.file, &self.text, self.stack);
+            debug_assert!(errors.is_empty(), "a delayed parse had errors");
+            module
+        })
     }
 }
 
@@ -1223,7 +1226,11 @@ impl ScanEntry {
     /// The entry's files, by path: each text's hash and its encoded sketch.
     /// `None` if `bytes` isn't an entry written for this stack limit.
     fn read(bytes: &[u8], stack: usize) -> Option<BTreeMap<String, Sketched>> {
-        let rest = bytes.strip_prefix(SCAN_MAGIC)?;
+        let (body, sum) = bytes.split_last_chunk::<32>()?;
+        if blake3::hash(body).as_bytes() != sum {
+            return None;
+        }
+        let rest = body.strip_prefix(SCAN_MAGIC)?;
         let (limit, mut rest) = rest.split_first_chunk::<8>()?;
         if u64::from_le_bytes(*limit) != stack as u64 {
             return None;
@@ -1264,6 +1271,8 @@ impl ScanEntry {
             out.extend_from_slice(&(sketch.len() as u32).to_le_bytes());
             out.extend_from_slice(sketch);
         }
+        let sum = blake3::hash(&out);
+        out.extend_from_slice(sum.as_bytes());
         out
     }
 }
@@ -1272,6 +1281,11 @@ impl ScanEntry {
 /// parses only those the scan found errors in.
 pub fn analyse_scan(session: &mut Session, project: &str, scan: &Scan) -> Analysis {
     let stack = scan.stack;
+    // Parsed under another limit, a file may have parsed differently.
+    if stack != session.elab.options.limits.stack {
+        let files = scan.texts().map(|(p, t)| (p.to_string(), t.to_string()));
+        return analyse(session, project, files.collect());
+    }
     let units = scan
         .files
         .iter()
@@ -1279,7 +1293,8 @@ pub fn analyse_scan(session: &mut Session, project: &str, scan: &Scan) -> Analys
             let display = format!("{project}/{}", f.path);
             let id = session.sources.add(display.clone(), f.text.clone());
             session.elab.set_include_location(id, f.path.clone());
-            let sketched = (f.sketch.as_deref()).and_then(|mut b| FileSketch::decode(&mut b, id));
+            let sketched = (f.sketch.as_deref())
+                .and_then(|mut b| FileSketch::decode(&mut b, id).filter(|_| b.is_empty()));
             let read = match sketched {
                 Some(sketch) => Read::Sketched(sketch),
                 None => {

@@ -622,7 +622,9 @@ pub fn fill(files: &(dyn Files + Sync), project: &str, target: &Target, jobs: &J
     };
     // Scanned once for every worker (and the check after them, from the
     // cache): each parses only the namespaces it checks.
-    let scan = Scan::new(texts, jobs.stack, project, Some(&*(jobs.make_store)()));
+    // The stack limit the workers' sessions have for this stack.
+    let stack = stitchwort_core::Limits::for_stack(jobs.stack).stack;
+    let scan = Scan::new(texts, stack, project, Some(&*(jobs.make_store)()));
     let read = Read {
         files,
         project,

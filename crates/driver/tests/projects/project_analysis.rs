@@ -566,6 +566,12 @@ mod scan_cache {
             entry.truncate(entry.len() / 2);
         }
         assert_eq!(scanned(&files, &store), expected, "a truncated entry");
+        scanned(&files, &store);
+        for entry in store.entries.borrow_mut().values_mut() {
+            let middle = entry.len() / 2;
+            entry[middle] ^= 1;
+        }
+        assert_eq!(scanned(&files, &store), expected, "a flipped byte");
         for entry in store.entries.borrow_mut().values_mut() {
             *entry = vec![0; 5];
         }
