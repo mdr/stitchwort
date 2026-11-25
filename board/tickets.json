@@ -35997,8 +35997,8 @@
     {
       "id": 4842,
       "title": "[Sonnet] On a core-cache miss with a statement-style warning in core, library_warning_report may list the warning twice (once from session.warnings, once from warnings_of_text); check with SW-4830's styled test core and fix if so, with a test (SW-4830 finding)",
-      "status": "backlog",
-      "agent": "",
+      "status": "doing",
+      "agent": "Sonnet",
       "where": "",
       "labels": [],
       "epic": "performance",
