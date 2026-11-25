@@ -65,7 +65,7 @@ fn after_edit_holding(
     for (path, text) in edits {
         write_file(&dir, path, text);
     }
-    let edited = fresh_and_cached(&dir, &cache);
+    let edited = fresh_and_cached_after_edit(name, &dir, &cache);
     assert_entries_match_fresh(name, &dir, &cache);
     if !helpers.is_empty() {
         let held: Vec<Vec<u8>> = (entries(&cache).iter())
@@ -89,6 +89,40 @@ fn after_edit_holding(
     let _ = std::fs::remove_dir_all(&dir);
     let _ = std::fs::remove_dir_all(&cache);
     edited
+}
+
+/// [`fresh_and_cached`] for the edited project `name`, asserting that it
+/// checks with no errors. A proof that fails to check writes no entry, so
+/// both runs would show its namespace as missing; without this an edit that
+/// broke the proof could pass as a cache digest change.
+fn fresh_and_cached_after_edit(name: &str, dir: &Path, cache: &Path) -> Stats {
+    let source = Source::Project("p".to_string(), dir.to_path_buf());
+    let fresh = run(&source, true, None);
+    let cached = run(&source, true, Some(cache));
+    assert!(
+        cached.dump == fresh.dump,
+        "the cache changed the result: {}",
+        first_difference(&fresh.dump, &cached.dump)
+    );
+    assert!(
+        fresh.dump.contains("\naccepted true\n"),
+        "{name}: the edited project does not check: {}",
+        first_error(&fresh.dump)
+    );
+    cached.stats
+}
+
+/// The first error in a dump that ended with `accepted false`: the heading
+/// of the first diagnostic, which names its code and message.
+fn first_error(dump: &str) -> &str {
+    let after = dump
+        .split_once("\naccepted false\n")
+        .map_or("", |(_, after)| after);
+    after
+        .lines()
+        .find(|line| line.contains("Error:"))
+        .or_else(|| after.lines().find(|line| !line.trim().is_empty()))
+        .unwrap_or("(no diagnostic)")
 }
 
 /// Elaborates the project at `dir` from nothing into a new cache (given the
@@ -185,7 +219,8 @@ fn an_added_name_below_checks_what_uses_it_again() {
 
 #[test]
 fn an_added_instance_below_checks_what_uses_it_again() {
-    let base = format!("{A}\ntype Coin = | Heads | Tails\n");
+    let a = A.replace("namespace A\n", "namespace A\n\nimport Std (Show)\n");
+    let base = format!("{a}\ntype Coin = | Heads | Tails\n");
     let edited =
         format!("{base}\ninstance Coin.instShow: Show Coin := Show.fromText (c => \"coin\")\n");
     let s = after_edit(
