@@ -35757,15 +35757,20 @@
     {
       "id": 4827,
       "title": "[Opus] Work out doc-link warnings (W-DOC-LINK) without loading the namespace and its library: plan_skips loads any cached namespace whose files have doc links, so one link in Aoc/Common/Proofs/PrefixSums.sw costs day 15 and the 23 days that import Aoc.Common.Proofs about 180 ms per cached check (measured, SW-4819 rank 1); warnings must be identical",
-      "status": "review",
+      "status": "done",
       "agent": "",
       "where": "",
       "labels": [],
       "epic": "performance",
-      "body": "Progress (Opus lane, 25 Nov 15:27-15:50): plan_skips now leaves out a cached namespace whose doc links surely all resolve in a replay (candidate known from the library index, core, project namespaces/pre-pass names, or declared by syntax in the namespace or its closure; short names checked for ambiguity at the own-root and default levels, the only ones a replay sees). Links that may warn, or need full elaboration (local definitions, names only elaboration makes), load the namespace as before. Day 15 floor 385 -> 202 ms (hyperfine, 5 runs, 5-min load 7.8-7.9). New test check_cache::plain_check_works_out_doc_links_without_loading (failed before the change: Good loaded); all 20 check_cache:: tests pass. Finding: a replayed namespace drops an import-made W-DOC-LINK ambiguity that a fresh check reports (cold warns, warm doesn't, with skipping off).\n\nReview fixes (16:00-16:16): F1 links into project namespaces the linking one doesn't use count by what their files declare (sketch field, scan cache format bumped), so neither skipping nor check order changes them; F2/SW-4836 did-you-mean uses the same set; F3 short links to library-root constructors count as named. New test check_cache::doc_links_dont_depend_on_what_a_check_loads (failed before: Aa warned on Alpha.T.Mk in a cold check); check_cache:: (22 with the rename test), driver doc_links:: + references::doc_links, cli doc:: link tests pass.\n\nRe-review fix (16:24-16:40): declared_in lists dotted declarations' members/fields/unfold; equation-lemma links into unused namespaces count by what is loaded and the plan loads their namespace with the linking one. New test check_cache::doc_links_reach_what_declarations_make (failed before: Alpha.Pt.Kind.Big etc. named nothing); check_cache:: 22 pass.",
+      "body": "Progress (Opus lane, 25 Nov 15:27-15:50): plan_skips now leaves out a cached namespace whose doc links surely all resolve in a replay (candidate known from the library index, core, project namespaces/pre-pass names, or declared by syntax in the namespace or its closure; short names checked for ambiguity at the own-root and default levels, the only ones a replay sees). Links that may warn, or need full elaboration (local definitions, names only elaboration makes), load the namespace as before. Day 15 floor 385 -> 202 ms (hyperfine, 5 runs, 5-min load 7.8-7.9). New test check_cache::plain_check_works_out_doc_links_without_loading (failed before the change: Good loaded); all 20 check_cache:: tests pass. Finding: a replayed namespace drops an import-made W-DOC-LINK ambiguity that a fresh check reports (cold warns, warm doesn't, with skipping off).\n\nReview fixes (16:00-16:16): F1 links into project namespaces the linking one doesn't use count by what their files declare (sketch field, scan cache format bumped), so neither skipping nor check order changes them; F2/SW-4836 did-you-mean uses the same set; F3 short links to library-root constructors count as named. New test check_cache::doc_links_dont_depend_on_what_a_check_loads (failed before: Aa warned on Alpha.T.Mk in a cold check); check_cache:: (22 with the rename test), driver doc_links:: + references::doc_links, cli doc:: link tests pass.\n\nRe-review fix (16:24-16:40): declared_in lists dotted declarations' members/fields/unfold; equation-lemma links into unused namespaces count by what is loaded and the plan loads their namespace with the linking one. New test check_cache::doc_links_reach_what_declarations_make (failed before: Alpha.Pt.Kind.Big etc. named nothing); check_cache:: 22 pass.\n\nTwo Opus reviews (load-dependent warnings in other namespaces; declared_in missing dotted members and eqN). Orchestrator's call: a link to a proof's local definition in an unimported namespace now always warns (D3736 privacy). Model result: opus, needed fixes (two review rounds), about 55 min (est. 50). Left as on main: a lemma link from a namespace checked before the lemma's namespace warns cold.",
       "created": "2026-11-25",
       "updated": "2026-11-25",
-      "commits": []
+      "commits": [
+        "55f37c9ef",
+        "16063d120",
+        "dc8dd1a4e",
+        "d27d9fd4a"
+      ]
     },
     {
       "id": 4828,
@@ -35877,7 +35882,7 @@
     {
       "id": 4836,
       "title": "[Sonnet] A broken doc link's 'did you mean' note searches every name in scope, so loading only a namespace's closure and loading everything can suggest different names: make the suggestion depend only on the namespace's own scope (SW-4827 finding 2)",
-      "status": "backlog",
+      "status": "done",
       "agent": "",
       "where": "",
       "labels": [],
@@ -35885,7 +35890,10 @@
       "body": "Folded into SW-4827's review fixes (F2).",
       "created": "2026-11-25",
       "updated": "2026-11-25",
-      "commits": []
+      "commits": [
+        "16063d120",
+        "d27d9fd4a"
+      ]
     },
     {
       "id": 4837,
