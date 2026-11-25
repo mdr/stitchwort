@@ -35417,12 +35417,12 @@
     {
       "id": 4805,
       "title": "[Sonnet] check uses parallel workers by default (D3742, Matt: 'yes'): --jobs defaults to auto (parallel::auto_jobs: min(cores, 8, mem / 2 GB)), with STITCHWORT_JOBS and --jobs still overriding; lanes and verifiers set STITCHWORT_JOBS=2",
-      "status": "backlog",
+      "status": "review",
       "agent": "",
       "where": "",
       "labels": [],
       "epic": "elaborator-kernel",
-      "body": "",
+      "body": "Lane: check defaults to auto_jobs (--jobs auto accepted); .cargo/config.toml [env] and sw:check/aoc:check/trace tasks default STITCHWORT_JOBS=2; test added; docs/workflow.md and guide updated.",
       "created": "2026-11-25",
       "updated": "2026-11-25",
       "commits": []
