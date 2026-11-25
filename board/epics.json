@@ -513,12 +513,18 @@
         "AoC 2020 day 16's runsNotes proof 40M to 2.4M steps, with a step-count pin (SW-4581, SW-4595)",
         "Example-sweep growth explained and the 15 Nov display accident fixed (SW-4587, SW-4592, SW-4594, SW-4601)",
         "match and rewrite skip unfolded goal copies nothing uses: Std.Float.Theory 566 MB to 383 MB, 111M to 88M steps (SW-4600, SW-4606)",
-        "Long .read chains no longer check in exponential time (SW-4498); checks stopped from outside say so (SW-4032); --timings gets a steps-by-phase table (SW-4533)"
+        "Long .read chains no longer check in exponential time (SW-4498); checks stopped from outside say so (SW-4032); --timings gets a steps-by-phase table (SW-4533)",
+        "Checking speed (D3716, SW-4608): profile and Lean/Rocq comparison; wins 1, 2, 3 and 7 done (SW-4609, SW-4610, SW-4611 and follow-ups, SW-4615); parallel checking stages 1-3 (D3730), on by default (D3739, D3742): formatter 252 s cold on one core (22 Nov) to 23 s on 8 workers with the library cached"
       ],
-      "now": [],
+      "now": [
+        "SW-4806: rerun of the Lean/Rocq checking comparison after the read-back fixes and parallel checking (Matt, 25 Nov)"
+      ],
       "next": [
+        "SW-4612: find a match's blocker without reading the scrutinee back (SW-4608 win 4, 3-5%)",
+        "SW-4650: cheaper values steps 2-3 (kernel evaluator allocation, SW-4608 win 5; Opus, Fable review)",
+        "SW-4617: check --only with the project cache off checks the whole dependency cone",
+        "SW-4551: the formatter's slowest proofs re-lex the whole source",
         "SW-1809 and SW-1815: the array copy note names its sites, and pushPop takes its state apart first (small, ready, closes SW-1678)",
-        "SW-4593: why every file importing Std.Parse pays 80-100M steps on import (note first)",
         "SW-3764 and SW-3766: cheaper derived-instance and record-update proofs (follow-ups to D3669's cost work)",
         "SW-4543: the slow readsAtDefinitionParts re-check that blocks timing most formatter files"
       ],
