@@ -1,5 +1,5 @@
 {
-  "next": 4793,
+  "next": 4794,
   "tickets": [
     {
       "id": 47,
@@ -35106,15 +35106,19 @@
     {
       "id": 4786,
       "title": "[Opus] The proofless hash omits a cast's ends: J (y e => Nat) 5 (p: 2 = 2) and J (y e => Nat) 5 (q: 2 = g 7) share a proofless hash, but rule K computes one and leaves the other stuck (term.rs:276-282, 553-564; hash.rs:923-926). The ProofsOnly promise relies on that hash. Fix: hash the Ann's equation and blank only the proof under it, with a fixture showing both hashes differ. Also correct the sentence in docs/proposals/trial-promises-after-rule-i.md that a matching proofless hash means the checker can't tell the two apart, and the stale comment at erase.rs:69-71 (SW-4782 finding)",
-      "status": "review",
+      "status": "done",
       "agent": "",
       "where": "",
       "labels": [],
       "epic": "elaborator-kernel",
-      "body": "\n\nProgress (25 Nov, Opus lane): hole confirmed by hash::a_proofless_hash_keeps_a_casts_ends (both casts hashed #804fab0df76d before the fix). Fixed in hash.rs: a cast into data (mark not Proof, proof annotated with its equation) hashes ann, the proof marker, then the equation. Full hashes unchanged; hash snapshots record only full hashes, none moved. Other proof-blanking sites argued safe in the lane report. Docs: trial-promises note qualified, erase.rs comment rewritten; docs/core.md doesn't describe the proofless hash.\n",
+      "body": "Model result: opus, worked, 10 min (est. 45). The hole was real. Full hashes are unchanged. The other places the hash leaves out a proof: docs/reviews/SW-4786-proofless-blanking-sites.md.\n",
       "created": "2026-11-25",
       "updated": "2026-11-25",
-      "commits": []
+      "commits": [
+        "1ff26f920",
+        "8007bf057",
+        "319a80124"
+      ]
     },
     {
       "id": 4787,
@@ -35188,6 +35192,19 @@
     {
       "id": 4792,
       "title": "[Sonnet] A 20-line Stitchwort syntax crib for lanes writing probe or fixture files (byComputing not rfl, lambda and match forms, list brackets), linked from the lane agent definitions (SW-3779 W8)",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "epic": "elaborator-kernel",
+      "body": "",
+      "created": "2026-11-25",
+      "updated": "2026-11-25",
+      "commits": []
+    },
+    {
+      "id": 4793,
+      "title": "[Fable paper] Review SW-4786's argument that every place the proofless hash leaves out a proof is safe (the kernel reads nothing there that the hash drops), apart from J's proof, which is now fixed. Find where the proofless hash carries trust: the stage 3 interface, the cache digest, ProofsOnly in the trial and rename (SW-4786 finding)",
       "status": "backlog",
       "agent": "",
       "where": "",
