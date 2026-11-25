@@ -1,5 +1,5 @@
 {
-  "next": 4835,
+  "next": 4837,
   "tickets": [
     {
       "id": 47,
@@ -35842,6 +35842,32 @@
     {
       "id": 4834,
       "title": "[Sonnet] A task load:wait -- N (wait until the 5-minute load is under N, up to a cap) and a shared profile summariser in dev/ (from docs/reviews/SW-4819/prof.py); lanes hand-rolled both and got them wrong (SW-4819 friction)",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "epic": "performance",
+      "body": "",
+      "created": "2026-11-25",
+      "updated": "2026-11-25",
+      "commits": []
+    },
+    {
+      "id": 4835,
+      "title": "[Sonnet] A warm check drops an ambiguous-doc-link warning a cold check prints: with import A (x), import B (x) and a doc link to x, the cold check warns W-DOC-LINK ambiguous and the warm one prints nothing, even with skipping off (replay clears imports); predates SW-4827; repro in SW-4827's scratch probe2 (copy it into the ticket's test). Every bug fix carries a test.",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "epic": "performance",
+      "body": "",
+      "created": "2026-11-25",
+      "updated": "2026-11-25",
+      "commits": []
+    },
+    {
+      "id": 4836,
+      "title": "[Sonnet] A broken doc link's 'did you mean' note searches every name in scope, so loading only a namespace's closure and loading everything can suggest different names: make the suggestion depend only on the namespace's own scope (SW-4827 finding 2)",
       "status": "backlog",
       "agent": "",
       "where": "",
