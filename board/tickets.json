@@ -1,5 +1,5 @@
 {
-  "next": 4825,
+  "next": 4826,
   "tickets": [
     {
       "id": 47,
@@ -35640,15 +35640,18 @@
     {
       "id": 4820,
       "title": "[Opus] A fully cached check with several jobs is twice as slow as one job (AoC 2024 day 2: about 0.8 s with STITCHWORT_JOBS=4 vs 0.39 s with one): fill builds worker 0's whole session (core re-elaborated, ~85 ms, and more) before finding fewer than two namespaces to check; decide 'nothing or one namespace to check' before building any worker, so the default check (auto jobs, D3742) is never slower than one job (SW-4813 finding 1, SW-4816 finding 6)",
-      "status": "review",
+      "status": "done",
       "agent": "",
       "where": "",
       "labels": [],
       "epic": "performance",
-      "body": "Lane (Opus, 14:09-14:40): skip the fill when a completed check recorded the same inputs (project files+config, library text, target, cache modes, store salt/build): parallel::Inputs, recorded only with several jobs. Exact keys need a session (dependency digests from entries, modes from core), so this is the approximation; a false skip only costs one job's speed. Warm, load ~5: AoC 2024 day 2 auto 337->190 ms (one job 185->181); tools/fmt auto 2213->1729 ms (one job 1722->1761, noise). Still slow: a check where 1 namespace misses (worker 0 built, ~430 ms on tools/fmt, mostly library_keys rehashing std per namespace). Pre-existing on main: check_cache::plain_check_skipping_unneeded_namespaces_is_the_same_after_edits fails since auto jobs (SW-4805), same with and without this change.",
+      "body": "Lane (Opus, 14:09-14:40): skip the fill when a completed check recorded the same inputs (project files+config, library text, target, cache modes, store salt/build): parallel::Inputs, recorded only with several jobs. Exact keys need a session (dependency digests from entries, modes from core), so this is the approximation; a false skip only costs one job's speed. Warm, load ~5: AoC 2024 day 2 auto 337->190 ms (one job 185->181); tools/fmt auto 2213->1729 ms (one job 1722->1761, noise). Still slow: a check where 1 namespace misses (worker 0 built, ~430 ms on tools/fmt, mostly library_keys rehashing std per namespace). Pre-existing on main: check_cache::plain_check_skipping_unneeded_namespaces_is_the_same_after_edits fails since auto jobs (SW-4805), same with and without this change.\n\nOrchestrator's call: the new small 'ran' cache entry (one per project and target) is accepted; it decides only whether to run the fill, never a result. Model result: opus, worked, about 30 min (est. 45). A single-namespace miss still builds worker 0 (~430 ms): see the library_keys ticket.",
       "created": "2026-11-25",
       "updated": "2026-11-25",
-      "commits": []
+      "commits": [
+        "cfd32e3b6",
+        "f8d9fce1a"
+      ]
     },
     {
       "id": 4821,
@@ -35692,6 +35695,19 @@
     {
       "id": 4824,
       "title": "[Sonnet] library_interface hashes each name's kind, follower, function and candidate flags but not accessor: check whether the accessor flag can change a project's elaboration without its key changing; if so add it to the key (SW-4812 review, unverified, predates it)",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "epic": "performance",
+      "body": "",
+      "created": "2026-11-25",
+      "updated": "2026-11-25",
+      "commits": []
+    },
+    {
+      "id": 4825,
+      "title": "[Sonnet] Remember Elaborator::library_keys per session: it rehashes std's text for every namespace, about 200 of the 300 ms of planning in a tools/fmt fill, and the one-job check pays part of it too; the remaining cost of a check where one namespace misses (SW-4820 finding)",
       "status": "backlog",
       "agent": "",
       "where": "",
