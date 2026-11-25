@@ -35812,7 +35812,7 @@
       "where": "",
       "labels": [],
       "epic": "performance",
-      "body": "",
+      "body": "Orchestrator's call: held until SW-4814 merges (both edit Session::start_in's core loading).",
       "created": "2026-11-25",
       "updated": "2026-11-25",
       "commits": []
