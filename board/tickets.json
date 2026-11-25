@@ -1,5 +1,5 @@
 {
-  "next": 4774,
+  "next": 4780,
   "tickets": [
     {
       "id": 47,
@@ -34650,15 +34650,19 @@
     {
       "id": 4758,
       "title": "[Opus] A recursive theorem proved by byWalking seems not to be sealed: editing a proof between match and byWalking changes the namespace's digest and part B (5 vs 6 stated theorems), so dependants don't replay; should it be proof_hidden? Relevant to stage 3's recursive theorems (SW-4751 finding)",
-      "status": "review",
+      "status": "done",
       "agent": "",
       "where": "",
       "labels": [],
       "epic": "elaborator-kernel",
-      "body": "\n\nProgress (Opus lane, 25 Nov): already sealed. Repro (crates/driver/tests/projects/check_cache/digest.rs, an_edited_walked_recursive_theorem_below_replays_what_uses_it): a theorem over a recursive Parse function proved by byWalking, four proof edits around match/byWalking; digest unchanged in each (50775523… for all five shapes in a CLI run with STITCHWORT_CACHE_DEBUG), B replays. Closed by SW-4751's 0ecc90b15 (no 'no induct' row for a theorem): with that check disabled the test fails. Every final theorem is already proof_hidden (Def::proof_hidden doesn't care about recursion). Part B's theorem count still varies with the proof (1 vs 2 here): a top-level walk lifts a %match into the theorem's group, and stated_on_load keeps a group with a non-plain member whole in part A. Harmless for dependants; a coverage limit for proofless loads.\n",
+      "body": "Model result: opus, worked, 33 min (est. 30). Already sealed: SW-4751's 0ecc90b15 closed it; a regression test was added.\nThe part B count still depends on the proof's shape. That is harmless: the digest is unchanged.\n",
       "created": "2026-11-24",
       "updated": "2026-11-25",
-      "commits": []
+      "commits": [
+        "787c1e01d",
+        "49dd09ff4",
+        "7cebe3bae"
+      ]
     },
     {
       "id": 4759,
@@ -34896,6 +34900,84 @@
       "labels": [
         "bug"
       ],
+      "epic": "elaborator-kernel",
+      "body": "",
+      "created": "2026-11-25",
+      "updated": "2026-11-25",
+      "commits": []
+    },
+    {
+      "id": 4774,
+      "title": "[Sonnet] Stage 3 part B coverage: a theorem whose group holds only proof-private %match helpers (a top-level byWalking over a recursive function) keeps the whole group in part A (stated_on_load), so a load without proofs still loads that proof; load such a theorem as stated with its helpers in part B (SW-4758 finding; a saving only)",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "epic": "elaborator-kernel",
+      "body": "",
+      "created": "2026-11-25",
+      "updated": "2026-11-25",
+      "commits": []
+    },
+    {
+      "id": 4775,
+      "title": "[Sonnet] byWalking inside a nested match in the recursive arm fails with 'no lemma for this call of next' (goal shows look() unfolded to Parse.next); repro: the givesDown fixture of SW-4758's test with | Succ more => (match more with | Zero => byWalking [] | Succ m => byWalking []) (SW-4758 finding)",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "epic": "elaborator-kernel",
+      "body": "",
+      "created": "2026-11-25",
+      "updated": "2026-11-25",
+      "commits": []
+    },
+    {
+      "id": 4776,
+      "title": "[DeepSeek] check_cache digest tests: after_edit in crates/driver/tests/projects/check_cache/digest.rs should assert the edited project checks without errors, so a failing proof can't pass as a digest change (SW-4758 finding)",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "epic": "elaborator-kernel",
+      "body": "",
+      "created": "2026-11-25",
+      "updated": "2026-11-25",
+      "commits": []
+    },
+    {
+      "id": 4777,
+      "title": "[Sonnet] A way to see why a namespace's digest changed: document STITCHWORT_CACHE_DEBUG=1 (prints each namespace's digest and part B count) in docs/workflow.md and the digest test module, and consider a debug option listing the digest's inputs (SW-4758 working friction)",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "epic": "elaborator-kernel",
+      "body": "",
+      "created": "2026-11-25",
+      "updated": "2026-11-25",
+      "commits": []
+    },
+    {
+      "id": 4778,
+      "title": "[Opus] Trial promises after SW-4701 (theorems referred to by statement hash): is ProofsOnly / the reproved list still useful, or now nearly vacuous (only definitions embedding a proof term directly can move)? Short design note: keep, simplify or drop (SW-4773 finding)",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "epic": "elaborator-kernel",
+      "body": "",
+      "created": "2026-11-25",
+      "updated": "2026-11-25",
+      "commits": []
+    },
+    {
+      "id": 4779,
+      "title": "[Sonnet] Hash-changing lanes and verifiers miss tests outside the rolling check: add driver projects trial:: (and check_cache::digest) to the verifier selection for hashing changes in docs/workflow.md, and ask whether Overmind's quick tier should run them (SW-4773 finding: SW-4701 left four trial tests failing unseen for two days)",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [],
       "epic": "elaborator-kernel",
       "body": "",
       "created": "2026-11-25",
