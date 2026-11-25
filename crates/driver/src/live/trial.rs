@@ -34,7 +34,7 @@ use super::term_diff::{self, DeclTerms, Difference};
 use super::{
     LiveProject, NamespaceOutcome, OutlineItem, Place, Progress, lsp_range, syntactic_outline,
 };
-use crate::declhash::{DeclHash, owner};
+use crate::declhash::{DeclHash, owner, settled};
 use crate::nav::Range;
 use crate::project::dependents;
 use crate::rewind::Cancelled;
@@ -96,6 +96,9 @@ impl Promise {
 
     /// Whether `now` is what the promise allows for `was`.
     pub(crate) fn keeps(&self, was: &Decl, now: &Decl) -> bool {
+        if was.ran_out || now.ran_out {
+            return false;
+        }
         if was.hash == now.hash {
             return true;
         }
@@ -196,6 +199,9 @@ pub struct ChangedMeaning {
     /// Under [`Promise::ProofsOnly`]: the first place its old and new terms
     /// differ outside proof positions, when it has one.
     pub difference: Option<Difference>,
+    /// A hash of it, before or after, ran out, so it can't be told whether
+    /// it changed: reported as a problem rather than assumed kept.
+    pub undecided: bool,
 }
 
 /// What the edits would break.
@@ -237,6 +243,13 @@ impl Problems {
                 Some(other) => format!(", because it uses `{other}`"),
                 None => String::new(),
             };
+            if c.undecided {
+                out.push(format!(
+                    "{doing}: can't tell whether `{}` still means the same{at}: a hash of it ran out of steps",
+                    c.name
+                ));
+                continue;
+            }
             let differs = match &c.difference {
                 Some(d) => format!(
                     "; the first difference is at {} (`{}` → `{}`)",
@@ -323,6 +336,9 @@ pub(crate) struct Decl {
     pub(crate) statement: Option<Statement>,
     /// The hash without proofs, only when the promise compares statements.
     pub(crate) proofless: Option<ContentHash>,
+    /// Some hash of it ran out of steps or stack (its `None` is then not
+    /// "not final"): the promise can't be judged, so it is never kept.
+    pub(crate) ran_out: bool,
     /// The definition's type and body, only on the "before" side of a
     /// proofs-only trial, for saying where an edit first differs.
     pub(crate) terms: Option<DeclTerms>,
@@ -554,26 +570,29 @@ impl LiveProject {
             }
             let mut decls = Vec::new();
             for i in step.datas.clone() {
-                let hash = data_hash(g, DataId(i)).ok().flatten();
+                let mut ran_out = false;
+                let hash = settled(data_hash(g, DataId(i)), &mut ran_out);
                 let proofless = statements
-                    .then(|| proofless_data_hash(g, DataId(i)).ok().flatten())
+                    .then(|| settled(proofless_data_hash(g, DataId(i)), &mut ran_out))
                     .flatten();
                 decls.push(Decl {
                     name: g.env.datas()[i].path().to_string(),
                     hash,
                     statement: None,
                     proofless,
+                    ran_out,
                     terms: None,
                 });
             }
             for i in step.defs.clone() {
-                let hash = def_hash(g, DefId(i)).ok().flatten();
+                let mut ran_out = false;
+                let hash = settled(def_hash(g, DefId(i)), &mut ran_out);
                 let statement = statements.then(|| Statement {
                     theorem: g.env.defs()[i].theorem(),
-                    ty: type_hash(g, DefId(i)).ok().flatten(),
+                    ty: settled(type_hash(g, DefId(i)), &mut ran_out),
                 });
                 let proofless = statements
-                    .then(|| proofless_hash(g, DefId(i)).ok().flatten())
+                    .then(|| settled(proofless_hash(g, DefId(i)), &mut ran_out))
                     .flatten();
                 let terms = terms.then(|| {
                     let def = &g.env.defs()[i];
@@ -594,6 +613,7 @@ impl LiveProject {
                     hash,
                     statement,
                     proofless,
+                    ran_out,
                     terms,
                 });
             }
@@ -727,6 +747,9 @@ impl LiveProject {
         // (namespace, full name, the declaration now, if there is one, and
         // where its terms first differ outside proofs).
         let mut changed: Vec<(String, String, Option<Id>, Option<Difference>)> = Vec::new();
+        // Declarations with a hash that ran out, on either side, by their
+        // name after the edit.
+        let mut undecided: BTreeSet<String> = BTreeSet::new();
         // Declarations whose hash moved and the promise allows.
         let mut accepted: Vec<String> = Vec::new();
         // Those of them that aren't theorems.
@@ -751,6 +774,18 @@ impl LiveProject {
                 .iter()
                 .map(|decl| (promise.renamed(&decl.name), decl))
                 .collect();
+            undecided.extend(
+                (expected
+                    .iter()
+                    .filter(|(_, d)| d.ran_out)
+                    .map(|(n, _)| n.clone()))
+                .chain(
+                    is.decls
+                        .iter()
+                        .filter(|d| d.ran_out)
+                        .map(|d| d.name.clone()),
+                ),
+            );
             let same_names = expected.len() == is.decls.len()
                 && expected.iter().zip(&is.decls).all(|(e, i)| e.0 == i.name);
             if same_names {
@@ -914,6 +949,7 @@ impl LiveProject {
                     uses,
                     reproved,
                     difference: difference.clone(),
+                    undecided: undecided.contains(name),
                 }
             })
             .collect();

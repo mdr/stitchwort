@@ -51,6 +51,10 @@ pub struct DeclHash {
     pub type_hash: Option<ContentHash>,
     /// The hash with proofs left out (`proofless_hash`).
     pub proofless: Option<ContentHash>,
+    /// Some hash of it ran out of steps or stack, so a `None` above may be
+    /// that and not "not final": nothing can be said about its meaning, and
+    /// a comparison never counts it as kept.
+    pub ran_out: bool,
     /// The declarations a definition's type and body mention, by full
     /// name, so a comparison can say which re-proved theorem a moved
     /// definition leads to. Empty for a data type, and where the list
@@ -77,6 +81,7 @@ impl DeclHash {
             hash: decl.hash,
             type_hash,
             proofless: decl.proofless,
+            ran_out: decl.ran_out,
             uses: Vec::new(),
         }
     }
@@ -90,9 +95,20 @@ impl DeclHash {
                 ty: self.type_hash,
             }),
             proofless: self.proofless,
+            ran_out: self.ran_out,
             terms: None,
         }
     }
+}
+
+/// A hash computation's answer: `None` while the declaration isn't final,
+/// and running out noted in `ran_out` (also `None`, which must not read as
+/// "not final").
+pub(crate) fn settled<T, E>(result: Result<Option<T>, E>, ran_out: &mut bool) -> Option<T> {
+    result.unwrap_or_else(|_| {
+        *ran_out = true;
+        None
+    })
 }
 
 /// The hash as 64 hex digits, or `-` if there is none.
@@ -119,17 +135,20 @@ pub fn session_hashes(session: &Session, first: (usize, usize)) -> Vec<DeclHash>
     let _op = g.machine.budget.operation(session.elab.options.limits);
     let mut out = Vec::new();
     for i in first.0..g.env.datas().len() {
+        let mut ran_out = false;
         out.push(DeclHash {
             kind: DeclKind::Data,
             name: g.env.datas()[i].path().to_string(),
-            hash: data_hash(g, DataId(i)).ok().flatten(),
+            hash: settled(data_hash(g, DataId(i)), &mut ran_out),
             type_hash: None,
-            proofless: proofless_data_hash(g, DataId(i)).ok().flatten(),
+            proofless: settled(proofless_data_hash(g, DataId(i)), &mut ran_out),
+            ran_out,
             uses: Vec::new(),
         });
     }
     for i in first.1..g.env.defs().len() {
         let def = &g.env.defs()[i];
+        let mut ran_out = false;
         out.push(DeclHash {
             kind: if def.theorem() {
                 DeclKind::Theorem
@@ -137,9 +156,10 @@ pub fn session_hashes(session: &Session, first: (usize, usize)) -> Vec<DeclHash>
                 DeclKind::Def
             },
             name: def.path().to_string(),
-            hash: def_hash(g, DefId(i)).ok().flatten(),
-            type_hash: type_hash(g, DefId(i)).ok().flatten(),
-            proofless: proofless_hash(g, DefId(i)).ok().flatten(),
+            hash: settled(def_hash(g, DefId(i)), &mut ran_out),
+            type_hash: settled(type_hash(g, DefId(i)), &mut ran_out),
+            proofless: settled(proofless_hash(g, DefId(i)), &mut ran_out),
+            ran_out,
             uses: def_uses(g, i),
         });
     }
@@ -241,6 +261,9 @@ pub struct HashChange {
     /// of these may be why it moved. A name generated from a theorem
     /// (`t.%match1`) is part of its proof.
     pub reproved: Vec<String>,
+    /// A hash of it (either side) ran out, so it can't be told whether it
+    /// kept its meaning; it is listed as changed to be safe.
+    pub undecided: bool,
 }
 
 /// What [`compare`] found.
@@ -292,6 +315,7 @@ pub fn compare(before: &[DeclHash], after: &[DeclHash], promise: &Promise) -> Ha
                         now: d.hash,
                         uses: None,
                         reproved: Vec::new(),
+                        undecided: was.ran_out || now.ran_out,
                     });
                 } else if was.hash != now.hash {
                     if d.kind == DeclKind::Theorem {
