@@ -20,9 +20,11 @@ expression: output
     │                     ──────────┬─────────  
     │                               ╰─────────── this recursive call might not terminate: the 1st argument, `MkW r`, isn't seen as smaller
     │ 
-    │ Note 1: (see the note above: "however the recursive calls…")
+    │ Note 1: `match grow v with` matches a computed value, so what its patterns bind isn't seen as a part of `v`: if the recursion is on a part of `v`, match `v` itself (`match v with`), or give a measure with `decreasing`
     │ 
-    │ Note 2: (see the note above: "non-terminating definitions are rejected…")
+    │ Note 2: (see the note above: "however the recursive calls…")
+    │ 
+    │ Note 3: (see the note above: "non-terminating definitions are rejected…")
 ────╯
 [E-TERMINATION] Error: can't show that `throughLet` terminates
     ╭─[ reject/termination-wrapper-chain-breaks.sw:30:21 ]
@@ -42,7 +44,9 @@ expression: output
     │                     ─────────┬────────  
     │                              ╰────────── this recursive call might not terminate: the 1st argument, `MkW r`, isn't seen as smaller
     │ 
-    │ Note 1: (see the note above: "however the recursive calls…")
+    │ Note 1: `match [0, 0, ..v] with` matches a computed value, so what its patterns bind isn't seen as a part of `v`: if the recursion is on a part of `v`, match `v` itself (`match v with`), or give a measure with `decreasing`
     │ 
-    │ Note 2: (see the note above: "non-terminating definitions are rejected…")
+    │ Note 2: (see the note above: "however the recursive calls…")
+    │ 
+    │ Note 3: (see the note above: "non-terminating definitions are rejected…")
 ────╯

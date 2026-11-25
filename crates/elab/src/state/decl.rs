@@ -37,6 +37,17 @@ pub(crate) enum HolesRetry {
     Always,
 }
 
+/// A lifted `match` whose scrutinee isn't a plain variable, recorded for a
+/// termination error inside it to explain: what its patterns bind isn't seen
+/// as a part of the variables the scrutinee was built from. `tuple` says the
+/// scrutinee was a tuple of variables, which gets wording of its own.
+pub(crate) struct ComputedMatch {
+    pub(crate) span: Span,
+    pub(crate) shown: String,
+    pub(crate) names: Vec<String>,
+    pub(crate) tuple: bool,
+}
+
 #[derive(Default)]
 pub(crate) struct Decl {
     /// Whether an error message has shown a term that uses a failed
@@ -252,13 +263,15 @@ pub(crate) struct Decl {
     /// The local definitions elaborated in the declaration being checked,
     /// by key, for their equations once their owner is final.
     pub(crate) local_asts: RefCell<Vec<(String, ast::LocalDef)>>,
-    /// Each `match` on a tuple of variables, `match (xs, n) with`: its span,
-    /// the tuple as written, and the variables, so a termination error inside
-    /// it can say why (SW-941, `lift.rs`). A termination error's labels are
-    /// at calls in the group being admitted, so only this declaration's
-    /// matches can explain it. (Before SW-1149 it was a log that only grew,
-    /// emptied only by a rewind.)
-    pub(crate) tuple_matches: RefCell<Vec<(Span, String, Vec<String>)>>,
+    /// Each lifted `match` whose scrutinee isn't a plain variable, such as
+    /// `match (xs, n) with` or `match k + 0 with`: its span, how it was
+    /// written, the variables it was built from, and whether it was a tuple,
+    /// so a termination error inside it can say why (SW-941, SW-4803,
+    /// `lift.rs`). A termination error's labels are at calls in the group
+    /// being admitted, so only this declaration's matches can explain it.
+    /// (Before SW-1149 it was a log that only grew, emptied only by a
+    /// rewind.)
+    pub(crate) computed_matches: RefCell<Vec<ComputedMatch>>,
     /// The calls of lifted `match` helpers the printer showed as
     /// `(match … with …)`, by that text, so `explain_lifted` finds which
     /// `match` a message means. Kept between declarations like
@@ -453,7 +466,7 @@ impl Decl {
             leaf_log,
             arm_probe,
             local_asts,
-            tuple_matches,
+            computed_matches,
             char_patterns,
             text_spans,
             text_fallbacks,
@@ -516,7 +529,7 @@ impl Decl {
             ("leaf_log", leaf_log.borrow().is_empty()),
             ("arm_probe", arm_probe.borrow().is_empty()),
             ("local_asts", local_asts.borrow().is_empty()),
-            ("tuple_matches", tuple_matches.borrow().is_empty()),
+            ("computed_matches", computed_matches.borrow().is_empty()),
             ("char_patterns", char_patterns.borrow().is_empty()),
             ("text_spans", text_spans.borrow().is_empty()),
             ("text_fallbacks", text_fallbacks.borrow().is_empty()),

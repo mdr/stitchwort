@@ -9,7 +9,9 @@ expression: output
     │                   ─────────┬─────────  
     │                            ╰─────────── this recursive call might not terminate: the 1st argument stays the same, the 2nd argument is smaller than the 1st argument was
     │ 
-    │ Note 1: however the recursive calls are repeated, some argument must get smaller (a part of a pattern-matched constructor); an argument passed on unchanged, or rebuilt from its own pattern, is no smaller
+    │ Note 1: `match Mk (More (More p)) x with` matches a computed value, so what its patterns bind isn't seen as a part of `p` or `x`: if the recursion is on a part of `p` or `x`, match them directly (`match p, x with`), or give a measure with `decreasing`
     │ 
-    │ Note 2: non-terminating definitions are rejected unless they're partial: `{Partial}` in the result type. A depth limit keeps it total and provable: an extra `fuel: Nat` argument that decreases on each call, failing (or returning a default) when it runs out
+    │ Note 2: however the recursive calls are repeated, some argument must get smaller (a part of a pattern-matched constructor); an argument passed on unchanged, or rebuilt from its own pattern, is no smaller
+    │ 
+    │ Note 3: non-terminating definitions are rejected unless they're partial: `{Partial}` in the result type. A depth limit keeps it total and provable: an extra `fuel: Nat` argument that decreases on each call, failing (or returning a default) when it runs out
 ────╯
