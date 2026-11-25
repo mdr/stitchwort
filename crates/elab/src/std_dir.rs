@@ -197,10 +197,10 @@ impl StdText {
         let dir = std::path::absolute(dir).map_err(|e| e.to_string())?;
         let mut paths = Vec::new();
         collect(&dir, &dir, &mut paths)?;
+        let full: Vec<PathBuf> = paths.iter().map(|p| dir.join(p)).collect();
         let mut files = Vec::new();
-        for path in paths {
-            let text = std::fs::read_to_string(dir.join(&path))
-                .map_err(|e| format!("can't read `{path}`: {e}"))?;
+        for (path, text) in paths.into_iter().zip(read_files(&full)) {
+            let text = text.map_err(|e| format!("can't read `{path}`: {e}"))?;
             files.push((path, text));
         }
         StdText::from_files(Some(dir), files)
@@ -255,6 +255,47 @@ impl StdText {
             Some(dir) => format!("std from {}", dir.display()),
         }
     }
+}
+
+/// The text of each of `paths`, in the order given, read on several threads
+/// (at most 8, and none for a handful of files). Each result is what
+/// `std::fs::read_to_string` gives that path, so a caller that stops at the
+/// first error in order stops where a sequential read would.
+pub fn read_files(paths: &[PathBuf]) -> Vec<std::io::Result<String>> {
+    const MIN_PARALLEL: usize = 16;
+    let threads = std::thread::available_parallelism()
+        .map_or(1, |n| n.get())
+        .min(8)
+        .min(paths.len() / 4);
+    if paths.len() < MIN_PARALLEL || threads < 2 {
+        return paths.iter().map(std::fs::read_to_string).collect();
+    }
+    let next = std::sync::atomic::AtomicUsize::new(0);
+    let mut results: Vec<Option<std::io::Result<String>>> = paths.iter().map(|_| None).collect();
+    std::thread::scope(|scope| {
+        let workers: Vec<_> = (0..threads)
+            .map(|_| {
+                scope.spawn(|| {
+                    let mut done = Vec::new();
+                    loop {
+                        let i = next.fetch_add(1, std::sync::atomic::Ordering::Relaxed);
+                        let Some(path) = paths.get(i) else { break };
+                        done.push((i, std::fs::read_to_string(path)));
+                    }
+                    done
+                })
+            })
+            .collect();
+        for worker in workers {
+            for (i, result) in worker.join().expect("a file-reading thread panicked") {
+                results[i] = Some(result);
+            }
+        }
+    });
+    results
+        .into_iter()
+        .map(|r| r.expect("every path was read"))
+        .collect()
 }
 
 fn leak(s: String) -> &'static str {

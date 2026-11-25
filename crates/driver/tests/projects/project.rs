@@ -1242,3 +1242,87 @@ fn constructors_of_two_same_named_types_are_ambiguous() {
         );
     }
 }
+
+/// A project on disk read one file at a time: `DiskFiles` without its
+/// parallel `read_all`.
+struct OneByOne(stitchwort_driver::project::DiskFiles);
+
+impl Files for OneByOne {
+    fn entries(&self, dir: &str) -> std::io::Result<Vec<Entry>> {
+        self.0.entries(dir)
+    }
+
+    fn read(&self, path: &str) -> std::io::Result<String> {
+        self.0.read(path)
+    }
+}
+
+/// A generated project of nested folders, more files than a handful, with
+/// `unreadable` made unreadable.
+fn generated_project(name: &str, unreadable: &[&str]) -> std::path::PathBuf {
+    use std::os::unix::fs::PermissionsExt;
+    let dir =
+        std::env::temp_dir().join(format!("stitchwort-readall-{name}-{}", std::process::id()));
+    let _ = std::fs::remove_dir_all(&dir);
+    std::fs::create_dir_all(&dir).unwrap();
+    std::fs::write(dir.join("stitchwort.yaml"), "sources: [src]\n").unwrap();
+    for a in 0..5 {
+        for b in 0..4 {
+            let folder = dir.join(format!("src/d{a}/e{b}"));
+            std::fs::create_dir_all(&folder).unwrap();
+            for c in 0..5 {
+                let text = format!(
+                    "namespace N{a}{b}{c}\n-- {}\n",
+                    "x".repeat(a * 100 + b * 10 + c)
+                );
+                std::fs::write(folder.join(format!("f{c}.sw")), text).unwrap();
+            }
+        }
+    }
+    std::fs::write(dir.join("src/top.sw"), "namespace Top\n").unwrap();
+    std::fs::write(dir.join("src/d1/notes.txt"), "not a source\n").unwrap();
+    for path in unreadable {
+        std::fs::set_permissions(dir.join(path), std::fs::Permissions::from_mode(0o000)).unwrap();
+    }
+    dir
+}
+
+fn read_both(dir: &std::path::Path) -> [Result<Vec<(String, String)>, Vec<String>>; 2] {
+    let read = |files: &dyn Files| {
+        let mut sources = stitchwort_syntax::SourceMap::new();
+        project_sources(files, "proj", &mut sources).map_err(|ds| {
+            ds.iter()
+                .map(|d| format!("{}: {}", d.code, d.message))
+                .collect()
+        })
+    };
+    let disk = || stitchwort_driver::project::DiskFiles {
+        root: dir.to_path_buf(),
+    };
+    [read(&disk()), read(&OneByOne(disk()))]
+}
+
+/// SW-4828: reading a project's files together gives the same list, order
+/// and texts as reading them one by one.
+#[test]
+fn reading_a_project_in_parallel_matches_one_by_one() {
+    let dir = generated_project("same", &[]);
+    let [parallel, one_by_one] = read_both(&dir);
+    let parallel = parallel.unwrap();
+    assert_eq!(parallel.len(), 101);
+    assert_eq!(parallel, one_by_one.unwrap());
+    assert!(parallel.windows(2).all(|w| w[0].0 < w[1].0));
+    let _ = std::fs::remove_dir_all(&dir);
+}
+
+/// SW-4828: unreadable files give the same errors, in the same order.
+#[test]
+fn reading_a_project_in_parallel_reports_the_same_unreadable_files() {
+    let dir = generated_project("locked", &["src/d3/e1/f2.sw", "src/d0/e2/f4.sw"]);
+    let [parallel, one_by_one] = read_both(&dir);
+    let (parallel, one_by_one) = (parallel.unwrap_err(), one_by_one.unwrap_err());
+    assert_eq!(parallel.len(), 2, "{parallel:#?}");
+    assert!(parallel[0].contains("src/d0/e2/f4.sw"), "{parallel:#?}");
+    assert_eq!(parallel, one_by_one);
+    let _ = std::fs::remove_dir_all(&dir);
+}

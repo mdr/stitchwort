@@ -2003,6 +2003,13 @@ pub trait Files {
     fn entries(&self, dir: &str) -> std::io::Result<Vec<Entry>>;
     fn read(&self, path: &str) -> std::io::Result<String>;
 
+    /// [`Files::read`] of each of `paths`, in order. Files that can read
+    /// several at once (a disk) override this; each result is what `read`
+    /// gives for its path.
+    fn read_all(&self, paths: &[String]) -> Vec<std::io::Result<String>> {
+        paths.iter().map(|p| self.read(p)).collect()
+    }
+
     /// Whether `path` is a file, so a source entry that is a file is not
     /// reported as a folder that doesn't exist.
     fn is_file(&self, path: &str) -> bool {
@@ -2073,6 +2080,11 @@ impl Files for DiskFiles {
         std::fs::read_to_string(self.path(path))
     }
 
+    fn read_all(&self, paths: &[String]) -> Vec<std::io::Result<String>> {
+        let full: Vec<PathBuf> = paths.iter().map(|p| self.path(p)).collect();
+        stitchwort_elab::std_dir::read_files(&full)
+    }
+
     fn is_file(&self, path: &str) -> bool {
         self.path(path).is_file()
     }
@@ -2128,6 +2140,36 @@ impl Files for ReadOnce<'_> {
         (self.texts.lock().unwrap_or_else(|e| e.into_inner()))
             .insert(path.to_string(), text.clone());
         Ok(text)
+    }
+
+    fn read_all(&self, paths: &[String]) -> Vec<std::io::Result<String>> {
+        let mut results: Vec<Option<std::io::Result<String>>> = Vec::new();
+        let mut missing = Vec::new();
+        {
+            let texts = self.texts.lock().unwrap_or_else(|e| e.into_inner());
+            for path in paths {
+                let kept = texts.get(path).cloned();
+                if kept.is_none() {
+                    missing.push(path.clone());
+                }
+                results.push(kept.map(Ok));
+            }
+        }
+        let mut read = self.files.read_all(&missing).into_iter();
+        let mut texts = self.texts.lock().unwrap_or_else(|e| e.into_inner());
+        paths
+            .iter()
+            .zip(results)
+            .map(|(path, kept)| {
+                kept.unwrap_or_else(|| {
+                    let result = read.next().expect("a result for each file read");
+                    if let Ok(text) = &result {
+                        texts.insert(path.clone(), text.clone());
+                    }
+                    result
+                })
+            })
+            .collect()
     }
 
     fn is_file(&self, path: &str) -> bool {
@@ -2236,6 +2278,7 @@ pub fn project_sources(
         .map_err(|d| vec![d])?;
     let mut found: BTreeMap<String, String> = BTreeMap::new();
     let mut errors = Vec::new();
+    let mut steps = Vec::new();
     for root in &config.sources {
         if let Err(e) = files.entries(root) {
             let shown = if root.is_empty() { "." } else { root };
@@ -2262,8 +2305,9 @@ pub fn project_sources(
             }
             continue;
         }
-        walk(files, project, root, &mut found, &mut errors);
+        walk(files, project, root, &mut steps);
     }
+    read_walked(files, project, steps, &mut found, &mut errors);
     if errors.is_empty() {
         Ok(found.into_iter().collect())
     } else {
@@ -2271,21 +2315,23 @@ pub fn project_sources(
     }
 }
 
-fn walk(
-    files: &dyn Files,
-    project: &str,
-    dir: &str,
-    found: &mut BTreeMap<String, String>,
-    errors: &mut Vec<Diagnostic>,
-) {
+/// What the walk found, in walk order: a file to read or an error already
+/// known. The reads happen together afterwards ([`read_walked`]), so the
+/// errors come out in the order a one-by-one walk would give them.
+enum Step {
+    Read(String),
+    Error(Diagnostic),
+}
+
+fn walk(files: &dyn Files, project: &str, dir: &str, steps: &mut Vec<Step>) {
     let mut entries = match files.entries(dir) {
         Ok(entries) => entries,
         Err(e) => {
             let shown = if dir.is_empty() { "." } else { dir };
-            errors.push(Diagnostic::error(
+            steps.push(Step::Error(Diagnostic::error(
                 "E-IO",
                 format!("can't read the folder `{project}/{shown}`: {e}"),
-            ));
+            )));
             return;
         }
     };
@@ -2296,13 +2342,13 @@ fn walk(
             .iter()
             .any(|e| e.name == CONFIG && e.kind == EntryKind::File)
     {
-        errors.push(
+        steps.push(Step::Error(
             Diagnostic::error(
                 "E-PROJECT-CONFIG",
                 format!("`{dir}/` is a project inside the project {project}/"),
             )
             .with_note("move it out of the source folders, or delete its `stitchwort.yaml`"),
-        );
+        ));
         return;
     }
     let join = |name: &str| {
@@ -2317,20 +2363,44 @@ fn walk(
             continue;
         }
         match entry.kind {
-            EntryKind::Dir => walk(files, project, &join(&entry.name), found, errors),
+            EntryKind::Dir => walk(files, project, &join(&entry.name), steps),
             EntryKind::File if entry.name.ends_with(".sw") => {
-                let path = join(&entry.name);
-                match files.read(&path) {
-                    Ok(text) => {
-                        found.insert(path, text);
-                    }
-                    Err(e) => errors.push(Diagnostic::error(
-                        "E-IO",
-                        format!("can't read `{project}/{path}`: {e}"),
-                    )),
-                }
+                steps.push(Step::Read(join(&entry.name)));
             }
             _ => {}
+        }
+    }
+}
+
+/// Reads the files the walk found, together, and files each text under its
+/// path (`found`) or its error in walk order (`errors`).
+fn read_walked(
+    files: &dyn Files,
+    project: &str,
+    steps: Vec<Step>,
+    found: &mut BTreeMap<String, String>,
+    errors: &mut Vec<Diagnostic>,
+) {
+    let paths: Vec<String> = steps
+        .iter()
+        .filter_map(|s| match s {
+            Step::Read(path) => Some(path.clone()),
+            Step::Error(_) => None,
+        })
+        .collect();
+    let mut texts = files.read_all(&paths).into_iter();
+    for step in steps {
+        match step {
+            Step::Error(d) => errors.push(d),
+            Step::Read(path) => match texts.next().expect("a result for each path") {
+                Ok(text) => {
+                    found.insert(path, text);
+                }
+                Err(e) => errors.push(Diagnostic::error(
+                    "E-IO",
+                    format!("can't read `{project}/{path}`: {e}"),
+                )),
+            },
         }
     }
 }
