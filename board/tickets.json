@@ -35372,17 +35372,20 @@
     {
       "id": 4802,
       "title": "[Opus] reference::validate_pi_marks (crates/core/src/reference.rs:1763, :1792) collects binder marks by walking Term::Pi over def.ty as written, so a definition with a nickname signature (def f: Reader) skips the lambda-against-binder check; walk the computed type instead, as SW-4796 did for rule S (SW-4800 finding 3)",
-      "status": "backlog",
+      "status": "done",
       "agent": "",
       "where": "",
       "labels": [],
       "epic": "elaborator-kernel",
-      "body": "Sonnet lane: validate_pi_marks evaluates, forces and quotes a non-Pi type, so marks of nickname signatures are checked. No new failures: proof_masks and soundness pass; 31 computed-type walks hit by example 39b. No test fails if skipped (a mark mismatch needs a corrupted term).\n\nModel result: sonnet, worked (no failing-before test: the validator has no seam for a corrupted mark), shared with SW-4801.\n\nReverted 25 Nov (534945f89): the whole-AoC check segfaulted at f9e2c847e with unbounded recursion in reference::eval (unfold -> apply_icit -> eval_tree -> eval, Overmind's core dump). validate_pi_marks evaluated and forced every non-Pi definition type at admission with the reference evaluator, which has no bound. Redo on Opus: bound it (the kernel's budget, or force only to the first Pi with the kernel evaluator), find the AoC definition that loops, and add it as a test.\n\nOvermind, 25 Nov: the crash recurred at 8a32948e9 (same code), so not a one-off. No single AoC namespace crashes on its own (Aoc.Common and all 75 days checked separately with the f9e2c847e binary, --jobs 1): it needs the whole project in one process ('cd aoc && <binary> check --no-cache', about 121 s to the crash). Binary kept on Overmind. The redo lane reproduces it that way first.\n\nLane done (Opus, 22 min, est. 50): bounded computed-Pi walk, refuse with E-RESOURCE at the bound. Fable review started; Overmind asked to rerun the whole-AoC repro on repro/SW-4802 (dev features) 17:43.",
+      "body": "Sonnet lane: validate_pi_marks evaluates, forces and quotes a non-Pi type, so marks of nickname signatures are checked. No new failures: proof_masks and soundness pass; 31 computed-type walks hit by example 39b. No test fails if skipped (a mark mismatch needs a corrupted term).\n\nModel result: sonnet, worked (no failing-before test: the validator has no seam for a corrupted mark), shared with SW-4801.\n\nReverted 25 Nov (534945f89): the whole-AoC check segfaulted at f9e2c847e with unbounded recursion in reference::eval (unfold -> apply_icit -> eval_tree -> eval, Overmind's core dump). validate_pi_marks evaluated and forced every non-Pi definition type at admission with the reference evaluator, which has no bound. Redo on Opus: bound it (the kernel's budget, or force only to the first Pi with the kernel evaluator), find the AoC definition that loops, and add it as a test.\n\nOvermind, 25 Nov: the crash recurred at 8a32948e9 (same code), so not a one-off. No single AoC namespace crashes on its own (Aoc.Common and all 75 days checked separately with the f9e2c847e binary, --jobs 1): it needs the whole project in one process ('cd aoc && <binary> check --no-cache', about 121 s to the crash). Binary kept on Overmind. The redo lane reproduces it that way first.\n\nLane done (Opus, 22 min, est. 50): bounded computed-Pi walk, refuse with E-RESOURCE at the bound. Fable review started; Overmind asked to rerun the whole-AoC repro on repro/SW-4802 (dev features) 17:43.\n\nFable: fix first (transparency set, gluing, error kinds), then merge. Overmind's whole-AoC dev-features run on repro/SW-4802 (f54f47db7) pending as the confirmation. Model result: opus, needed fixes (F1-F3 from Fable), about 45 min (est. 50).",
       "created": "2026-11-25",
       "updated": "2026-11-25",
       "commits": [
         "111157d73",
-        "6c778caf9"
+        "6c778caf9",
+        "774e70ec7",
+        "f54f47db7",
+        "67089b600"
       ]
     },
     {
