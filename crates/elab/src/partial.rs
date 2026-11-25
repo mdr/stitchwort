@@ -109,14 +109,14 @@ fn lams(params: &[Param], body: Term) -> Term {
 
 impl Elaborator {
     /// Whether definition `id`'s type ends in `Delay`: `… -> {Partial} a`.
-    pub fn is_partial(&self, id: DefId) -> Result<bool> {
+    pub fn is_partial(&self, id: DefId) -> stitchwort_core::budget::Result<bool> {
         self.partial_after(id, usize::MAX)
     }
 
     /// Whether definition `id`'s result is a `Delay` once it has its first
     /// `n` parameters (or all of them): whether a definition with entry
     /// arity `n` is partial, as opposed to returning partial functions.
-    fn partial_after(&self, id: DefId, n: usize) -> Result<bool> {
+    fn partial_after(&self, id: DefId, n: usize) -> stitchwort_core::budget::Result<bool> {
         let g = &self.ev();
         let Some(delay) = g.env.builtins().primitive_id(Primitive::Delay) else {
             return Ok(false);
@@ -141,7 +141,7 @@ impl Elaborator {
     /// and any implicit ones right after; as `Elaborator::body` binds them).
     pub(crate) fn partial_member(&self, id: DefId, equations: &[Decl]) -> Result<bool> {
         let n = self.entry_params(id, equations)?;
-        self.partial_after(id, n)
+        Ok(self.partial_after(id, n)?)
     }
 
     /// How many parameters the equations of definition `id` bind.

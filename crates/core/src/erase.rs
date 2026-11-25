@@ -75,7 +75,7 @@ use crate::term::ProofMark;
 use std::cell::Cell;
 use std::rc::Rc;
 
-use crate::budget::{ResourceError, Result};
+use crate::budget::Result;
 use crate::check;
 use crate::globals::{Def, State};
 use crate::term::DefId;
@@ -299,8 +299,7 @@ pub fn try_proof_positions(g: &Ev, id: DefId) -> Result<Option<Rc<ProofPositions
     // running out of resources (as [`of_def`] takes it), whichever kind.
     let (params, result) = in_own_view(g, def, || {
         check::proof_telescope(g, &check::def_type(g, def)?, def.span)
-    })
-    .map_err(|_| ResourceError::Work)?;
+    })?;
     let positions = Rc::new(ProofPositions {
         params: params.into(),
         result,

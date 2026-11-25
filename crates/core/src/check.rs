@@ -5480,18 +5480,29 @@ pub fn telescope(g: &Ev, ty: &Value, span: Span) -> Result<Telescope> {
 /// Which of an already-checked type's parameters are proofs (their types are
 /// propositions), and whether its result is one: [`telescope`]'s erasure
 /// without the type formers.
-pub fn proof_telescope(g: &Ev, ty: &Value, span: Span) -> Result<(Vec<bool>, bool)> {
+///
+/// Reading a checked type can fail only by running out, so the error is the
+/// resource that did. Evaluation reports its own kind; a failure inside the
+/// sort check (which has no typed error) is what the budget recorded, else
+/// steps.
+pub fn proof_telescope(g: &Ev, ty: &Value, span: Span) -> budget::Result<(Vec<bool>, bool)> {
+    let ran_out = |_: Diagnostic| {
+        g.machine
+            .budget
+            .exhausted()
+            .unwrap_or(budget::ResourceError::Work)
+    };
     let mut cx = Ctx::new(g, span);
     let mut params = Vec::new();
     let mut ty = force(g, ty.clone())?;
     while let Value::Pi(x, _, dom, cod, _) = &ty {
-        let mark = ProofMark::of_sort(sort_of(&mut cx, dom)?);
+        let mark = ProofMark::of_sort(sort_of(&mut cx, dom).map_err(ran_out)?);
         params.push(mark.is_proof());
         let next = cod.apply(g, Value::var_marked(cx.level(), mark))?;
         cx.bind(x.clone(), (**dom).clone(), mark);
         ty = force(g, next)?;
     }
-    let result = sort_of(&mut cx, &ty)? == Sort::Prop;
+    let result = sort_of(&mut cx, &ty).map_err(ran_out)? == Sort::Prop;
     Ok((params, result))
 }
 

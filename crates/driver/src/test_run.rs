@@ -560,16 +560,11 @@ impl Session {
                 // partial test as total.
                 let partial = match self.elab.is_partial(test.def) {
                     Ok(partial) => partial,
-                    Err(_) => {
+                    Err(why) => {
                         return TestResult {
                             name: test.name.clone(),
                             namespace: test.namespace.clone(),
-                            outcome: Outcome::OutOfResources(
-                                g.machine
-                                    .budget
-                                    .exhausted()
-                                    .unwrap_or(stitchwort_core::ResourceError::Work),
-                            ),
+                            outcome: Outcome::OutOfResources(why),
                             cached: false,
                             hash: Some(hash),
                             detail: None,
