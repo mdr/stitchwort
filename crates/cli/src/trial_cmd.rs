@@ -365,6 +365,9 @@ fn decl_json(d: &DeclHash, uses: bool) -> Value {
         "typeHash": d.type_hash.map(|h| h.hex()),
         "prooflessHash": d.proofless.map(|h| h.hex()),
     });
+    if d.ran_out {
+        v["ranOut"] = json!(true);
+    }
     if uses && !d.uses.is_empty() {
         v["uses"] = json!(d.uses);
     }
@@ -385,7 +388,7 @@ pub(super) fn decl_from_json(v: &Value) -> Option<DeclHash> {
         hash: hash("hash"),
         type_hash: hash("typeHash"),
         proofless: hash("prooflessHash"),
-        ran_out: false,
+        ran_out: v.get("ranOut").and_then(Value::as_bool).unwrap_or(false),
         uses: v
             .get("uses")
             .and_then(Value::as_array)
@@ -633,11 +636,12 @@ pub(super) fn hash(args: &HashArgs) -> ExitCode {
     } else {
         for d in &shown {
             println!(
-                "{} {} {} {}",
+                "{} {} {} {}{}",
                 declhash::show(d.hash),
                 declhash::show(d.type_hash),
                 d.kind.word(),
-                d.name
+                d.name,
+                if d.ran_out { " (ran out)" } else { "" }
             );
         }
         for n in &missing {
@@ -645,4 +649,32 @@ pub(super) fn hash(args: &HashArgs) -> ExitCode {
         }
     }
     ExitCode::from(if missing.is_empty() { CLEAN } else { PROBLEMS })
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    /// SW-4770: a dumped list is the "before" of a later `trial-edits`, so a
+    /// declaration whose hashes ran out must read back as one that did, or
+    /// `None == None` against the same on the other side reads as kept.
+    #[test]
+    fn a_dumped_declaration_whose_hashes_ran_out_is_not_kept() {
+        let ran_out = DeclHash {
+            kind: DeclKind::Def,
+            name: "Std.f".to_string(),
+            hash: None,
+            type_hash: None,
+            proofless: None,
+            ran_out: true,
+            uses: Vec::new(),
+        };
+        let read = decl_from_json(&decl_json(&ran_out, false)).expect("reads back");
+        assert!(read.ran_out, "{read:?}");
+        let promise = Promise::SameMeaning {
+            renames: BTreeMap::new(),
+        };
+        let diff = declhash::compare(&[read], &[ran_out], &promise);
+        assert_eq!(diff.changed.len(), 1, "{diff:?}");
+    }
 }
