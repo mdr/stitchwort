@@ -35632,12 +35632,12 @@
     {
       "id": 4819,
       "title": "[Opus] Profile library entry loading from the check cache (decode and admit): 73 ms on AoC 2024 day 2, about 170 ms on 2020 day 18; the largest fixed cost left after SW-4812 and SW-4813 (SW-4816 finding 5)",
-      "status": "backlog",
+      "status": "review",
       "agent": "",
       "where": "",
       "labels": [],
       "epic": "performance",
-      "body": "",
+      "body": "\n25 Nov 15:06-15:25, Opus lane (with SW-4826): profiled the warm floor of 2024 d2, 2021 d15, 2020 d18 (samply, 5 runs each, 5-min load 7.5-7.9). Write-up docs/reviews/SW-4819-floor-profile.md. Floor (d2, profiled ms): core 128 (elab+kernel 102), file reads 53 (two thirds `open`), project scan 40 (edges 22), plan 7. SW-4826: d15's extra 200 ms is the doc link in aoc Common/Proofs/PrefixSums.sw: plan_skips loads any namespace with doc links, so Aoc.Common.Proofs and its closure (56 std entries, 6,491 decls) replay; without the link the floor is 210 ms [measured]. Library load (160 ms profiled): admit 79 (prop_mark 21, references 25), decode 42, library_keys 20 (recomputed per file, quadratic), reads 14. Ten ranked fixes in section 4; trust questions: core from cache (SW-4814), Prop marks in entries.\n",
       "created": "2026-11-25",
       "updated": "2026-11-25",
       "commits": []

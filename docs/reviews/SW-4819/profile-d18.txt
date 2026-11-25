@@ -1,0 +1,145 @@
+samples 4478, 223.9 ms per run (over 5 runs)
+ 50.7%    113.5 ms  core prelude
+ 28.2%     63.2 ms  project analyse / scan
+ 14.9%     33.3 ms  other
+  3.4%      7.6 ms  std index (cached read)
+  2.8%      6.4 ms  plan skips (entry heads)
+  0.0%      0.1 ms  project namespace replay
+== inclusive
+ 94.4%   211.3 ms  _pthread_start
+ 94.3%   211.1 ms  stitchwort_host::stack::start::<stitchwort::main::{closure#0}, std::process::ExitCode>
+ 94.3%   211.1 ms  stitchwort::check
+ 94.3%   211.1 ms  stitchwort::run
+ 56.7%   127.0 ms  <stitchwort_driver::driver::Session>::for_stack
+ 56.7%   127.0 ms  <stitchwort_driver::driver::Session>::start
+ 45.2%   101.1 ms  <stitchwort_elab::Elaborator>::elaborate_module
+ 45.2%   101.1 ms  <stitchwort_elab::Elaborator>::elaborate_namespace
+ 45.1%   101.0 ms  <stitchwort_elab::Elaborator>::elaborate_namespace_untimed
+ 42.8%    95.8 ms  <stitchwort_elab::Elaborator>::check_component
+ 37.7%    84.5 ms  <stitchwort_elab::Elaborator>::group
+ 37.5%    84.0 ms  <stitchwort_elab::Elaborator>::group_checked
+ 37.2%    83.3 ms  <stitchwort_driver::driver::Session>::load_project_for
+ 37.2%    83.3 ms  stitchwort::load_project_counting
+ 22.8%    51.1 ms  <stitchwort_driver::driver::Session>::load_project_sources_for
+ 22.7%    50.8 ms  <stitchwort_elab::Elaborator>::lifted_body
+ 22.7%    50.8 ms  <stitchwort_elab::Elaborator>::with_local_retries::<(stitchwort_core::term::Term, alloc::vec::Vec<(stitchwort_core::term::DefId, stitchwort_core::term
+ 20.6%    46.1 ms  <stitchwort_elab::Elaborator>::body_term
+ 20.5%    45.9 ms  <stitchwort_elab::Elaborator>::body_in
+ 19.3%    43.2 ms  stitchwort_elab::check_tree
+ 19.1%    42.9 ms  stitchwort_elab::families::warn_unreachable::<stitchwort_core::term::Term, <stitchwort_elab::Elaborator>::body_in_parts::{closure#9}>
+ 18.5%    41.5 ms  stitchwort_elab::check::check
+ 18.5%    41.5 ms  stitchwort_elab::check::check_inner
+ 18.5%    41.5 ms  stitchwort_elab::check_leaf_in
+ 16.8%    37.6 ms  stitchwort_elab::check::check_value
+ 14.4%    32.2 ms  stitchwort_driver::project::project_sources
+ 14.3%    32.0 ms  stitchwort_driver::project::walk
+ 13.9%    31.2 ms  stitchwort_driver::project::analyse_scan
+ 13.5%    30.3 ms  stitchwort_elab::check::fallback_named
+ 12.0%    27.0 ms  stitchwort_elab::check::infer
+ 11.9%    26.7 ms  stitchwort_driver::project::analyse_units
+ 11.8%    26.4 ms  std::fs::read_to_string::inner
+ 11.1%    25.0 ms  stitchwort_elab::check::apply_args_with_at
+ 11.1%    24.8 ms  stitchwort_elab::check::apply_args_once
+ 11.0%    24.7 ms  stitchwort_elab::check::apply_args_postponing
+ 10.2%    22.9 ms  alloc::fmt::format::format_inner
+ 10.0%    22.4 ms  <core::iter::adapters::map::Map<core::ops::range::Range<usize>, stitchwort_driver::project::analyse_units::{closure#9}> as core::iter::traits::iterato
+ 10.0%    22.4 ms  <alloc::vec::Vec<alloc::vec::Vec<stitchwort_elab::project::Edge>> as alloc::vec::spec_from_iter_nested::SpecFromIterNested<alloc::vec::Vec<stitchwort_
+  9.8%    22.0 ms  stitchwort_core::value::run_on
+  9.7%    21.8 ms  <stitchwort_elab::Elaborator>::namespace_edges_of
+== self
+  9.4%    21.1 ms  __open
+  6.3%    14.1 ms  _platform_memmove
+  4.7%    10.6 ms  __open_nocancel
+  3.9%     8.8 ms  blake3_hash_many_neon
+  3.8%     8.6 ms  mi_free
+  3.6%     8.2 ms  mi_malloc
+  3.6%     8.1 ms  stitchwort_core::value::run_on
+  3.3%     7.5 ms  blake3::portable::compress_in_place
+  1.6%     3.5 ms  <stitchwort_core::value::Value as core::clone::Clone>::clone
+  1.6%     3.5 ms  core::ptr::drop_glue::<stitchwort_core::value::Value>
+  1.5%     3.3 ms  read
+  1.5%     3.3 ms  <alloc::rc::Rc<[stitchwort_core::value::Value]>>::from_iter_exact::<core::iter::adapters::chain::Chain<core::iter::adapters::cloned::Cloned<core::slic
+  1.3%     2.9 ms  <stitchwort_core::term::Term>::for_each_child::<<stitchwort_core::term::Term>::subterms::{closure#0}::{closure#0}>
+  1.3%     2.9 ms  core::fmt::write
+  1.3%     2.8 ms  _platform_memcmp
+  1.2%     2.7 ms  stitchwort_syntax::lexer::lex_from
+  1.1%     2.5 ms  stitchwort_driver::binder_sweep::sweep_module
+  1.1%     2.4 ms  mi_page_free_list_extend
+  1.1%     2.4 ms  alloc::fmt::format::format_inner
+  1.0%     2.4 ms  <alloc::raw_vec::RawVecInner>::finish_grow
+  1.0%     2.2 ms  __getdirentries64
+  0.9%     2.1 ms  <stitchwort_syntax::parser::Parser>::is_stop
+  0.9%     2.0 ms  stitchwort_core::value::resume
+  0.8%     1.9 ms  stitchwort_core::value::eval
+  0.8%     1.8 ms  core::str::converts::from_utf8
+  0.8%     1.8 ms  <alloc::string::String as core::fmt::Write>::write_str
+  0.7%     1.6 ms  <stitchwort_core::collections::QuickHasher as core::hash::Hasher>::write
+  0.7%     1.6 ms  lstat
+  0.7%     1.6 ms  _mi_theap_realloc_zero
+  0.7%     1.6 ms  <alloc::raw_vec::RawVecInner<_>>::reserve::do_reserve_and_handle::<alloc::alloc::Global>
+  0.6%     1.4 ms  <core::fmt::Formatter>::pad
+  0.6%     1.4 ms  mi_realloc
+  0.6%     1.4 ms  stitchwort_core::value::quote_as_until
+  0.6%     1.4 ms  <alloc::vec::Vec<stitchwort_core::value::Value> as alloc::vec::spec_from_iter::SpecFromIter<stitchwort_core::value::Value, core::iter::adapters::Gener
+  0.6%     1.4 ms  core::slice::memchr::memrchr_aligned
+  0.4%     1.0 ms  core::ptr::drop_glue::<stitchwort_core::term::Term>
+  0.4%     1.0 ms  <stitchwort_elab::Elaborator>::elaborate_namespace_untimed
+  0.4%     1.0 ms  stitchwort_core::term::take_children
+  0.4%     1.0 ms  stitchwort_core::value::visit
+  0.4%     1.0 ms  __rustc::__rust_alloc
+== under stitchwort::check: 211.1 ms
+  127.0 ms  <stitchwort_driver::driver::Session>::for_stack
+   83.3 ms  stitchwort::load_project_counting
+    0.5 ms  stitchwort::read_project_config
+    0.2 ms  <stitchwort_driver::driver::Session>::use_check_cache
+    0.1 ms  mi_free
+    0.1 ms  <alloc::string::String as core::clone::Clone>::clone
+    0.1 ms  stitchwort::report_goals
+== under stitchwort::main: 223.4 ms
+  211.1 ms  stitchwort::run
+   11.7 ms  stitchwort_elab::std_dir::load_std_text
+    0.3 ms  <clap_builder::builder::command::Command>::get_matches_from::<std::env::ArgsOs, std::ffi::os_str::OsString>
+    0.2 ms  <stitchwort::Cli as clap_builder::derive::CommandFactory>::command
+    0.1 ms  stitchwort_host::stack::run_on::<std::process::ExitCode, stitchwort::main::{closure#0}>
+    0.1 ms  <stitchwort::Command as clap_builder::derive::FromArgMatches>::from_arg_matches_mut
+    0.1 ms  (self)
+== under Session>::start: 127.0 ms
+  101.1 ms  <stitchwort_elab::Elaborator>::elaborate_module
+    8.8 ms  stitchwort_driver::binder_sweep::warnings
+    7.6 ms  <stitchwort_elab::library::LibraryIndex>::standard
+    6.8 ms  <stitchwort_elab::library::IndexedFile>::module
+    2.1 ms  <stitchwort_elab::Elaborator>::install_library
+    0.4 ms  <stitchwort_syntax::source::SourceMap>::add::<alloc::string::String, &alloc::string::String>
+    0.1 ms  <stitchwort_syntax::source::SourceMap>::add::<&str, &str>
+    0.1 ms  <stitchwort_driver::driver::Session>::check_exports
+    0.1 ms  <alloc::vec::Vec<stitchwort_syntax::diagnostic::Diagnostic>>::retain::<stitchwort_elab::arrow_forall::keep_written_arrows<<stitchwort_driver::driver::Session>::
+    0.1 ms  <alloc::vec::Vec<stitchwort_core::registry::Builtin> as alloc::vec::spec_from_iter::SpecFromIter<stitchwort_core::registry::Builtin, core::iter::adapters::filte
+== under Session>::load_project_for: 83.3 ms
+   51.1 ms  <stitchwort_driver::driver::Session>::load_project_sources_for
+   32.2 ms  stitchwort_driver::project::project_sources
+    0.1 ms  mi_free
+== under Session>::load_project_sources_for: 51.1 ms
+   31.2 ms  stitchwort_driver::project::analyse_scan
+   10.7 ms  <stitchwort_driver::driver::Session>::check_prepared
+    5.2 ms  <stitchwort_driver::project::Scan>::new
+    3.8 ms  <stitchwort_driver::driver::Session>::prepare_analysis
+    0.2 ms  core::ptr::drop_glue::<stitchwort_driver::project::Analysis>
+== under project::analyse_units: 26.7 ms
+   22.4 ms  <alloc::vec::Vec<alloc::vec::Vec<stitchwort_elab::project::Edge>> as alloc::vec::spec_from_iter_nested::SpecFromIterNested<alloc::vec::Vec<stitchwort_elab::proj
+    3.0 ms  alloc::fmt::format::format_inner
+    0.4 ms  <alloc::collections::btree::map::BTreeMap<alloc::string::String, alloc::collections::btree::set::BTreeSet<alloc::string::String>> as core::iter::traits::collect
+    0.3 ms  <alloc::vec::Vec<alloc::vec::Vec<stitchwort_elab::project::sketch::FileSketch>> as core::ops::drop::Drop>::drop
+    0.2 ms  (self)
+    0.2 ms  <stitchwort_elab::Elaborator>::set_project_namespaces::<core::iter::adapters::map::Map<core::slice::iter::Iter<stitchwort_driver::project::Namespace>, stitchwor
+    0.1 ms  _platform_memcmp
+    0.1 ms  mi_free
+    0.1 ms  <alloc::vec::Vec<stitchwort_driver::project::Namespace> as alloc::vec::spec_from_iter_nested::SpecFromIterNested<stitchwort_driver::project::Namespace, core::it
+== under Session>::check_prepared: 10.7 ms
+    6.4 ms  <stitchwort_elab::Elaborator>::plan_namespace
+    2.2 ms  <stitchwort_driver::driver::Session>::check_in_order
+    2.0 ms  <std::sync::once_lock::OnceLock<stitchwort_syntax::ast::Module>>::initialize::<<std::sync::once_lock::OnceLock<stitchwort_syntax::ast::Module>>::get_or_init<<st
+    0.1 ms  <stitchwort_elab::Elaborator>::mark
+== under elaborate_namespace_cached: 0.0 ms
+== under Elaborator>::load_libraries: 0.0 ms
+== under Elaborator>::admit_replayed: 0.0 ms
+== under Elaborator>::decode: 0.0 ms

@@ -1,0 +1,2 @@
+ 15:17:58  up 11 days  7:05,  8 users,  load average: 5.30, 7.94, 7.82
+ 15:18:22  up 11 days  7:06,  8 users,  load average: 4.22, 7.52, 7.67

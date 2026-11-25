@@ -1,0 +1,9 @@
+== self
+ 42.2%    16.2 ms  __open
+ 20.1%     7.7 ms  __open_nocancel
+ 19.2%     7.4 ms  read
+  5.3%     2.1 ms  lstat
+  3.8%     1.5 ms  __getdirentries64
+  1.7%     0.7 ms  _platform_memmove
+  1.2%     0.5 ms  close
+  0.8%     0.3 ms  fstatfs

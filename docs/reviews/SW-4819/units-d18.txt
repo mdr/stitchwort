@@ -1,0 +1,10 @@
+checked 3 namespaces of aoc
+unit                                   elab ms   kernel ms       nodes     decls
+core                                      75.3        20.5       28939       585
+Aoc.Year2020.Day18 (cached)                0.0         0.0           0         0
+Aoc.Year2020.Day18.Spec (cached)           0.0         0.0           0         0
+Aoc.Year2020.Day18.Proofs (cached)         0.0         0.0           0         0
+--------------------------------------------------------------------------------
+library files                              0.0         0.0           0         0
+total                                     75.3        20.5       28939       585
+wall 190.2 ms; outside the units (parsing, core load, printing) 94.4 ms
