@@ -1,5 +1,5 @@
 {
-  "next": 4795,
+  "next": 4796,
   "tickets": [
     {
       "id": 47,
@@ -35236,6 +35236,21 @@
       "agent": "",
       "where": "",
       "labels": [],
+      "epic": "elaborator-kernel",
+      "body": "",
+      "created": "2026-11-25",
+      "updated": "2026-11-25",
+      "commits": []
+    },
+    {
+      "id": 4795,
+      "title": "[DeepSeek] board.test.js 'the committed epics.json and epic-tags.json are consistent' fails: board/epics.json links to an absolute path in another repo (/Users/matt/repos/mdr/whereabouts/docs/stitchwort-candidates.md) that isn't there for the agent user or in clones; make the link a URL or relative, or make the test skip links outside the repo",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [
+        "bug"
+      ],
       "epic": "elaborator-kernel",
       "body": "",
       "created": "2026-11-25",
