@@ -34969,12 +34969,12 @@
     {
       "id": 4777,
       "title": "[Sonnet] A way to see why a namespace's digest changed: document STITCHWORT_CACHE_DEBUG=1 (prints each namespace's digest and part B count) in docs/workflow.md and the digest test module, and consider a debug option listing the digest's inputs (SW-4758 working friction)",
-      "status": "backlog",
+      "status": "review",
       "agent": "",
       "where": "",
       "labels": [],
       "epic": "elaborator-kernel",
-      "body": "",
+      "body": "Docs lane (Sonnet): rules and notes added to docs/workflow.md (brief-writing rules 12-17, CACHE_DEBUG note, verifier line for hashing/cache batches) and the digest.rs module doc.",
       "created": "2026-11-25",
       "updated": "2026-11-25",
       "commits": []
@@ -34998,12 +34998,12 @@
     {
       "id": 4779,
       "title": "[Sonnet] Hash-changing lanes and verifiers miss tests outside the rolling check: add driver projects trial:: (and check_cache::digest) to the verifier selection for hashing changes in docs/workflow.md, and ask whether Overmind's quick tier should run them (SW-4773 finding: SW-4701 left four trial tests failing unseen for two days)",
-      "status": "backlog",
+      "status": "review",
       "agent": "",
       "where": "",
       "labels": [],
       "epic": "elaborator-kernel",
-      "body": "",
+      "body": "Docs lane (Sonnet): rules and notes added to docs/workflow.md (brief-writing rules 12-17, CACHE_DEBUG note, verifier line for hashing/cache batches) and the digest.rs module doc.",
       "created": "2026-11-25",
       "updated": "2026-11-25",
       "commits": []
@@ -35321,12 +35321,12 @@
     {
       "id": 4799,
       "title": "[Sonnet] Kernel-lane brief line in docs/workflow.md 'Writing a brief': a change to evaluation also runs the differential test the_evaluators_agree_on_the_prelude_and_every_example with STITCHWORT_DIFFERENTIAL_ONLY=<example>, and the example has value definitions that exercise the rule; and lane waits need the Bash timeout parameter (~175000) as well as timeout 170 (SW-4796 friction)",
-      "status": "backlog",
+      "status": "review",
       "agent": "",
       "where": "",
       "labels": [],
       "epic": "elaborator-kernel",
-      "body": "",
+      "body": "Docs lane (Sonnet): rules and notes added to docs/workflow.md (brief-writing rules 12-17, CACHE_DEBUG note, verifier line for hashing/cache batches) and the digest.rs module doc.",
       "created": "2026-11-25",
       "updated": "2026-11-25",
       "commits": []
