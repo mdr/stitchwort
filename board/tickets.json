@@ -1,5 +1,5 @@
 {
-  "next": 4864,
+  "next": 4865,
   "tickets": [
     {
       "id": 47,
@@ -36416,6 +36416,19 @@
       "labels": [],
       "epic": "editor-playground",
       "body": "D3750 (Matt, 17:35 26 Nov): 'Don't necessarily propose only the cheapest change ... we're interested in the best end state ... should we be doing something differently?' Fable at Matt's suggestion.\n\nRuns on Fable (fable-lane); the board has no Fable agent name.",
+      "created": "2026-11-26",
+      "updated": "2026-11-26",
+      "commits": []
+    },
+    {
+      "id": 4864,
+      "title": "[DeepSeek] bench check_work::checking_does_not_compute_unneeded_values fails on main since today's merges: the 'if' case's steps grow with the input (1,381,244 at 2,000 elements, 2,011,244 at 20,000). Find the merge (likely SW-4856/4858/4860 opening operations, or SW-1889's Unchanged change) and whether it's a real recomputation or steps now counted that weren't",
+      "status": "doing",
+      "agent": "DeepSeek",
+      "where": "scratch-sw-4864",
+      "labels": [],
+      "epic": "performance",
+      "body": "",
       "created": "2026-11-26",
       "updated": "2026-11-26",
       "commits": []
