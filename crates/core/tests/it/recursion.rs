@@ -54,7 +54,7 @@ const ALLOWED: &[&str] = &[
     "crates/core/src/reference.rs:validate_pi_marks",
     "crates/core/src/termination.rs:rebuilt",
     "crates/core/src/value.rs:bound_fields",
-    "crates/core/src/value.rs:branch",
+    "crates/core/src/value.rs:branch_asked",
     "crates/core/src/value.rs:drop",
     "crates/core/src/value.rs:field_type",
     "crates/core/src/value.rs:matches_at_once",

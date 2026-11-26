@@ -36661,12 +36661,12 @@
     {
       "id": 4878,
       "title": "[Opus] Kernel evaluator: Frame::AddNat's resume and nat_add::reread (rule E) still call force, starting a nested machine, so a chain through them still nests per link (SW-4865 finding); give them the read_second treatment, with a Fable soundness review",
-      "status": "doing",
+      "status": "review",
       "agent": "Opus",
       "where": "",
       "labels": [],
       "epic": "elaborator-kernel",
-      "body": "",
+      "body": "Lane (Opus, 26 Nov): commits 41c13eece, 070508925 and a docs fixup on lane/SW-4878. Natives (run_native) and number cases (branch's NumCase) force a glued call met inside a number on the machine's own stack and then run/read again (force_or_ask, Frame::NativeAgain, Frame::NumberScrutinee), at most 8 times per run, then plain force; Frame::AddNat reads with SW-4865's loop (read_second renamed read_number). Stack segments are now positional (push_segment), so each such forcing keeps its own frame allowance. nat_add::reread (rule E) not changed: it charges a step per sum and unfolds through unfold_folded, which keeps nothing, so a rerun would repeat both; it needs its walk turned into frames (finding). Tests: nat_add_rule 13/13 (new left-chain test fails before), core it 458/458, core lib 58/58, soundness 1/1, hash_stability 14/14, check_work 6/6, examples nat,sum,add,number 4/4. Wants a Fable soundness review.",
       "created": "2026-11-26",
       "updated": "2026-11-26",
       "commits": []

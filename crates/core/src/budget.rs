@@ -1358,13 +1358,23 @@ impl Budget {
             self.peak_frames.set(frames);
         }
         if frames > self.frame_limit.get() {
-            self.note_ran_out();
-            let e = self.exhausted.get().unwrap_or(ResourceError::Depth);
-            self.exhausted.set(Some(e));
-            self.work_limit.set(0);
-            return Err(e);
+            return Err(self.too_much_pending());
         }
         Ok(())
+    }
+
+    /// Stops the operation because the evaluator has too much pending work:
+    /// over the frame limit ([`Budget::frames`]), or over a cap the evaluator
+    /// keeps itself (`value.rs`'s pending segments). Returns the error to
+    /// report, `Depth` unless the operation had already run out, which is the
+    /// operation's, never an inner attempt's.
+    #[cold]
+    pub fn too_much_pending(&self) -> ResourceError {
+        self.note_ran_out();
+        let e = self.exhausted.get().unwrap_or(ResourceError::Depth);
+        self.exhausted.set(Some(e));
+        self.work_limit.set(0);
+        e
     }
 
     /// Stops the operation because `pass` can't go deeper. Returns the error

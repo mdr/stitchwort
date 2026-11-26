@@ -1342,9 +1342,11 @@ fn describe(value: &Value) -> &'static str {
 // start another machine; it moves to the matching control state instead. The
 // one exception is natives forcing their arguments (`native::view`). A
 // native's arguments that are glued calls are forced by the machine first
-// ([`Control::NativeArg`]), so the native's own `force` finds each one's
-// kept unfolding: what is left for it is a solved metavariable, during
-// elaboration, or a call inside a number it walks.
+// ([`Control::NativeArg`]), and so is a glued call it comes to inside a
+// number, after which it runs again ([`run_native`]), so the native's own
+// `force` finds each one's kept unfolding: what is left for it is a solved
+// metavariable, during elaboration, or a call whose kept unfolding needs
+// forcing again.
 
 type Env = Values;
 
@@ -1490,6 +1492,10 @@ enum Frame {
         env: Vec<Value>,
         stuck: Stuck,
     },
+    /// A number case waiting for a glued call inside its scrutinee to be
+    /// forced before [`branch_asked`] reads it again. (Boxed: it's large,
+    /// and rare.)
+    NumberScrutinee(Box<NumberScrutinee>),
     /// The unfolding of a folded call ([`folded_call`])
     /// that the frame `next` takes apart: unfolded again if it's another
     /// folded call, directly or once a glued call it ends in is forced, and
@@ -1516,6 +1522,14 @@ enum Frame {
         spine: Spine,
         next: usize,
     },
+    /// Native definition `id` applied to `spine`, waiting for a glued call
+    /// inside one of its numbers to be forced before it runs again
+    /// ([`run_native`]), the last of `asked` times.
+    NativeAgain {
+        id: DefId,
+        spine: Spine,
+        asked: usize,
+    },
     /// The forced value of the call that field call `id spine` (spine
     /// ending in projection `d`, `i`; [`project_call`]) takes field `i`
     /// of ([`CallField`]). (Boxed: it's large, and rare.)
@@ -1524,34 +1538,60 @@ enum Frame {
     /// elimination of the field ([`unfold_field_for`]). (Boxed: it's large,
     /// and rare.)
     FieldOf(Box<FieldOf>),
-    /// Part of the second argument of a stuck `add m n`, forced, for R3 and
-    /// R4 to read on ([`read_second`]). (Boxed: it's large, and rare.)
-    ReadSecond(Box<ReadSecond>),
+    /// Part of a number being read ([`read_number`]), forced: the second
+    /// argument of a stuck `add m n`, for R3 and R4, or what a
+    /// [`Frame::AddNat`] got. (Boxed: it's large, and rare.)
+    ReadNumber(Box<ReadNumber>),
 }
 
-/// A stuck `outer + add m n` whose `n` R3 and R4 are reading
-/// ([`read_second`]): `k` is the `Succ`s found in `n` so far, and `stuck` the
-/// result if they find neither a number nor anything under `k > 0` `Succ`s.
-struct ReadSecond {
-    id: DefId,
-    m: Value,
-    stuck: Value,
+/// What a [`Frame::NumberScrutinee`] waits with: the case node `tree`, its
+/// environment, and its forced scrutinee, which has had this machine force
+/// a glued call inside it `asked` times.
+struct NumberScrutinee {
+    tree: Rc<Term>,
+    env: Vec<Value>,
+    stuck: Stuck,
+    scrutinee: Value,
+    asked: usize,
+}
+
+/// A number being read as `k + base` ([`read_number`]), and what to make
+/// of it: `k` is the `Succ`s found so far, and `outer` more go around the
+/// result.
+struct ReadNumber {
+    /// The stuck sum whose second argument this is, for R3 and R4; `None`
+    /// for the rest of a number a native took `outer` `Succ`s off
+    /// ([`Frame::AddNat`]).
+    sum: Option<StuckSum>,
     outer: BigUint,
     k: BigUint,
 }
 
-impl ReadSecond {
-    /// What R3 and R4 make of the sum once `n` has been read to `k` `Succ`s
-    /// around `base` (`None`: around nothing), as [`crate::nat_add::stuck`]
-    /// does: `m + k` is `k + m`, `m + (k + n')` with `k > 0` is
-    /// `k + add m n'`, and otherwise the sum stays stuck.
+/// A stuck `add m n` whose `n` R3 and R4 are reading: `stuck` is the
+/// result if they find neither a number nor anything under `k > 0` `Succ`s.
+struct StuckSum {
+    id: DefId,
+    m: Value,
+    stuck: Value,
+}
+
+impl ReadNumber {
+    /// What the number makes once read to `k` `Succ`s around `base`
+    /// (`None`: around nothing). For a sum, what R3 and R4 make of it, as
+    /// [`crate::nat_add::stuck`] does: `m + k` is `k + m`, `m + (k + n')`
+    /// with `k > 0` is `k + add m n'`, and otherwise the sum stays stuck.
+    /// Otherwise `outer + k + base`, as `Frame::AddNat` made it with
+    /// [`native::view_with`].
     fn finish(self, k: BigUint, base: Option<Value>) -> Value {
+        let Some(sum) = self.sum else {
+            return native::from_view(self.outer + k, base);
+        };
         match base {
-            None => native::from_view(self.outer + k, Some(self.m)),
-            Some(_) if num_traits::Zero::is_zero(&k) => self.stuck,
+            None => native::from_view(self.outer + k, Some(sum.m)),
+            Some(_) if num_traits::Zero::is_zero(&k) => sum.stuck,
             Some(base) => native::from_view(
                 self.outer + k,
-                Some(crate::nat_add::call(self.id, self.m, base)),
+                Some(crate::nat_add::call(sum.id, sum.m, base)),
             ),
         }
     }
@@ -1850,66 +1890,81 @@ fn eval_ends(g: &Ev, env: &Env, ty: &Term, x: &Term, y: &Term) -> Result<Ends> {
     ends
 }
 
-/// The machine's pending work: its frames, and where each
-/// [`Frame::ReadSecond`] among them is.
+/// The machine's pending work: its frames, and where each frame that
+/// starts a segment ([`push_segment`]) is.
 ///
-/// The frame limit counts the frames above the topmost `ReadSecond`: the
-/// forcing that frame waits for was a machine of its own before R3 and R4
-/// were read on this stack (SW-4865), with its own allowance of frames, and
-/// a run is refused for depth exactly where it was then. The `ReadSecond`
-/// frames themselves are counted against the same limit, in place of the
-/// Rust stack those nested machines took, so a chain of stuck sums that
-/// never ends still stops (at a depth no configured stack reached before:
-/// each nested machine took over a kilobyte of it).
+/// A segment is a forcing that was a machine of its own, started by
+/// [`force`] on the Rust stack, before this machine did it with its own
+/// stack (SW-4865, SW-4878): forcing a part of a number that R3 and R4, a
+/// native, a number `case` or [`Frame::AddNat`] read. The frame limit counts the frames of the
+/// topmost segment, those above the frame that waits for it, so each
+/// forcing has the allowance of frames its own machine had, and a run is
+/// refused for depth exactly where it was then. The frames that start
+/// segments are counted against the same limit, in place of the Rust stack
+/// those nested machines took, so a chain of them that never ends still
+/// stops (at a depth no configured stack reached before: each nested
+/// machine took over a kilobyte of it).
 #[derive(Default)]
 struct Stack {
     frames: Vec<Frame>,
-    reads: Vec<usize>,
+    /// The positions in `frames` of the frames that start segments.
+    segments: Vec<usize>,
 }
 
 impl Stack {
-    /// The frames the limit counts: those above the topmost `ReadSecond`.
+    /// The frames the limit counts: those of the topmost segment.
     fn counted(&self) -> &[Frame] {
-        let base = self.reads.last().map_or(0, |&i| i + 1);
+        let base = self.segments.last().map_or(0, |&i| i + 1);
         &self.frames[base..]
     }
 
     fn pop(&mut self) -> Option<Frame> {
         let frame = self.frames.pop()?;
-        if matches!(frame, Frame::ReadSecond(_)) {
-            self.reads.pop();
+        if self.segments.last() == Some(&self.frames.len()) {
+            self.segments.pop();
         }
         Some(frame)
     }
 }
 
-/// The most `ReadSecond` frames a run keeps pending. A chain of 2,000,000
+/// The most segments ([`Stack`]) a run keeps pending. A chain of 2,000,000
 /// stuck sums held 2.6 GB (about 1.3 KB a link), enough to exhaust a
 /// browser's wasm memory before the frame limit refused it; no configured
-/// stack reached 200,000 nested machines before reads shared this stack.
-const MAX_PENDING_READS: usize = 200_000;
+/// stack reached 200,000 nested machines before these forcings shared this
+/// stack (SW-4879).
+const MAX_PENDING_SEGMENTS: usize = 200_000;
 
 fn push(g: &Ev, stack: &mut Stack, frame: Frame) -> Result<()> {
-    let reading = matches!(frame, Frame::ReadSecond(_));
-    if reading && stack.reads.len() >= MAX_PENDING_READS {
-        note_deepest(g, stack.counted());
-        return Err(ResourceError::Depth);
+    frames_for(g, stack, stack.counted().len() + 1)?;
+    stack.frames.push(frame);
+    Ok(())
+}
+
+/// [`push`] for `frame` waiting for a forcing that was a machine of its own
+/// ([`Stack`]): the frames above it are a new segment.
+fn push_segment(g: &Ev, stack: &mut Stack, frame: Frame) -> Result<()> {
+    if stack.segments.len() >= MAX_PENDING_SEGMENTS {
+        let e = g.machine.budget.too_much_pending();
+        if e == ResourceError::Depth {
+            note_deepest(g, stack.counted());
+        }
+        return Err(e);
     }
-    let pending = if reading {
-        stack.reads.len() + 1
-    } else {
-        stack.counted().len() + 1
-    };
+    frames_for(g, stack, stack.segments.len() + 1)?;
+    stack.segments.push(stack.frames.len());
+    stack.frames.push(frame);
+    Ok(())
+}
+
+/// Whether the frame limit allows `pending` frames, noting the deepest
+/// calls if not.
+fn frames_for(g: &Ev, stack: &Stack, pending: usize) -> Result<()> {
     if let Err(e) = g.machine.budget.frames(pending) {
         if e == ResourceError::Depth {
             note_deepest(g, stack.counted());
         }
         return Err(e);
     }
-    if reading {
-        stack.reads.push(stack.frames.len());
-    }
-    stack.frames.push(frame);
     Ok(())
 }
 
@@ -2287,13 +2342,18 @@ fn resume(g: &Ev, frame: Frame, value: Value, stack: &mut Stack) -> Result<Contr
             if native::number_head(g, &value) {
                 from_native(g, stack, id, spine, next)?
             } else {
-                run_native(g, stack, id, spine)?
+                run_native(g, stack, id, spine, 0)?
             }
         }
-        Frame::ReadSecond(read) => read_second(g, stack, *read, value, true)?,
+        Frame::ReadNumber(read) => read_number(g, stack, *read, value, true)?,
+        // `k` more than `value`, read as `native::view_with` would.
         Frame::AddNat(k) => {
-            let (k2, base) = native::view_with(g, &value, force)?;
-            Control::Return(native::from_view(&*k + k2, base))
+            let read = ReadNumber {
+                sum: None,
+                outer: Rc::unwrap_or_clone(k),
+                k: BigUint::default(),
+            };
+            read_number(g, stack, read, value, false)?
         }
         Frame::Args {
             term,
@@ -2650,6 +2710,19 @@ fn resume_rare(g: &Ev, frame: Frame, value: Value, stack: &mut Stack) -> Result<
                 }
             }
         }
+        // The forced part has its unfolding kept, where reading the
+        // scrutinee again finds it.
+        Frame::NumberScrutinee(waiting) => {
+            let NumberScrutinee {
+                tree,
+                env,
+                stuck,
+                scrutinee,
+                asked,
+            } = *waiting;
+            branch_asked(g, stack, tree, env, stuck, scrutinee, asked)?
+        }
+        Frame::NativeAgain { id, spine, asked } => run_native(g, stack, id, spine, asked)?,
         Frame::FieldOf(field) => {
             let FieldOf {
                 id,
@@ -2798,7 +2871,7 @@ fn resume_rare(g: &Ev, frame: Frame, value: Value, stack: &mut Stack) -> Result<
         | Frame::AppFun(..)
         | Frame::AppErased(..)
         | Frame::NativeArg { .. }
-        | Frame::ReadSecond(..)
+        | Frame::ReadNumber(..)
         | Frame::AddNat(..)
         | Frame::Args { .. }
         | Frame::QuotArgs { .. }
@@ -2868,19 +2941,50 @@ fn count_stuck_one_shape(g: &Ev, d: DataId, stuck: &Stuck, value: &Value) {
 }
 
 /// The branch of the case node `tree` for the (forced) scrutinee `value`.
+#[inline]
 fn branch(
+    g: &Ev,
+    stack: &mut Stack,
+    tree: Rc<Term>,
+    env: Vec<Value>,
+    stuck: Stuck,
+    value: Value,
+) -> Result<Control> {
+    branch_asked(g, stack, tree, env, stuck, value, 0)
+}
+
+/// [`branch`], for a number case that has had this machine force a glued
+/// call inside `value` `asked` times ([`Frame::NumberScrutinee`]).
+fn branch_asked(
     g: &Ev,
     stack: &mut Stack,
     tree: Rc<Term>,
     mut env: Vec<Value>,
     stuck: Stuck,
     value: Value,
+    asked: usize,
 ) -> Result<Control> {
     // A folded call was unfolded before this (`Frame::Scrutinee`).
     let (d, branches, scrutinee) = match &*tree {
         Term::Case(ix, d, branches) => (d, branches, &env[env.len() - 1 - ix]),
         Term::NumCase(_, arms, default) => {
-            let next = match native::view(g, &value)? {
+            // A glued call inside the number is forced by this machine, and
+            // then the number is read again, as a native's are
+            // ([`run_native`]).
+            start_read();
+            let viewed = native::view_with(g, &value, forcing_for(asked));
+            if let Some(part) = ASKED.take() {
+                let waiting = Box::new(NumberScrutinee {
+                    tree: tree.clone(),
+                    env: env.clone(),
+                    stuck,
+                    scrutinee: value,
+                    asked: asked + 1,
+                });
+                push_segment(g, stack, Frame::NumberScrutinee(waiting))?;
+                return Ok(Control::Force(part));
+            }
+            let next = match viewed? {
                 // A number: its arm, or the default.
                 (k, None) => match arms.binary_search_by(|a| (*a.value).cmp(&k)) {
                     Ok(i) => arms[i].body.clone(),
@@ -2897,7 +3001,7 @@ fn branch(
                     _ => match reread_sum(g, &base, &mut Unread::default())? {
                         Some(base) => {
                             let value = native::from_view(k, Some(base));
-                            return branch(g, stack, tree, env, stuck, value);
+                            return branch_asked(g, stack, tree, env, stuck, value, 0);
                         }
                         None => return stuck_tree(g, stack, stuck),
                     },
@@ -2975,7 +3079,7 @@ fn branch(
             (0, (0..k).map(|i| project(*d, i, n.clone())).collect())
         }
         other => match reread_sum(g, &other, &mut Unread::default())? {
-            Some(value) => return branch(g, stack, tree, env, stuck, value),
+            Some(value) => return branch_asked(g, stack, tree, env, stuck, value, 0),
             None => {
                 if proof_counts::on() {
                     count_stuck_one_shape(g, *d, &stuck, &other);
@@ -3372,7 +3476,7 @@ pub fn apart_of(value: &Value) -> Apart {
 }
 
 /// A case tree that can't take a step: its definition stays folded, unless
-/// it's `Nat.add` and R3 or R4 applies (`nat_add.rs`, [`read_second`]).
+/// it's `Nat.add` and R3 or R4 applies (`nat_add.rs`, [`read_number`]).
 fn stuck_tree(g: &Ev, stack: &mut Stack, stuck: Stuck) -> Result<Control> {
     match stuck {
         Some((id, spine, _)) => {
@@ -3380,14 +3484,16 @@ fn stuck_tree(g: &Ev, stack: &mut Stack, stuck: Stuck) -> Result<Control> {
                 && let [Elim::App(m, _), Elim::App(n, _)] = &spine[..]
             {
                 let (m, n) = (m.clone(), n.clone());
-                let read = ReadSecond {
-                    id,
-                    m,
-                    stuck: Value::Neutral(Head::Def(id), spine),
+                let read = ReadNumber {
+                    sum: Some(StuckSum {
+                        id,
+                        m,
+                        stuck: Value::Neutral(Head::Def(id), spine),
+                    }),
                     outer: BigUint::default(),
                     k: BigUint::default(),
                 };
-                return read_second(g, stack, read, n, false);
+                return read_number(g, stack, read, n, false);
             }
             Ok(Control::Return(Value::Neutral(Head::Def(id), spine)))
         }
@@ -3395,9 +3501,9 @@ fn stuck_tree(g: &Ev, stack: &mut Stack, stuck: Stuck) -> Result<Control> {
     }
 }
 
-/// R3 and R4 reading `next`, the rest of the second argument of the stuck
-/// sum `read` describes, as [`crate::nat_add::stuck`] reads it with
-/// [`native::view_with`]: each part is forced as [`force`] would, then
+/// Reading `next`, the rest of the number `read` describes, as
+/// [`native::view_with`] reads it (for R3 and R4, in
+/// [`crate::nat_add::stuck`]): each part is forced as [`force`] would, then
 /// `Succ`s and numbers are counted until something else is found.
 ///
 /// The one difference is where a part is forced: `force` starts another
@@ -3405,18 +3511,19 @@ fn stuck_tree(g: &Ev, stack: &mut Stack, stuck: Stuck) -> Result<Control> {
 /// unfolding is another stuck sum, read the same way, so a chain of `n`
 /// such sums (2021 day 11's proofs: one a step of the puzzle) took `n`
 /// nested machines. Here a part that needs the machine is forced by this
-/// one, with a frame waiting for it ([`Frame::ReadSecond`]), so the chain
+/// one, with a frame waiting for it ([`Frame::ReadNumber`]), so the chain
 /// is frames on the heap. The machine forcing it from this state takes the
 /// steps, and gives the value, that `force`'s own machine would: it starts
 /// from the same [`Control::Force`], and the frames below it are never
 /// looked at until it returns, except to count them for the depth limit
-/// and its message ([`Stack`], which counts as that machine did). `forced` says `next` is a value forcing
-/// gave, which isn't forced again (as `view_with` doesn't).
+/// and its message ([`Stack`], which counts as that machine did). `forced`
+/// says `next` is a value forcing gave, which isn't forced again (as
+/// `view_with` doesn't).
 #[inline(never)]
-fn read_second(
+fn read_number(
     g: &Ev,
     stack: &mut Stack,
-    mut read: ReadSecond,
+    mut read: ReadNumber,
     mut next: Value,
     mut forced: bool,
 ) -> Result<Control> {
@@ -3434,7 +3541,7 @@ fn read_second(
             match kept {
                 Some(unfolded) => next = unfolded,
                 None => {
-                    push(g, stack, Frame::ReadSecond(Box::new(read)))?;
+                    push_segment(g, stack, Frame::ReadNumber(Box::new(read)))?;
                     return Ok(Control::Force(next));
                 }
             }
@@ -3524,15 +3631,38 @@ fn from_native(g: &Ev, stack: &mut Stack, id: DefId, spine: Spine, from: usize) 
     let op = g.env.builtins().native(id).expect("a native");
     match unforced_number_arg(g, op, &spine, from) {
         Some(index) => Ok(Control::NativeArg(id, spine, index)),
-        None => run_native(g, stack, id, spine),
+        None => run_native(g, stack, id, spine, 0),
     }
 }
 
 /// Native definition `id` applied to all its arguments, `spine`: its
-/// native implementation, or else its case tree.
-fn run_native(g: &Ev, stack: &mut Stack, id: DefId, spine: Spine) -> Result<Control> {
+/// native implementation, or else its case tree. It has had this machine
+/// force a glued call inside one of its numbers `asked` times.
+///
+/// The native forces with [`force_or_ask`]: where it comes to a glued call
+/// not yet unfolded (inside a number, as `Succ (f x)` or `k + f x`, where
+/// [`from_native`] doesn't look), this machine forces the call, with a
+/// frame waiting for it that runs the native again from the start
+/// ([`Frame::NativeAgain`], as the start of a segment, [`Stack`]). The
+/// call then has its unfolding kept, so the native's `force` finds it at
+/// once, taking no step, and goes on to where it stopped, forcing the same
+/// parts in the same order as with [`force`]; nothing a native does before
+/// its last forcing (it charges for big numbers after) is done twice. So a
+/// chain of such calls (`Succ (f k x) + 1` with `f (k + 1) x` the same
+/// again) is frames on the heap, where `force` would start a machine per
+/// link on the Rust stack. Past [`ASKS`] times, or once the run has forced
+/// something that took steps ([`FORCED`]), the native forces with `force`
+/// ([`forcing_for`], [`force_or_ask`]).
+fn run_native(g: &Ev, stack: &mut Stack, id: DefId, spine: Spine, asked: usize) -> Result<Control> {
     let op = g.env.builtins().native(id).expect("a native");
-    match native::run(g, id, op, &spine, force)? {
+    start_read();
+    let outcome = native::run(g, id, op, &spine, forcing_for(asked));
+    if let Some(part) = ASKED.take() {
+        let asked = asked + 1;
+        push_segment(g, stack, Frame::NativeAgain { id, spine, asked })?;
+        return Ok(Control::Force(part));
+    }
+    match outcome? {
         Some(native::Outcome::Done(value)) => return Ok(Control::Return(value)),
         Some(native::Outcome::Again(spine)) => return Ok(Control::Unfold(id, spine.into())),
         Some(native::Outcome::Succs(k, spine)) => {
@@ -3546,19 +3676,111 @@ fn run_native(g: &Ev, stack: &mut Stack, id: DefId, spine: Spine) -> Result<Cont
             if g.env.builtins().nat_add_rule != Some(id) {
                 return Ok(Control::Return(stuck));
             }
-            let read = ReadSecond {
-                id,
-                m,
-                stuck,
+            let read = ReadNumber {
+                sum: Some(StuckSum { id, m, stuck }),
                 outer: k,
                 k: BigUint::default(),
             };
-            return read_second(g, stack, read, n, false);
+            return read_number(g, stack, read, n, false);
         }
         None => {}
     }
     // A native is never glued ([`glues`]), so this is the same as `glue` on.
     case_tree(g, id, spine, false)
+}
+
+thread_local! {
+    /// The call [`force_or_ask`] handed back, for the machine to force. Set
+    /// only between `force_or_ask` returning and the read it was called
+    /// from (`native::run` in [`run_native`], `native::view_with` in
+    /// [`branch_asked`]) returning to its caller, which takes it.
+    static ASKED: std::cell::Cell<Option<Value>> = const { std::cell::Cell::new(None) };
+    /// Whether the read in progress has forced something that took steps
+    /// (a solved metavariable replayed, a call's kept unfolding forced
+    /// again): [`force_or_ask`] then asks no more, as a rerun would take
+    /// those steps again, and build fresh values whose glued calls keep no
+    /// unfolding, so it would ask again too.
+    static FORCED: std::cell::Cell<bool> = const { std::cell::Cell::new(false) };
+}
+
+/// Starts a read with [`force_or_ask`]: nothing asked or forced yet. (A
+/// panic between an ask and its take leaves nothing for the next read.)
+fn start_read() {
+    ASKED.set(None);
+    FORCED.set(false);
+}
+
+/// Whether [`force`] takes no step on `value`: it leaves it as it is, or
+/// takes a call's kept unfolding (`force_now`'s shortcut).
+fn forces_free(g: &Ev, value: &Value) -> bool {
+    match value {
+        Value::Call(_, _, unfolding) => unfolding
+            .get(g)
+            .is_some_and(|unfolded| !needs_forcing(g, &unfolded)),
+        other => !needs_forcing(g, other),
+    }
+}
+
+/// How many times a native's run ([`run_native`]), or a number case's read
+/// of its scrutinee ([`branch_asked`]), has this machine force a glued call
+/// and starts again, before it forces with [`force`] instead. Each time
+/// reads the numbers again up to where the last stopped, so a number with
+/// `n` such calls in it one inside the other (`Succ (f k)` with `f k`
+/// unfolding to `Succ (f (k - 1))`) would be read `n` times; `force`
+/// reads it once, starting a machine for each call that is done before
+/// the next starts, so Rust's stack only grows where a call's forcing
+/// comes to such a call in turn. Which of the two forces a call changes
+/// no value, step or limit, only Rust stack and time.
+const ASKS: usize = 8;
+
+/// The forcing for a native run, or a number case's read, that has had
+/// this machine force a glued call `asked` times ([`ASKS`]).
+fn forcing_for(asked: usize) -> native::Force {
+    #[cfg(any(test, feature = "reference"))]
+    if NEVER_ASK.with(|n| n.get()) {
+        return force;
+    }
+    if asked < ASKS { force_or_ask } else { force }
+}
+
+#[cfg(any(test, feature = "reference"))]
+thread_local! {
+    static NEVER_ASK: std::cell::Cell<bool> = const { std::cell::Cell::new(false) };
+}
+
+/// Makes natives and number cases on this thread force with [`force`]
+/// alone, never asking the machine ([`force_or_ask`]), if `never`; returns
+/// what it was. For tests comparing the two, which must take the same
+/// steps.
+#[cfg(any(test, feature = "reference"))]
+pub fn set_never_ask(never: bool) -> bool {
+    NEVER_ASK.with(|n| n.replace(never))
+}
+
+/// [`force`] for a native that [`run_native`] runs, or a number case's
+/// read of its scrutinee ([`branch_asked`]): a glued call with no kept
+/// unfolding, for which `force` would start another machine, is handed
+/// back to the machine instead ([`ASKED`]), with an error that stops the
+/// read there (`native.rs`'s reads pass every error on, and never look at
+/// one). Anything else is forced as `force` does it. Once the read has
+/// forced anything that took steps ([`FORCED`]), it asks no more, so the
+/// runs before a rerun forced only what takes no step, and a rerun takes
+/// exactly the steps `force` would have.
+fn force_or_ask(g: &Ev, value: Value) -> Result<Value> {
+    if !FORCED.get()
+        && let Value::Call(_, _, unfolding) = &value
+        && unfolding.get(g).is_none()
+    {
+        ASKED.set(Some(value));
+        return Err(ResourceError::Cancelled);
+    }
+    let free = forces_free(g, &value);
+    let forced = force(g, value);
+    // After `force`: a read nested in it starts its own, clearing the flag.
+    if !free {
+        FORCED.set(true);
+    }
+    forced
 }
 
 /// The index of the first number argument of native `op`, from `from` on,
@@ -3948,7 +4170,7 @@ pub fn unfold_folded_head(g: &Ev, value: &Value) -> Result<Option<Value>> {
                 spine: rest,
                 next: 0,
             }],
-            reads: Vec::new(),
+            segments: Vec::new(),
         },
     )
     .map(Some)
