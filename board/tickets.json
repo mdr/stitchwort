@@ -1,5 +1,5 @@
 {
-  "next": 4876,
+  "next": 4877,
   "tickets": [
     {
       "id": 47,
@@ -36604,6 +36604,19 @@
       "where": "",
       "labels": [],
       "epic": "editor-playground",
+      "body": "",
+      "created": "2026-11-26",
+      "updated": "2026-11-26",
+      "commits": []
+    },
+    {
+      "id": 4876,
+      "title": "[DeepSeek] bench: std's allocation count differs between runs (351,229,336 then 351,229,284 / 242 / 249 / 266 over five runs, 26 Nov, after SW-1953's drift fix), so the baseline refuses to record it; find what allocates nondeterministically (thread-local caches, HashMap growth, timing) and make the count exact (SW-1953 follow-up)",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "epic": "performance",
       "body": "",
       "created": "2026-11-26",
       "updated": "2026-11-26",
