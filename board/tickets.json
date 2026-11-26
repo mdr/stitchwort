@@ -36183,7 +36183,7 @@
       "where": "",
       "labels": [],
       "epic": "audit-fuzzing",
-      "body": "",
+      "body": "The 26 Nov accepted attempt (batch 5, seed 0x26112605, attempt 579) was examples/soundness/recursive-passed-type.sw with outer deleted and inner's recursive call removed: a plain non-recursive definition, legitimately accepted (Overmind's rerun; orchestrator agrees). Overmind's uncommitted print change is in its scratch worktree.",
       "created": "2026-11-26",
       "updated": "2026-11-26",
       "commits": []
