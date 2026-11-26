@@ -6318,10 +6318,21 @@ impl Elaborator {
         keys: impl IntoIterator<Item = &'a String>,
     ) -> Result<()> {
         let keys: Vec<String> = keys.into_iter().cloned().collect();
-        for key in keys {
-            self.ensure_equations_of(&key)?;
+        // Called for a file's needs before its declarations are checked, so
+        // there may be no operation open: making equations reaches stack
+        // guards (`Term::rewrite_up`, `type_hash`) that need one (SW-4858).
+        let saved = (!self.kernel.machine.budget.is_running())
+            .then(|| self.kernel.machine.budget.start(self.options.limits));
+        let result = (|| {
+            for key in keys {
+                self.ensure_equations_of(&key)?;
+            }
+            Ok(())
+        })();
+        if let Some(saved) = saved {
+            self.kernel.machine.budget.restore(saved);
         }
-        Ok(())
+        result
     }
 
     fn ensure_equations_of(&mut self, key: &str) -> Result<()> {
