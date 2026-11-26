@@ -6,8 +6,12 @@
 //!   budget's work counter), visits (levels of the recursive passes, like
 //!   the elaborator and type checker, which aren't evaluation), heap
 //!   allocations, and peak heap in use. They depend only on the program and
-//!   the compiler, so they're the same on every run however busy the machine
-//!   is, and a change in them is a change in the compiler. They don't see
+//!   the compiler, and a change in them is a change in the compiler. Steps,
+//!   visits and machine instructions are the same on every run however busy
+//!   the machine is, and the check requires that exactly. Allocations and
+//!   peak heap may wobble by up to ten parts in a million between runs (a
+//!   container's capacity can depend on allocation addresses), so that much
+//!   is allowed between runs; a larger difference is a change. They don't see
 //!   everything: a loop that neither evaluates, recurses through a guarded
 //!   pass nor allocates costs time without changing them.
 //!
@@ -169,6 +173,25 @@ impl PartCounts {
     }
 }
 
+/// Ten parts in a million: how much allocations and peak heap may differ
+/// between runs, relative to the first run's value.
+const NOISE_PARTS: u64 = 100_000;
+
+/// Whether `then` differs from `first` by no more than [`NOISE_PARTS`].
+fn within_noise(first: u64, then: u64) -> bool {
+    first.abs_diff(then) <= first / NOISE_PARTS
+}
+
+/// Whether two runs' counts are the same signal: steps, visits and machine
+/// instructions exactly, allocations and peak heap within [`NOISE_PARTS`].
+fn counts_agree(first: &Counts, then: &Counts) -> bool {
+    first.steps == then.steps
+        && first.visits == then.visits
+        && first.machine_instructions == then.machine_instructions
+        && within_noise(first.allocations, then.allocations)
+        && within_noise(first.peak_bytes, then.peak_bytes)
+}
+
 /// The counters that differ between `first` and `then`, with both values.
 fn differences(first: &[(&'static str, u64)], then: &[(&'static str, u64)]) -> String {
     first
@@ -236,7 +259,10 @@ pub struct Record {
 /// The result of running a benchmark `runs` times.
 pub struct Outcome {
     pub record: Record,
-    /// If the counts differed between runs, which they shouldn't: how.
+    /// If the counts differed between runs beyond what the check allows
+    /// ([`counts_agree`]), how: steps, visits and machine instructions must
+    /// match exactly; allocations and peak heap may differ by at most ten
+    /// parts in a million of run 1's.
     pub variation: Option<String>,
     /// Each part's counts from the first run ([`Prepared::parts`]).
     pub parts: Vec<(String, PartCounts)>,
@@ -249,7 +275,7 @@ pub fn run(benchmark: &Benchmark, runs: usize, timed: bool) -> Result<Outcome, S
     let mut variations = Vec::new();
     for run in 2..=runs.max(1) {
         let m = measure(benchmark)?;
-        if m.counts != first.counts {
+        if !counts_agree(&first.counts, &m.counts) {
             variations.push(variation(&first, &m, run));
         }
         times.push(m.time);
@@ -271,7 +297,9 @@ pub fn run(benchmark: &Benchmark, runs: usize, timed: bool) -> Result<Outcome, S
 /// then its parts'.
 fn variation(first: &Measurement, then: &Measurement, run: usize) -> String {
     let mut out = format!(
-        "run {run} differed from run 1: {}\n",
+        "run {run} differed from run 1: {}\n  \
+         (steps, visits and machine instructions must match exactly; allocations and peak \
+         bytes may differ by at most ten parts in a million, relative to run 1)\n",
         differences(&first.counts.named(), &then.counts.named())
     );
     for ((name, a), (_, b)) in first.parts.iter().zip(&then.parts) {
@@ -287,4 +315,41 @@ fn variation(first: &Measurement, then: &Measurement, run: usize) -> String {
         );
     }
     out
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn counts(steps: u64, visits: u64, allocations: u64, peak_bytes: u64) -> Counts {
+        Counts {
+            steps,
+            visits,
+            allocations,
+            peak_bytes,
+            machine_instructions: 0,
+        }
+    }
+
+    #[test]
+    fn steps_must_be_exactly_equal() {
+        let first = counts(1234, 56, 344_727_290, 310_185_308);
+        let then = counts(1235, 56, 344_727_290, 310_185_308);
+        assert!(!counts_agree(&first, &then));
+    }
+
+    #[test]
+    fn a_few_allocations_may_differ() {
+        let first = counts(1234, 56, 344_727_290, 310_185_308);
+        let then = counts(1234, 56, 344_727_285, 310_185_308);
+        assert!(counts_agree(&first, &then));
+    }
+
+    #[test]
+    fn a_hundredth_of_a_percent_may_not() {
+        let first = counts(1234, 56, 344_727_290, 310_185_308);
+        // 0.01% more allocations: 34,472, well over the 344 allowed.
+        let then = counts(1234, 56, 344_761_763, 310_185_308);
+        assert!(!counts_agree(&first, &then));
+    }
 }
