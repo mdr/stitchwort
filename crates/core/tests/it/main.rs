@@ -24,6 +24,7 @@ mod proof_marks;
 mod quot;
 mod rebuild;
 mod record_eta;
+mod recursion;
 mod rule_k;
 mod sct;
 mod shared_case;
