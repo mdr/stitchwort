@@ -648,3 +648,129 @@ fn a_chain_of_sums_past_the_pending_read_cap_is_refused() {
         assert_eq!(first, Some("E-RESOURCE"));
     });
 }
+
+/// A `case` whose scrutinee is a stuck sum with a call folded by name in
+/// its second argument (`wrap`, a `decreasing` definition), whose unfolding
+/// is another such `case`: `posOf` on `x + wrap 0 x (foldedChain k x)`, and a
+/// number `case`, `smallOf`, through `wrap 1`. Rule E reads each sum
+/// (`nat_add::reread`), unfolding `wrap`'s call and forcing what it gives.
+const FOLDED_CHAIN: &str = "def posOf (n: Nat): Nat :=\n  match n with\n    | Zero => 0\n    | Succ _ => 1\n\n\
+     def smallOf (n: Nat): Nat :=\n  match n with\n    | 0 => 0\n    | _ => 1\n\n\
+     def wrap (n: Nat) (x: Nat) (r: Nat): Nat\n    decreasing n\n:=\n  match n with\n    | Zero => posOf (x + r)\n    | Succ m => smallOf (x + wrap m x r [decreasing := arithmetic])\n\n\
+     def foldedChain: Nat → Nat → Nat\n  | Zero, x => 1\n  | Succ k, x => wrap 0 x (foldedChain k x)\n\n\
+     def foldedChainN: Nat → Nat → Nat\n  | Zero, x => 1\n  | Succ k, x => wrap 1 x (foldedChainN k x)\n";
+
+/// The chains of [`FOLDED_CHAIN`], 100,000 and 90,000 deep, take constant
+/// stack: the machine does rule E's forcing and unfolding on its own heap
+/// stack (`value::reread_on`), rather than starting a machine for each,
+/// which ran out of the CLI's 64 MiB of stack about 16,000 deep (SW-4881).
+/// A link of `foldedChainN` leaves two forcings pending, each once a
+/// machine of its own, so 100,000 of them would be past
+/// `MAX_PENDING_SEGMENTS` (`value.rs`).
+#[test]
+fn a_long_chain_through_rule_e_takes_constant_stack() {
+    const SMALL: usize = 4 << 20;
+    with_stack(SMALL, || {
+        let mut session = Session::for_stack(SMALL);
+        let ok = session.load(
+            "folded.sw",
+            &format!(
+                "{FOLDED_CHAIN}\n\
+                 theorem long (x: Nat): posOf (x + foldedChain 100000 x) = 1 := byComputing\n\n\
+                 theorem longN (x: Nat): smallOf (x + foldedChainN 90000 x) = 1 := byComputing\n"
+            ),
+        );
+        assert!(ok.is_ok(), "{ok:?}");
+    });
+}
+
+/// The chains of [`FOLDED_CHAIN`], 40 deep: the machine, glued and not,
+/// computes what the reference evaluator does, and takes the steps it
+/// takes reading each sum with machines of its own
+/// (`value::set_nested_reread`).
+#[test]
+fn a_chain_through_rule_e_computes_and_steps_as_before() {
+    with_stack(STACK, || {
+        let mut session = Session::for_stack(STACK);
+        let ok = session.load("folded.sw", FOLDED_CHAIN);
+        assert!(ok.is_ok(), "{ok:?}");
+        let g = &session.elab.ev();
+        let env = [Value::var(0)];
+        for (case, chain) in [("posOf", "foldedChain"), ("smallOf", "foldedChainN")] {
+            let sum = Term::app(
+                Term::app(Term::Def(add_id(g)), Term::Var(0)),
+                Term::app(Term::app(Term::Def(find(g, chain)), num(40)), Term::Var(0)),
+            );
+            let body = Term::app(Term::Def(find(g, case)), sum);
+            let expected = shown(g, 1, &reference::eval(g, &env, &body).expect("no limits"));
+            for glue in [true, false] {
+                let run = |nested: bool| {
+                    let was = value::set_nested_reread(nested);
+                    let glued = g.machine.glue.replace(glue);
+                    let before = g.machine.budget.total_work();
+                    let runs = value::machine_runs();
+                    let result = value::eval(g, &env, &body).expect("no limits");
+                    let result = value::force(g, result).expect("no limits");
+                    let steps = g.machine.budget.total_work() - before;
+                    let runs = value::machine_runs() - runs;
+                    g.machine.glue.set(glued);
+                    value::set_nested_reread(was);
+                    ((shown(g, 1, &result), steps), runs)
+                };
+                let (now, runs_now) = run(false);
+                let (nested, runs_nested) = run(true);
+                assert_eq!(now.0, expected, "`{case}`, glued {glue}");
+                assert_eq!(
+                    now, nested,
+                    "`{case}`, glued {glue}: on this stack, and nested"
+                );
+                // Rule E's reads were machines of their own, 40 deep.
+                assert!(
+                    runs_now + 40 <= runs_nested,
+                    "`{case}`, glued {glue}: {runs_now} machines, {runs_nested} nested"
+                );
+            }
+        }
+    });
+}
+
+/// A float native whose argument is a glued call, `Float.ofNat (slow 0)`,
+/// has this machine force the call and then runs again (`value::run_float`),
+/// as `+`'s native does: it gives what forcing with `force` alone gives, in
+/// the same steps, with one machine fewer (SW-4881).
+#[test]
+fn a_float_native_forcing_a_glued_call_takes_the_steps_force_does() {
+    with_stack(STACK, || {
+        let mut session = Session::for_stack(STACK);
+        let ok = session.load(
+            "float.sw",
+            "import Std (Float)\n\n\
+             def walk: Nat → Nat → Nat\n  | Zero, y => y\n  | Succ k, y => walk k y\n\n\
+             def slow (y: Nat): Nat := walk 30 y\n\n\
+             def floated (y: Nat): Float := Float.ofNat (slow y)\n",
+        );
+        assert!(ok.is_ok(), "{ok:?}");
+        let g = &session.elab.ev();
+        let body = Term::app(Term::Def(find(g, "floated")), num(7));
+        let run = |never_ask: bool| {
+            let was = value::set_never_ask(never_ask);
+            let glued = g.machine.glue.replace(true);
+            let before = g.machine.budget.total_work();
+            let runs = value::machine_runs();
+            let result =
+                value::force(g, value::eval(g, &[], &body).expect("no limits")).expect("no limits");
+            let steps = g.machine.budget.total_work() - before;
+            let runs = value::machine_runs() - runs;
+            g.machine.glue.set(glued);
+            value::set_never_ask(was);
+            ((shown(g, 0, &result), steps), runs)
+        };
+        let (asking, runs_asking) = run(false);
+        let (forcing, runs_forcing) = run(true);
+        assert_eq!(asking, forcing, "asking, and forcing alone");
+        assert!(
+            runs_asking < runs_forcing,
+            "{runs_asking} machines asking, {runs_forcing} forcing"
+        );
+    });
+}

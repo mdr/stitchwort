@@ -36724,12 +36724,12 @@
     {
       "id": 4881,
       "title": "[Opus] Kernel evaluator: nat_add::reread (rule E) still forces through nested machines when a forced part reaches a branch that rereads; turn its walk (above, walked, unread) into frames; also float::run in unfold_now forces with plain force (SW-4878 findings); Fable soundness review",
-      "status": "doing",
+      "status": "review",
       "agent": "Opus",
       "where": "",
       "labels": [],
       "epic": "elaborator-kernel",
-      "body": "",
+      "body": "Progress (Opus lane, 26 Nov 22:21): done in 40d58c113. Rule E's walk is nat_add::Walk (a step at a time); reread drives it with force/unfold_folded as before, branch drives it on the machine's stack (value::reread_on, NumberOf::Reread, Frame::Reread; unfold_folded is Folded, a step at a time). One segment per machine that was nested before. Steps and normal forms equal the nested path (test a_chain_through_rule_e_computes_and_steps_as_before); 100,000-deep chain checks (was failing between 8,000 and 20,000 on the CLI). float::run now reruns via force_or_ask (Frame::FloatAgain), same-steps test added. Fable review next.",
       "created": "2026-11-26",
       "updated": "2026-11-26",
       "commits": []
