@@ -451,6 +451,7 @@
               # Browser playground: Rust -> WASM
               pkgs.wasm-bindgen-cli
               pkgs.binaryen # wasm-opt
+              pkgs.wabt # wasm-objdump: task stack:wasm reads the frames of the module
 
               # Running and type-checking extracted JS/TS
               pkgs.nodejs_22
