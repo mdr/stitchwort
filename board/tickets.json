@@ -36836,8 +36836,8 @@
     {
       "id": 4888,
       "title": "[DeepSeek] Fuzz oracle 3 false positive: match kernel rejections to diagnostics by location as well as (code, message), or skip rejections the elaborator recovered from (fuzz_elab.rs, BAD_KERNEL_CODES); case 3980 of seed 0x2611260c",
-      "status": "backlog",
-      "agent": "",
+      "status": "doing",
+      "agent": "DeepSeek",
       "where": "",
       "labels": [],
       "epic": "elaborator-kernel",
