@@ -61,7 +61,7 @@ Greeted 2 people
 | `stitchwort check FILE` | Type-checks the file (and its theorems), and prints nothing if all is well. |
 | `stitchwort test FILE` | Checks the file, then runs its tests. Results are cached: a test runs again only when something it depends on changes. |
 | `stitchwort run FILE` | Checks the file, then runs its `main` on the fast runtime, with standard input and output. `--reference` runs it on the type checker's own evaluator, and `--js` compiles it to JavaScript and runs it with Node ([chapter 11](11-running-and-shipping.md)). |
-| `stitchwort fmt FILE…` | Formats files in place, in the house style. `--check` only lists the files that would change. |
+| `stitchwort fmt FILE…` | Formats files in place, in the house style. `--check` only lists the files that would change. A folder is searched recursively, but hidden folders and symlinked folders are skipped. |
 | `stitchwort axioms FILE NAME...` | Lists the axioms a theorem or definition depends on ([chapter 10](10-proofs.md)). |
 | `stitchwort audit FILE` | Checks that the file's theorems can be trusted: no axiom beyond those allowed, nothing unfinished, and hypotheses some input satisfies ([syntax.md](../syntax.md#auditing-theorems-stitchwort-audit)). |
 | `stitchwort search QUERY` | Searches the library's and the project's theorems and definitions by the shape of their type; `--at FILE:LINE` lists what closes a `?` there ([syntax.md](../syntax.md#lemma-search-stitchwort-search)). |
