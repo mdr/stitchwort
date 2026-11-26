@@ -6108,16 +6108,16 @@
     {
       "id": 1951,
       "title": "[DeepSeek] CLI fixes: fmt DIR skips hidden folders (fmt . reformats every lane's checkout), doesn't follow symlinks, writes atomically; check and audit on several files drop each session when done",
-      "status": "backlog",
-      "agent": "",
-      "where": "",
+      "status": "doing",
+      "agent": "DeepSeek",
+      "where": "scratch-sw-1951",
       "labels": [
         "cli"
       ],
       "epic": "diagnostics",
       "body": "From docs/reviews/code-review-cli-lsp-web-fmt.md (lane D). D2731 [rec: yes]. 45 min.\n\nAudit note (22 Nov): Audit 22 Nov: no commit touches it; not re-run (fmt DIR walk).\n",
       "created": "2026-11-07",
-      "updated": "2026-11-22",
+      "updated": "2026-11-26",
       "commits": []
     },
     {
