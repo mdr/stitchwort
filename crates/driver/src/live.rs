@@ -25,7 +25,7 @@ use stitchwort_core::budget::Instant;
 pub use stitchwort_elab::ScopeName;
 use stitchwort_elab::project::{IncludeFiles, NamespaceSyntax, SourceUnit};
 use stitchwort_syntax::{
-    Diagnostic, GoalData, MissingCases, Severity, SourceMap, SuggestedImport,
+    Diagnostic, GoalData, MissingCases, Severity, SourceMap, Span, SuggestedImport,
     parse_module_recovering, parse_namespace_line,
 };
 
@@ -582,9 +582,77 @@ pub struct LiveProject {
     /// [`LiveProject::next_namespace`] made the plan the next step uses:
     /// that step counts as the one that planned.
     planned_ahead: bool,
+    /// Namespaces to leave unchecked: see [`Exhausted`].
+    exhausted: std::sync::Arc<Exhausted>,
+}
+
+/// Namespaces whose check ran the host's own stack out (the playground's
+/// WebAssembly engine, whose limit the checker's stack guard only
+/// estimates, SW-4862). The host recovers with a fresh server, which would
+/// check the same namespace and overflow again, so it names the namespace
+/// here: the server then reports `E-RESOURCE` for it, without checking,
+/// until the text of its files changes.
+#[derive(Default, Debug)]
+pub struct Exhausted(std::sync::Mutex<BTreeMap<String, Option<NamespaceTexts>>>);
+
+/// A namespace's files: (path, text).
+type NamespaceTexts = Vec<(String, String)>;
+
+impl Exhausted {
+    /// `name` overflowed: leave it unchecked, as its files are when it is
+    /// next reached.
+    pub fn insert(&self, name: &str) {
+        self.0
+            .lock()
+            .unwrap_or_else(|e| e.into_inner())
+            .insert(name.to_string(), None);
+    }
+
+    /// Whether `name`, with `files` (path, text), is to be left unchecked.
+    /// The first time a namespace is asked about, its files are remembered;
+    /// when they differ later, the namespace is forgotten.
+    fn skips(&self, name: &str, files: &[(String, String)]) -> bool {
+        let mut map = self.0.lock().unwrap_or_else(|e| e.into_inner());
+        let Some(seen) = map.get_mut(name) else {
+            return false;
+        };
+        match seen {
+            None => {
+                *seen = Some(files.to_vec());
+                true
+            }
+            Some(same) if same == files => true,
+            Some(_) => {
+                map.remove(name);
+                false
+            }
+        }
+    }
+}
+
+/// The diagnostic for a namespace left unchecked ([`Exhausted`]), on the
+/// first line of its first file.
+fn exhausted_diagnostic(span: Option<Span>) -> Diagnostic {
+    let d = Diagnostic::error(
+        "E-RESOURCE",
+        "ran out of resources: the browser's stack ran out while checking this namespace",
+    );
+    let d = match span {
+        Some(span) => d.with_label(span, "the browser ran out of stack here"),
+        None => d,
+    };
+    d.with_note(stitchwort_core::budget::NO_ANSWER).with_note(
+        "the browser's own limit came before the checker's guard; \
+         it isn't checked again until its text changes",
+    )
 }
 
 impl LiveProject {
+    /// Shares `exhausted` with the host, which names namespaces in it.
+    pub fn share_exhausted(&mut self, exhausted: std::sync::Arc<Exhausted>) {
+        self.exhausted = exhausted;
+    }
+
     /// A project called `project` (for display), in `session` (made with
     /// navigation on; the caller sets up its check cache and `include`).
     /// `files` are (path within the project, text). Nothing is checked
@@ -640,6 +708,7 @@ impl LiveProject {
             declared: None,
             names: BTreeMap::new(),
             planned_ahead: false,
+            exhausted: Default::default(),
         }
     }
 
@@ -734,6 +803,7 @@ impl LiveProject {
         let before = self.session.elab.check_cache_stats();
         stitchwort_syntax::stack::probe::take();
         let result = self.step_inner();
+        phases::end();
         let (stack, _) = stitchwort_syntax::stack::probe::take();
         if let Ok(Progress::Checked { .. }) = &result {
             let after = self.session.elab.check_cache_stats();
@@ -802,11 +872,30 @@ impl LiveProject {
         let project = self.project.clone();
         let analysis = self.analysis.as_ref().expect("a plan has an analysis");
         let first = self.env_sizes();
+        let skip = self.exhausted.skips(&name, &files);
         let checked = self.session.cancellable_at(&mark, |s| {
             let began = Instant::now();
             let ns = parse_namespace(s, &project, &name, &files);
             phases::add("parse", began.elapsed());
             let began = Instant::now();
+            if skip {
+                // Never entered, so nothing to leave.
+                let first_line = ns.files.first().map(|id| {
+                    let text = &s.sources.get(*id).text;
+                    Span {
+                        file: *id,
+                        start: 0,
+                        end: text.find('\n').unwrap_or(text.len()) as u32,
+                    }
+                });
+                return (
+                    (
+                        vec![exhausted_diagnostic(first_line)],
+                        crate::project::NamespaceOutcome::Failed,
+                    ),
+                    Vec::new(),
+                );
+            }
             let found = s.check_project_namespace(analysis, &ns);
             crate::project::assert_holds_no_unproved_theorem(s);
             phases::add("check", began.elapsed());
@@ -1338,9 +1427,16 @@ pub struct LiveFile {
     diagnostics: Vec<Diagnostic>,
     /// The names in scope in the file, as last checked.
     names: Vec<ScopeName>,
+    /// The file is left unchecked if named here ([`Exhausted`]), by its name.
+    exhausted: std::sync::Arc<Exhausted>,
 }
 
 impl LiveFile {
+    /// Shares `exhausted` with the host, which names files in it.
+    pub fn share_exhausted(&mut self, exhausted: std::sync::Arc<Exhausted>) {
+        self.exhausted = exhausted;
+    }
+
     pub fn new(
         mut session: Session,
         name: &str,
@@ -1357,6 +1453,7 @@ impl LiveFile {
             dirty: true,
             diagnostics: Vec::new(),
             names: Vec::new(),
+            exhausted: Default::default(),
         }
     }
 
@@ -1385,10 +1482,22 @@ impl LiveFile {
             self.session.include_in_folder(files.clone(), name);
         }
         let (name, text) = (self.name.clone(), self.text.clone());
-        match self
-            .session
-            .cancellable_at(&self.base, |s| s.load_file(&name, &text, None))
-        {
+        phases::begin(&name);
+        let skip = self.exhausted.skips(&name, &[(name.clone(), text.clone())]);
+        let loaded = self.session.cancellable_at(&self.base, |s| {
+            if skip {
+                let id = s.sources.add(name.clone(), text.clone());
+                let first_line = Span {
+                    file: id,
+                    start: 0,
+                    end: text.find('\n').unwrap_or(text.len()) as u32,
+                };
+                return Err(vec![exhausted_diagnostic(Some(first_line))]);
+            }
+            s.load_file(&name, &text, None)
+        });
+        phases::end();
+        match loaded {
             Err(Cancelled) => Err(Cancelled),
             Ok(loaded) => {
                 self.diagnostics = match loaded {
@@ -1668,7 +1777,18 @@ pub mod phases {
         s.current.push_str(name);
     }
 
-    /// The namespace the last step began on.
+    /// The step that began has ended: nothing is being checked, so a crash's
+    /// report doesn't blame the last namespace for work that wasn't its own.
+    pub fn end() {
+        STATE
+            .lock()
+            .unwrap_or_else(|e| e.into_inner())
+            .current
+            .clear();
+    }
+
+    /// The namespace being checked: after a crash, the one that crashed,
+    /// or empty if the crash wasn't in a step.
     pub fn current() -> String {
         STATE
             .lock()

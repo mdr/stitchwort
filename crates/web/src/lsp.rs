@@ -17,6 +17,8 @@ pub struct LanguageServer {
     projects: Arc<Memory>,
     /// The server's [`Options::library`](stitchwort_lsp::Options::library).
     library: Arc<OnceLock<Arc<LibraryBundle>>>,
+    /// The server's [`Options::exhausted`](stitchwort_lsp::Options::exhausted).
+    exhausted: Arc<stitchwort_driver::live::Exhausted>,
 }
 
 #[wasm_bindgen]
@@ -27,11 +29,21 @@ impl LanguageServer {
         let projects = Arc::new(Memory::default());
         let options = options();
         let library = options.library.clone();
+        let exhausted = options.exhausted.clone();
         Ok(LanguageServer {
             inner: stitchwort_lsp::Inline::new(options, projects.clone())?,
             projects,
             library,
+            exhausted,
         })
+    }
+
+    /// The engine's stack ran out checking namespace `name` in an earlier
+    /// instance (`checking_namespace`, read after the crash): this server
+    /// reports `E-RESOURCE` for it instead of checking it, until its text
+    /// changes. Call before the project is added.
+    pub fn mark_exhausted(&self, name: &str) {
+        self.exhausted.insert(name);
     }
 
     /// Reads the standard library's check cache (`pkg/std.cache.gz`, decompressed by the worker; made by

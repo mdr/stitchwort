@@ -25,7 +25,7 @@
 // is then read from memory (`LanguageServer::add_project`), for documents
 // opened under its root, as file:///playground/aoc/src/…. {setFile: {root,
 // path, text}} gives one of its files other text (`set_project_file`).
-import { applyStackGuard, libraryCacheFile } from "./stack-guard.js";
+import { applyStackGuard, isStackOverflow, libraryCacheFile } from "./stack-guard.js";
 import init, { checking_namespace, load_std, stack_reached, std_source, set_stack_guard, LanguageServer } from "./pkg/stitchwort_web.js";
 
 let server = null;
@@ -156,6 +156,21 @@ function send(array) {
   }
 }
 
+// A call into the server ended in the engine's stack running out
+// (stack-guard.js, SW-4862): the instance can't be used again, so the page is
+// told, with the namespace (or file) that was being checked, and it replaces
+// this worker with a new one that leaves that namespace unchecked, reporting
+// E-RESOURCE for it, until its text changes. Nothing more is done here.
+let overflowed = false;
+function overflow(e, during) {
+  overflowed = true;
+  // Only a step names what it checks (empty otherwise: a request such as a
+  // hover that overflowed is not tied to a namespace).
+  let checking = "";
+  try { checking = checking_namespace(); } catch { /* the instance is unusable */ }
+  postMessage({ overflow: { checking, during, error: String(e) } });
+}
+
 // For a crash's report: the namespace being checked, and how deep the
 // WebAssembly stack got (in a build with STITCHWORT_STACK_PROBE). Never
 // throws, so the crash itself is always reported.
@@ -181,9 +196,11 @@ function tick() {
   const t = performance.now();
   const gap = lastTickEnd === null ? 0 : t - lastTickEnd;
   let answer;
+  if (overflowed) return;
   try {
     answer = JSON.parse(server.tick());
   } catch (e) {
+    if (isStackOverflow(e)) return overflow(e, "tick");
     postMessage({ crashed: String(e) + "\n" + (e?.stack ?? "").split("\n").slice(0, 12).join("\n"), ...crashInfo() });
     return;
   }
@@ -227,6 +244,12 @@ async function handle(data) {
     postMessage({ stdSource: data.stdSource, text: std_source(data.stdSource) });
     return;
   }
+  if (data.exhausted !== undefined) {
+    // Namespaces (or files) an earlier worker overflowed on. Before the
+    // project is added, which reads them.
+    server.mark_exhausted(data.exhausted);
+    return;
+  }
   if (data.project !== undefined) {
     await libraryCache;
     loadProject(data.project);
@@ -246,10 +269,12 @@ async function handle(data) {
   const t = performance.now();
   const method = JSON.parse(data).method;
   if (STALE.has(method)) editsRead++;
+  if (overflowed) return;
   try {
     send(server.receive(data));
     takeSearches();
   } catch (e) {
+    if (isStackOverflow(e)) return overflow(e, "receive");
     postMessage({ crashed: String(e) + "\n" + (e?.stack ?? "").split("\n").slice(0, 12).join("\n"), ...crashInfo() });
     return;
   }
@@ -265,5 +290,5 @@ onmessage = ({ data }) => {
     begin(data.init);
     return;
   }
-  chain = chain.then(() => handle(data)).catch((e) => postMessage({ crashed: String(e) }));
+  chain = chain.then(() => handle(data)).catch((e) => (isStackOverflow(e) ? overflow(e, "message") : postMessage({ crashed: String(e) })));
 };

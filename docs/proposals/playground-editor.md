@@ -681,6 +681,32 @@ under, so a second file (about 2.5 MB more to host) is the safe choice.
 Files that need more than 192 KiB (the deepest AoC proofs) fail in Safari
 with `E-RESOURCE` where they pass elsewhere.
 
+**When the engine's stack runs out first (SW-4862, D3750).** The guards
+count the WebAssembly's own stack, but the engine runs out of its native
+stack sooner on some real proofs (Chrome, checking
+`Aoc.Year2020.Day05.Proofs`, at about 268 KiB of wasm stack under a 320 KiB
+guard), and the engine's tier decides how much room there is, so no guard is
+exact. The workers therefore also catch the overflow itself
+(`isStackOverflow` in `web/stack-guard.js`: a `RangeError` or `InternalError`
+about the call stack or too much recursion, whichever engine's words). The
+instance can't be used afterwards (its Rust state is left borrowed), so
+`lsp-worker.js` tells the page which namespace, or file on its own, it was
+checking (`checking_namespace`, empty unless the overflow was inside a
+check) and stops. The page starts a new worker as after a crash (it replays
+the projects and the client reopens the documents), but tells it first
+(`LanguageServer::mark_exhausted`): that namespace is not checked, and
+`E-RESOURCE` ("ran out of resources: the browser's stack ran out…") is
+published on the first line of its first file instead, until the text of its
+files changes (`Exhausted` in `crates/driver/src/live.rs`), so the server
+doesn't overflow in a loop; the page re-tells every later worker. This is
+not counted as a crash. The namespaces after it are checked without its
+declarations, so ones that use it report errors of their own. An overflow
+in a request rather than a check (a hover that loads namespaces) names
+nothing, and restarts the server as a crash does. The search worker answers
+the search with nothing and is replaced; the page's own Check, Tests and Run
+(`playground-worker.js`) reply with the overflow flagged, and the page shows
+the `E-RESOURCE` text and starts a fresh worker.
+
 **Next:**
 
 - The page's own Check, Tests, Evaluate and Run (`playground-worker.js`,

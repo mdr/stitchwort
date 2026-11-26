@@ -115,6 +115,10 @@ pub struct Options {
     /// Read when a project or file is loaded, so a host may set it after
     /// starting the server (the playground fetches it meanwhile).
     pub library: Arc<std::sync::OnceLock<Arc<LibraryBundle>>>,
+    /// Namespaces the host's own stack ran out on (the browser's engine,
+    /// SW-4862): projects loaded later leave them unchecked, reporting
+    /// `E-RESOURCE`, until their text changes.
+    pub exhausted: Arc<stitchwort_driver::live::Exhausted>,
     /// For tests: every namespace entry a project's in-memory check cache
     /// (the one used with `library`) is asked for, and whether it had it.
     #[doc(hidden)]
@@ -508,6 +512,7 @@ impl Options {
             search_wanted: 3,
             search_time: Duration::from_secs(5),
             library: Arc::default(),
+            exhausted: Arc::default(),
             namespace_log: None,
             settings: Arc::default(),
             refresh_tokens: false,
@@ -4724,7 +4729,8 @@ impl Checker {
             .and_then(|name| Some((self.source.files(folder).include_files()?, name.to_string())));
         let name = path.to_string_lossy().into_owned();
         let text = self.source.read(path).unwrap_or_default();
-        let live = LiveFile::new(session, &name, text, include);
+        let mut live = LiveFile::new(session, &name, text, include);
+        live.share_exhausted(self.options.exhausted.clone());
         self.work
             .insert(path.to_path_buf(), Work::File(Box::new(live)));
     }
@@ -4789,7 +4795,9 @@ impl Checker {
         if let Some(include) = self.source.files(dir).include_files() {
             session.include_from(include);
         }
-        let live = LiveProject::new_except(session, &name, project.config, project.files, &skip);
+        let mut live =
+            LiveProject::new_except(session, &name, project.config, project.files, &skip);
+        live.share_exhausted(self.options.exhausted.clone());
         Some(ProjectWork {
             live,
             sources: project

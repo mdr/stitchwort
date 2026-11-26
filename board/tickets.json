@@ -36397,12 +36397,12 @@
     {
       "id": 4862,
       "title": "[Sonnet] Playground: catch the engine's stack overflow (RangeError) in the language-server and playground workers, restart the worker, and report E-RESOURCE ('ran out of resources') on the namespace or file instead of crashing; keep the per-engine guards (D3750)",
-      "status": "doing",
+      "status": "review",
       "agent": "Sonnet",
       "where": "",
       "labels": [],
       "epic": "editor-playground",
-      "body": "D3750 (Matt, 17:35 26 Nov): catch the overflow regardless and report out of resources.",
+      "body": "D3750 (Matt, 17:35 26 Nov): catch the overflow regardless and report out of resources.\n\nDone on lane/SW-4862 (6d1ad288f): workers catch the engine's stack overflow (isStackOverflow in web/stack-guard.js); the language server reports the namespace/file to the page, which starts a new worker told to leave it unchecked (Exhausted in crates/driver/src/live.rs, LanguageServer::mark_exhausted), publishing E-RESOURCE until its text changes. Browser test added; full web/test.sh 103/103 passed; F2 test passes (203 s, two real overflows: Day05.Proofs and 2024 Day22.Proofs, each re-checks the project in a new worker).",
       "created": "2026-11-26",
       "updated": "2026-11-26",
       "commits": []
