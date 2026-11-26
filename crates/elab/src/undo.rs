@@ -172,30 +172,41 @@ pub(crate) fn attempt<T>(cx: &mut Ctx, f: impl FnOnce(&mut Ctx) -> Result<T>) ->
 }
 
 /// Whether `a` and `b` unify; if they don't, nothing is solved.
+#[track_caller]
 pub(crate) fn unify(cx: &mut Ctx, a: &Value, b: &Value) -> Result<bool> {
-    Ok(transaction(cx, |cx| Ok(cx.unify(a, b)?.then_some(())))?.is_some())
+    let at = std::panic::Location::caller();
+    Ok(transaction(cx, |cx| {
+        Ok(crate::unify::unify_at(&cx.u(), cx.level(), a, b, at)?.then_some(()))
+    })?
+    .is_some())
 }
 
 /// [`crate::unify::unify_solving_arguments`], undoing what it solved if it fails.
+#[track_caller]
 pub(crate) fn unify_solving_arguments(cx: &mut Ctx, a: &Value, b: &Value) -> Result<bool> {
+    let at = std::panic::Location::caller();
     Ok(transaction(cx, |cx| {
-        Ok(crate::unify::unify_solving_arguments(&cx.u(), cx.level(), a, b)?.then_some(()))
+        Ok(crate::unify::unify_solving_arguments_at(&cx.u(), cx.level(), a, b, at)?.then_some(()))
     })?
     .is_some())
 }
 
 /// [`crate::unify::unify_abstracting`], undoing what it solved if it fails.
+#[track_caller]
 pub(crate) fn unify_abstracting(cx: &mut Ctx, a: &Value, b: &Value) -> Result<bool> {
+    let at = std::panic::Location::caller();
     Ok(transaction(cx, |cx| {
-        Ok(crate::unify::unify_abstracting(&cx.u(), cx.level(), a, b)?.then_some(()))
+        Ok(crate::unify::unify_abstracting(&cx.u(), cx.level(), a, b, at)?.then_some(()))
     })?
     .is_some())
 }
 
 /// [`crate::unify::unify_by_unknown_arguments`], undoing what it solved if it fails.
+#[track_caller]
 pub(crate) fn unify_by_unknown_arguments(cx: &mut Ctx, a: &Value, b: &Value) -> Result<bool> {
+    let at = std::panic::Location::caller();
     Ok(transaction(cx, |cx| {
-        Ok(crate::unify::unify_by_unknown_arguments(&cx.u(), cx.level(), a, b)?.then_some(()))
+        Ok(crate::unify::unify_by_unknown_arguments(&cx.u(), cx.level(), a, b, at)?.then_some(()))
     })?
     .is_some())
 }

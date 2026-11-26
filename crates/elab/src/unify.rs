@@ -64,9 +64,21 @@ impl<'a> std::ops::Deref for Unifier<'a> {
 /// `undo::transaction`.
 #[track_caller]
 pub(crate) fn unify(g: &Unifier<'_>, level: usize, a: &Value, b: &Value) -> Result<bool> {
+    unify_at(g, level, a, b, std::panic::Location::caller())
+}
+
+/// [`unify`] with the location to count it at: for a wrapper that reaches
+/// this through a closure, which would otherwise name the closure's line.
+pub(crate) fn unify_at(
+    g: &Unifier<'_>,
+    level: usize,
+    a: &Value,
+    b: &Value,
+    at: &'static std::panic::Location<'static>,
+) -> Result<bool> {
     let same = unify_in(g, level, a, b)?;
     if proof_counts::on() && both_proofs(g, a, b)? {
-        proof_counts::record_caller(g, "unify", std::panic::Location::caller(), !same);
+        proof_counts::record_caller(g, "unify", at, !same);
     }
     Ok(same)
 }
@@ -640,15 +652,28 @@ pub(crate) fn solved_lossily(g: &Unifier<'_>, m: usize) -> bool {
 /// rather than compared by their unfoldings. `List.sumBy xs ?f` with an
 /// unknown `Add` dictionary unfolds to a fold stuck on that dictionary, so
 /// only its arguments can say `?f` is the function `List.sumBy xs g` has.
+#[track_caller]
 pub(crate) fn unify_solving_arguments(
     g: &Unifier<'_>,
     level: usize,
     a: &Value,
     b: &Value,
 ) -> Result<bool> {
+    unify_solving_arguments_at(g, level, a, b, std::panic::Location::caller())
+}
+
+/// [`unify_solving_arguments`] with the location to count it at, for a
+/// caller that reaches this through a closure.
+pub(crate) fn unify_solving_arguments_at(
+    g: &Unifier<'_>,
+    level: usize,
+    a: &Value,
+    b: &Value,
+    at: &'static std::panic::Location<'static>,
+) -> Result<bool> {
     let _solving = ScopedCell::set(&g.attempt.solving_arguments, true);
     let _memo = Scoped::set(&g.attempt.call_memo, None);
-    unify(g, level, a, b)
+    unify_at(g, level, a, b, at)
 }
 
 /// Whether `a` and `b`, two calls of the same definition, are equal by
@@ -662,12 +687,14 @@ pub(crate) fn unify_solving_arguments(
 /// Nothing is solved if it fails, or if making the arguments equal would
 /// solve any other unknown (a helper's, inside a function argument, say):
 /// [`unify_solving_arguments`] in general can choose a solution that a
-/// later comparison rejects where the unfoldings would have agreed.
+/// later comparison rejects where the unfoldings would have agreed. `at` is
+/// where its comparison is counted, passed by the wrapper that asked for it.
 pub(crate) fn unify_by_unknown_arguments(
     g: &Unifier<'_>,
     level: usize,
     a: &Value,
     b: &Value,
+    at: &'static std::panic::Location<'static>,
 ) -> Result<bool> {
     let (Value::Call(i1, s1, _), Value::Call(i2, s2, _)) = (a, b) else {
         return Ok(false);
@@ -766,7 +793,7 @@ pub(crate) fn unify_by_unknown_arguments(
         return Ok(false);
     }
     let trail = g.store.meta_trail.borrow().len();
-    let same = unify_solving_arguments(g, level, a, b)?;
+    let same = unify_solving_arguments_at(g, level, a, b, at)?;
     let only_whole = g.store.meta_trail.borrow()[trail..]
         .iter()
         .all(|(m, _)| whole.contains(m));
@@ -858,6 +885,7 @@ pub(crate) fn eta_contract(g: &Ev, t: &Term) -> Result<Option<Term>> {
 /// `match` or local definition not lifted yet) is taken as equal to
 /// whatever it is compared with. If that succeeds, the comparison holds only
 /// once the helpers are lifted: the caller compares again then.
+#[track_caller]
 pub(crate) fn unify_awaiting_helpers(
     g: &Unifier<'_>,
     level: usize,
@@ -895,6 +923,7 @@ pub struct RowConstraint {
 /// aside rather than failing: the constraints put aside, if it succeeds.
 /// The caller keeps them and retries them later; the term is well typed once
 /// they're solved.
+#[track_caller]
 pub(crate) fn unify_postponing(
     g: &Unifier<'_>,
     level: usize,
@@ -3513,11 +3542,12 @@ pub(crate) fn unify_abstracting(
     level: usize,
     a: &Value,
     b: &Value,
+    at: &'static std::panic::Location<'static>,
 ) -> Result<bool> {
     let _abstracting = ScopedCell::set(&g.attempt.abstracting, true);
     let _solving = ScopedCell::set(&g.attempt.solving_arguments, true);
     let _memo = Scoped::set(&g.attempt.call_memo, None);
-    unify(g, level, a, b)
+    unify_at(g, level, a, b, at)
 }
 
 /// Whether data type `d` has exactly one value: one constructor, without
