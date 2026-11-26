@@ -36456,15 +36456,19 @@
     {
       "id": 4866,
       "title": "[Sonnet] Drop for Value and Term recurses with no guard (120 levels in Day16.Proofs): make it a loop (SW-4863 step 5)",
-      "status": "review",
+      "status": "done",
       "agent": "Sonnet",
       "where": "",
       "labels": [],
       "epic": "elaborator-kernel",
-      "body": "",
+      "body": "Value drop was already a hybrid (recursive to NESTING_LIMIT 128, then a loop); limit now 8. Term already iterative. Allocation counts not checked against the bench baseline (SW-4864 is bisecting it). Model result: sonnet, worked, 12 min (est. 45).",
       "created": "2026-11-26",
       "updated": "2026-11-26",
-      "commits": []
+      "commits": [
+        "9868c1188",
+        "0b446971b",
+        "1d236776f"
+      ]
     },
     {
       "id": 4867,
