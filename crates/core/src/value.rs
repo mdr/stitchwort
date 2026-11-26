@@ -205,11 +205,13 @@ impl Drop for DataArgs {
 }
 
 /// How many [`Shared`], [`DataArgs`], [`Values`] and [`Spine`] drops are
-/// running inside one another on this thread. A level takes between 256 and 512 bytes of stack (a limit
-/// of 512 passes the tests on their 256 KB stack, 1024 overflows it), so 128
-/// uses at most about 64 KB: the tests have a factor of four to spare, and a
-/// drop started deep in the checker has room.
-const NESTING_LIMIT: usize = 128;
+/// running inside one another on this thread. A level takes between 256 and
+/// 512 bytes of stack natively and about ten times its wasm stack in a
+/// browser's first tier (SW-4863: 120 levels were the peak of one proof), so
+/// the recursion is kept to a few levels: shallow values, nearly all of
+/// them, still drop the cheap default way, and anything deeper is freed by
+/// the loop in constant stack.
+const NESTING_LIMIT: usize = 8;
 
 thread_local! {
     static NESTING: std::cell::Cell<usize> = const { std::cell::Cell::new(0) };
@@ -7156,6 +7158,24 @@ mod tests {
     }
 
     const DEEP: usize = 1_000_000;
+
+    /// A value a thousand levels deep drops on 16 KiB: the recursive part
+    /// of a drop is held to a handful of levels (SW-4866).
+    #[test]
+    fn freeing_a_moderately_deep_value_takes_little_stack() {
+        std::thread::Builder::new()
+            .stack_size(16 * 1024)
+            .spawn(|| {
+                let mut value = Value::Data(DataId(0), DataArgs::default());
+                for _ in 0..1000 {
+                    value = Value::Data(DataId(0), vec![value].into());
+                }
+                drop(value);
+            })
+            .unwrap()
+            .join()
+            .unwrap();
+    }
 
     #[test]
     fn freeing_deep_data_arguments_does_not_overflow_the_stack() {
