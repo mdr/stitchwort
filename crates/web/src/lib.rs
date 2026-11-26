@@ -48,14 +48,39 @@ fn session_limits() -> stitchwort_core::Limits {
     l
 }
 
-/// The stack guard in WebAssembly (`STITCHWORT_GUARD`, set by `build.rs`).
-/// Native builds (tests) have none, and the language server's sessions there
-/// get 256 KiB, which their 2 MiB test threads have room for.
+/// The stack guard in WebAssembly: the one the page set with
+/// [`set_stack_guard`], else `STITCHWORT_GUARD` (set by `build.rs`). Native
+/// builds (tests) have none, and the language server's sessions there get
+/// 256 KiB, which their 2 MiB test threads have room for.
 fn guard() -> usize {
-    env!("STITCHWORT_GUARD").parse().unwrap_or(256 * 1024)
+    GUARD
+        .with(std::cell::Cell::get)
+        .or_else(|| env!("STITCHWORT_GUARD").parse().ok())
+        .unwrap_or(256 * 1024)
+}
+
+/// Sets the stack guard this worker's sessions run with, for an engine whose
+/// stack is smaller than the build's guard assumes (`web/stack-guard.js`
+/// picks it by browser). Call it once, after the module is initialised and
+/// before the first session, language server or library cache is made: those
+/// read it when they are created. `false`, and no change, if one has (the
+/// guard is part of the check cache's keys, so the cache the page loads must
+/// be the one made for the guard it sets).
+#[wasm_bindgen]
+pub fn set_stack_guard(bytes: usize) -> bool {
+    if GUARD_READ.with(std::cell::Cell::get) {
+        return false;
+    }
+    GUARD.with(|g| g.set(Some(bytes)));
+    true
 }
 
 thread_local! {
+    /// The guard [`set_stack_guard`] gave, if it was called.
+    static GUARD: std::cell::Cell<Option<usize>> = const { std::cell::Cell::new(None) };
+    /// Whether the language server's options have been made from the guard,
+    /// which fixes it.
+    static GUARD_READ: std::cell::Cell<bool> = const { std::cell::Cell::new(false) };
     /// The options of the language server's sessions in this worker, which
     /// the page's own sessions share: see [`new_session`].
     static SHARED: stitchwort_lsp::Options = lsp::options();
@@ -856,6 +881,16 @@ fn json_string(text: &str) -> String {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn the_page_sets_the_guard_once_before_the_server_reads_it() {
+        assert_eq!(guard(), 256 * 1024);
+        assert!(set_stack_guard(192 * 1024));
+        assert_eq!(guard(), 192 * 1024);
+        assert_eq!(lsp::options().stack, 192 * 1024 + 256 * 1024);
+        assert!(!set_stack_guard(320 * 1024));
+        assert_eq!(guard(), 192 * 1024);
+    }
 
     #[test]
     fn serves_library_text() {

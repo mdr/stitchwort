@@ -17,6 +17,8 @@
 // come from the same page load as the worker (see index.html). They're
 // imported in the handler: `onmessage` must be set before the first message
 // arrives, which a top-level `await` would delay.
+import { applyStackGuard, libraryCacheFile } from "./stack-guard.js";
+
 let bindings = null;
 let ready = null;
 // The standard library's files, fetched beside the WebAssembly (pkg/std.bundle,
@@ -96,13 +98,13 @@ self.onmessage = async ({ data }) => {
   try {
     bindings ??= import(`./pkg/stitchwort_web.js${self.location.search}`);
     const b = await bindings;
-    ready ??= b.default({ module_or_path: data.module });
+    ready ??= b.default({ module_or_path: data.module }).then(() => applyStackGuard(b));
     await ready;
     stdLoaded ??= fetch(`./pkg/std.bundle${self.location.search}`)
       .then((r) => { if (!r.ok) throw new Error(`std.bundle: HTTP ${r.status}`); return r.arrayBuffer(); })
       .then(async (bytes) => {
         b.load_std(new Uint8Array(bytes));
-        const cache = await fetch(`./pkg/std.cache.gz${self.location.search}`)
+        const cache = await fetch(`./pkg/${libraryCacheFile()}${self.location.search}`)
           .then((r) => (r.ok ? new Response(r.body.pipeThrough(new DecompressionStream("gzip"))).arrayBuffer() : null))
           .catch(() => null);
         if (cache) b.load_library_cache(new Uint8Array(cache));

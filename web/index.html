@@ -977,11 +977,14 @@ export def area: Shape -> Nat
   class InPage {
     broken = null;
     stdLoaded = null;
+    guarded = null;
     async call(request, seconds, onOutput) {
       if (this.broken) return { crashed: true, error: this.broken, inPage: true };
       try {
         const compiler = await import(`./pkg/stitchwort_web.js${LOAD}`);
         await compiler.default({ module_or_path: await wasm });
+        this.guarded ??= import(`./stack-guard.js${LOAD}`).then((g) => g.applyStackGuard(compiler));
+        await this.guarded;
         this.stdLoaded ??= fetch(new URL(`pkg/std.bundle${LOAD}`, import.meta.url))
           .then((r) => { if (!r.ok) throw new Error(`std.bundle: HTTP ${r.status}`); return r.arrayBuffer(); })
           .then((bytes) => compiler.load_std(new Uint8Array(bytes)));

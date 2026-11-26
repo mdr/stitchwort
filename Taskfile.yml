@@ -1110,6 +1110,7 @@ tasks:
       - web/bundle-std-cache.mjs
       - web/write-version.sh
       - web/playground-worker.js
+      - web/stack-guard.js
       - aoc/stitchwort.yaml
       - aoc/src/**/*.sw
       - aoc/examples/[0-9][0-9][0-9][0-9]/*.txt
@@ -1125,6 +1126,7 @@ tasks:
       - web/pkg/stitchwort_web.js
       - web/pkg/std.bundle
       - web/pkg/std.cache.gz
+      - web/pkg/std.cache.webkit.gz
       - web/pkg/version.json
       - web/pkg/projects/aoc/manifest.json
       - web/pkg/projects/rogue/manifest.json
