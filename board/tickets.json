@@ -36862,15 +36862,18 @@
     {
       "id": 4890,
       "title": "[DeepSeek] Nesting limits differ: the CLI's 64 MiB thread stack (crates/cli/src/main.rs ~1130) caps nesting at ~6,000 levels natively while the browser with SW-4870's chain checked 14,000; and docs/testing.md should say deep-nesting tests need Session::for_stack (SW-4885 findings). Docs only, plus a note of the CLI figure in docs/proposals/deep-input.md if it lists limits",
-      "status": "doing",
+      "status": "done",
       "agent": "DeepSeek",
       "where": "scratch-sw-4890",
       "labels": [],
       "epic": "docs-tutorials",
-      "body": "",
+      "body": "Model result: deepseek, worked, 6 min (est. 20).",
       "created": "2026-11-26",
       "updated": "2026-11-26",
-      "commits": []
+      "commits": [
+        "db5b49115",
+        "5b3615d60"
+      ]
     }
   ]
 }
