@@ -511,6 +511,42 @@ fn with_deep_type(depth: usize) -> (Session, DefId) {
     (session, id)
 }
 
+/// A hover's type, as deep as a value is (`Nat.iterate 2000 f x`), is
+/// printed only as far as the text it may be (SW-4868): the playground's
+/// stack is far smaller than the depth of the term.
+#[test]
+fn hover_prints_only_what_it_shows() {
+    isolated("hover_prints_only_what_it_shows", || {
+        let (session, _) = with_deep_definition(1);
+        let g = &session.elab.ev();
+        let f = DefId(
+            g.env
+                .defs()
+                .iter()
+                .position(|d| &**d.name() == "f")
+                .unwrap(),
+        );
+        let deep = deep_term(Term::Def(f), Term::Var(0), 100_000);
+        // Natively the stack guard would stop a print that goes this deep
+        // too; in the browser it doesn't (the engine's stack is not the
+        // one it measures), so the printer's own bound is what keeps it off
+        // the end there, and this checks what it shows.
+        let text = {
+            let _op = g.machine.budget.operation(Limits::default());
+            pretty::term_shortened(g, &["x".into()], &deep)
+        };
+        assert!(text.contains('…'), "{text}");
+        assert!(text.chars().count() <= 241, "{}", text.chars().count());
+        // A term that fits is written in full.
+        let small = deep_term(Term::Def(f), Term::Var(0), 3);
+        let _op = g.machine.budget.operation(Limits::default());
+        assert_eq!(
+            pretty::term_shortened(g, &["x".into()], &small),
+            "f (f (f x))"
+        );
+    });
+}
+
 /// Terms built directly, for the passes after the elaborator: each would
 /// otherwise only see what the passes before it could handle.
 #[test]

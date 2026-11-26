@@ -119,6 +119,14 @@ pub fn term(g: &Ev, names: &[Name], term: &Term) -> String {
     })
 }
 
+/// [`term`], shortened to the length a message may have, and only as deep
+/// as that: for hovers, whose terms may be as nested as a value is.
+pub fn term_shortened(g: &Ev, names: &[Name], term: &Term) -> String {
+    with_operation(g, || {
+        term_within(g, None, names, term, MESSAGE_LIMIT, Prec::Arrow, None)
+    })
+}
+
 /// [`term`], writing decided equations as `a == b` and `a != b` as a goal
 /// does, by what `decider` ([`NameScope::eq_decision`]) says `==` decides
 /// them by; names are written in full, as [`term`] does. For a statement
@@ -172,7 +180,14 @@ pub fn term_not_unfolded(g: &Ev, names: &[Name], term: &Term) -> String {
         let mut names = names.to_vec();
         let printer = Printer::new(g, None);
         printer.unfold_not.set(true);
-        printer.print(&mut names, term, Prec::Arrow)
+        printer.max_depth.set(Some(MESSAGE_LIMIT));
+        let text = printer.print(&mut names, term, Prec::Arrow);
+        if text.chars().count() <= MESSAGE_LIMIT {
+            return text;
+        }
+        let mut text: String = text.chars().take(MESSAGE_LIMIT).collect();
+        text.push('…');
+        text
     })
 }
 
@@ -718,17 +733,28 @@ fn term_within(
     // (a closed list of 130,000 sequences, AoC 2024 day 22) takes minutes
     // and gigabytes; one this big is longer than `limit` anyway.
     let too_big = !full_terms && term_.subterms().nth(FULL_PRINT_NODES).is_some();
+    // Every printed level of nesting writes at least a character, so a
+    // term nested `limit` levels deep can't fit: the print stops there
+    // instead of going as deep as the term does (a stack of a thousand
+    // calls, in the playground's small one).
     let full = if too_big {
         None
     } else {
         let mut ns = names.to_vec();
-        Some(printer().print(&mut ns, term_, prec))
+        let printer = printer();
+        if !full_terms {
+            printer.max_depth.set(Some(limit));
+        }
+        let text = printer.print(&mut ns, term_, prec);
+        Some((text, printer.cut.get()))
     };
-    if let Some(full) = &full
+    if let Some((full, cut)) = &full
+        && !cut
         && (full.chars().count() <= limit || full_terms)
     {
         return full.clone();
     }
+    let full = full.map(|(text, _)| text);
     // Reprint with less and less depth until it fits.
     for depth in (1..=10).rev() {
         let mut ns = names.to_vec();
@@ -803,6 +829,8 @@ struct Printer<'g> {
     elided: Cell<bool>,
     /// For messages: parts nested deeper than this are shown as `…`.
     max_depth: Cell<Option<usize>>,
+    /// Whether `max_depth` cut something off.
+    cut: Cell<bool>,
     depth: Cell<usize>,
     /// Show the arguments the compiler fills in, `f [x] [auto p] y`.
     show_hidden: Cell<bool>,
@@ -836,6 +864,7 @@ impl<'g> Printer<'g> {
             g,
             elided: Cell::new(false),
             max_depth: Cell::new(None),
+            cut: Cell::new(false),
             depth: Cell::new(0),
             show_hidden: Cell::new(false),
             ascii: Cell::new(false),
@@ -990,6 +1019,7 @@ impl<'g> Printer<'g> {
         }
         let depth = self.depth.get();
         if self.max_depth.get().is_some_and(|m| depth >= m) && !is_atomic(term) {
+            self.cut.set(true);
             return ("…".into(), Prec::Atom);
         }
         self.depth.set(depth + 1);

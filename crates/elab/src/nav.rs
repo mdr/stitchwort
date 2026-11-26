@@ -2536,7 +2536,7 @@ fn not_unfolded(g: &Ev, names: &[Name], ty: &Term) -> Option<String> {
     let mut ty = ty.clone();
     while let Term::Pi(name, icit, dom, cod, _) = ty.strip_loc() {
         if !name.starts_with('%') {
-            let shown = pretty::term(g, &names, dom);
+            let shown = pretty::term_shortened(g, &names, dom);
             parts.push(match icit {
                 Icit::Explicit => format!("({name}: {shown})"),
                 Icit::Auto => format!("[auto {name}: {shown}]"),
