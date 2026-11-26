@@ -26,6 +26,8 @@ const WASM_STACK: usize = 8 * 1024 * 1024;
 /// all but two AoC days (256 KiB also failed 2021 days 6 and 11, and 2024
 /// day 16; 384 KiB passes no more). The two left then needed more than a
 /// safe guard allows: 2024 day 13 about 500 KiB, and day 22 about 2.3 MiB.
+/// SW-4857's Day05 and Day22 figures measured the hover-text printer
+/// (navigation), not checking (SW-4863).
 /// Since, their deepest recursions take less stack (SW-3132, SW-3133,
 /// SW-3174): a native build, whose frames are larger, peaks at about 245
 /// KiB on day 13 and 155 KiB on day 22 (not yet measured in the browser).

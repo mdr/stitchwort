@@ -1,5 +1,9 @@
 # SW-4857: the playground's stack guard against real proofs
 
+> **Note (26 Nov 2026):** [SW-4863](SW-4863-playground-stack-end-state.md) found that the Day05 and
+> Day22 rows below measured the hover-text printer (navigation), not checking, and that this note's
+> 192 KiB guard proposal for Chrome is not the path taken.
+
 Measured 26 Nov 2026 (Sonnet lane), headless Chrome 158 and Firefox 160 on macOS. Safari could not be run
 headless here, so WebKit has only the nested-applications figure (SW-4849).
 

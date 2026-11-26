@@ -462,7 +462,7 @@ tasks:
       - 'echo "test:areas is retired (dev/t is gone): use task test:affected (dev/test-affected; docs/testing.md)" >&2; exit 1'
 
   test:browser:
-    desc: Build the playground, then test it in headless Chrome (web/test.sh; about 35 s)
+    desc: Build the playground, then test it in headless Chrome (web/test.sh; about 13 min, 26 Nov 2026)
     cmds:
       - ./web/test.sh {{.CLI_ARGS}}
 
