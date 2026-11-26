@@ -7,7 +7,7 @@ const { execFileSync } = require('child_process');
 const links = require('./links');
 
 const STATUSES = ['backlog', 'next', 'doing', 'review', 'done'];
-const AGENTS = ['', 'Opus', 'Sonnet', 'DeepSeek', 'GLM', 'Matt', 'Claude'];
+const AGENTS = ['', 'Fable', 'Opus', 'Sonnet', 'DeepSeek', 'GLM', 'Matt', 'Claude'];
 const KEY_ORDER = ['id', 'title', 'status', 'agent', 'where', 'labels', 'epic', 'body', 'created', 'updated', 'commits'];
 const EPIC_STATUSES = ['active', 'paused', 'waiting-on-matt', 'done'];
 

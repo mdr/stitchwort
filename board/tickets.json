@@ -36406,7 +36406,7 @@
       "id": 4863,
       "title": "[Fable] Playground stack, end state: why real proofs need so much stack in WebAssembly (2020 day 5 314 KiB, 2024 day 22 604 KiB, 2021 day 11 317), what the checker should do differently, and the best end state (frame sizes, explicit work lists for the deep walks, engine stack switching, anything else), with measurements; not only the cheapest change (D3750; SW-4857)",
       "status": "doing",
-      "agent": "Opus",
+      "agent": "Fable",
       "where": "",
       "labels": [],
       "epic": "editor-playground",
