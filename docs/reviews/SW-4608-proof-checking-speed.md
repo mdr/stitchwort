@@ -41,6 +41,67 @@ slice 1 formatter theorems (SW-4537), the per-theorem times are of the same orde
 per-file times and a few times Rocq's, but that comparison is loose (section 4). The
 resolution is "a few times slower than Lean, more than that behind Rocq", not a number.
 
+## How to rerun
+
+Commands as the runs and scripts in this repository use them; where the exact
+shell or file was not recorded, it says so. Run from the repository root unless
+a command says otherwise.
+
+**Nix shells.** Lean (the AoC bench's 4.34.1) and hyperfine are in
+`nix develop .#compare` (`flake.nix`, `bench/compare/lean-proofs/README.md`).
+Lean from nixpkgs (4.35.0, the slice 1 files) is `nix shell nixpkgs#lean4`
+(`docs/reviews/SW-4537-lean-rocq-sample.md`). Rocq with its standard library:
+
+    STD=$(nix build --no-link --print-out-paths nixpkgs#rocqPackages.stdlib)
+    nix shell nixpkgs#rocq-core -c rocq compile -R "$STD/lib/coq/9.1/user-contrib/Stdlib" Stdlib FILE.v
+
+The shell that had hyperfine and nixpkgs' Lean 4.35.0 (or Rocq) together on
+`PATH` for the slice 1 runs is **not recorded**; `.#compare`'s hyperfine is
+1.21 and its Lean 4.34.1, while the 22 Nov slice 1 run used hyperfine 2.0.0 and
+Lean 4.35.0.
+
+**Part 2a: three AoC days against Lean** (SW-4818, SW-4845):
+
+    task load:wait -- 6 900
+    nix develop -c task bench:compare:proofs -- --runs 5
+
+`--runs 3` was used by SW-4806 and SW-4810. The task builds the plain release
+binary and runs `bench/compare/proofs.py`; what each column measures is in
+`bench/compare/lean-proofs/README.md`.
+
+**Part 2b: the slice 1 files against Lean and Rocq.** Copy
+`docs/reviews/SW-4537/{Pilot,BatchA,BatchB,BatchC,Reserve}.{lean,v}` to a scratch
+folder (`rocq compile` leaves `.vo`, `.glob` and `.aux` beside the source), then
+for each file:
+
+    hyperfine -N --warmup 1 --runs 5 'lean Pilot.lean'
+    hyperfine -N --warmup 1 --runs 5 "rocq compile -R $STD/lib/coq/9.1/user-contrib/Stdlib Stdlib Pilot.v"
+
+and likewise for `BatchA`, `BatchB`, `BatchC` and `Reserve`. The empty-file runs
+(the load subtracted from each side) were:
+
+    hyperfine -N --warmup 1 --runs 5 'lean Empty.lean'
+    hyperfine -N --warmup 1 --runs 5 "rocq compile -R $STD/lib/coq/9.1/user-contrib/Stdlib Stdlib EmptyStd.v"
+
+`Empty.lean`'s exact contents were not recorded (an empty Lean file). `EmptyStd.v`
+held the batch files' `Require` line, `From Stdlib Require Import List Bool
+String Lia PeanoNat.` (SW-4806).
+
+**Ours for part 2b**, from `tools/fmt`:
+
+    STITCHWORT_JOBS=1 stitchwort check --no-cache --timings=all 2> timings.txt
+    python3 -I ../../docs/reviews/SW-4608/parse_timings.py timings.txt timing-csv
+
+Then add up the sampled theorems' `elab_ms` and `kernel_ms` in
+`timing-csv/decls.csv` by name (`slice1-sw-per-theorem-2511.csv` lists the names
+SW-4806 used). `STITCHWORT_STEP_PHASES=1` adds the step-phase table; without it
+the parser still writes `units.csv` and `decls.csv`, leaves `phases.csv` with
+only its header, and says so.
+
+**The cold tools/fmt timing** (part 1), from `tools/fmt`:
+
+    STITCHWORT_STEP_PHASES=1 /usr/bin/time -l stitchwort check --no-cache --timings=all
+
 ## 1. Method
 
 - **Machine:** Speedwell, Apple M1 Pro, 10 cores, 32 GB, macOS 27.2.1. Other agents were using
