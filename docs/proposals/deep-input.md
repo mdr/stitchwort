@@ -470,8 +470,9 @@ a failing test, and is a few lines in `budget.rs`.
   linear-memory stack, which isn't directly comparable but in practice is
   far less depth. Users see it as depth, not bytes. In a native
   release build on 2 MiB, it is about 260 nested applications and 300 terms
-  of a `+` chain (stack-safe-evaluation.md, step 4); at 64 MiB, scaled,
-  roughly 30 times that (inferred, not measured).
+  of a `+` chain (stack-safe-evaluation.md, step 4); at 64 MiB, about
+  6,000 nested applications (7.8 KiB a level; measured on the CLI's 64 MiB
+  checking thread, SW-4885, 26 Nov 2026).
 - **A program's recursion depth** when it runs: the machine's frame limit
   (2 million by default), already an `E-RESOURCE`.
 - Under rule 1, **length** has no stack limit in the walks it covers; only
