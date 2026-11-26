@@ -36298,7 +36298,7 @@
     {
       "id": 4857,
       "title": "[Sonnet] Playground: Chrome's own stack overflows at about 268 KiB of wasm stack checking Aoc.Year2020.Day05.Proofs (check_tree recursion), under the 320 KiB guard, so the language server crashes instead of E-RESOURCE: measure the deepest real proofs' wasm-stack-to-engine ratio in Chrome and Firefox and propose per-engine guards (SW-4854)",
-      "status": "doing",
+      "status": "review",
       "agent": "Sonnet",
       "where": "",
       "labels": [],
