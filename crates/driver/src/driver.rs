@@ -275,8 +275,11 @@ pub enum Tier {
 /// `.config/nextest.toml` names after the tier (`all`, `quick`, `broad`, and
 /// `lane-AREA` for a lane): so `cargo nextest run --profile all` runs the
 /// all-only tests without the variable having to be set. `default` (and no
-/// profile at all) means `broad`. A set `STITCHWORT_TIER` wins. Panics on an
-/// unknown name, so a typo doesn't quietly run the wrong amount.
+/// profile at all) means `broad`. When both are set they must agree: a
+/// mismatch panics naming both, so `STITCHWORT_TIER=quick` under the all
+/// profile can't quietly run the quick sample. The `default` profile makes no
+/// claim, so `task test:one` can still choose its sample with the variable.
+/// Panics on an unknown name, so a typo doesn't quietly run the wrong amount.
 #[doc(hidden)]
 pub fn tier() -> Tier {
     let named = std::env::var("STITCHWORT_TIER").ok();
@@ -287,23 +290,47 @@ pub fn tier() -> Tier {
 /// [`tier`] from the two names it reads, so that its fallback is testable
 /// without changing the process environment that other tests see.
 fn tier_from(named: Option<&str>, profile: Option<&str>) -> Tier {
-    if let Some(name) = named {
-        return match name {
-            "" | "broad" => Tier::Broad,
-            "lane" => Tier::Lane,
-            "quick" => Tier::Quick,
-            "all" => Tier::All,
-            other => panic!("STITCHWORT_TIER={other}: expected lane, quick, broad or all"),
-        };
-    }
-    match profile {
-        None | Some("" | "default" | "broad") => Tier::Broad,
-        Some("quick") => Tier::Quick,
-        Some("all") => Tier::All,
-        Some(name) if name == "lane" || name.starts_with("lane-") => Tier::Lane,
+    let named_tier = named.map(|name| match name {
+        "" | "broad" => Tier::Broad,
+        "lane" => Tier::Lane,
+        "quick" => Tier::Quick,
+        "all" => Tier::All,
+        other => panic!("STITCHWORT_TIER={other}: expected lane, quick, broad or all"),
+    });
+    // `default` is nextest's own profile: `task test:one` runs under it and
+    // lets `STITCHWORT_TIER` choose the sample, so it makes no claim to check
+    // the variable against.
+    let profile_tier = match profile {
+        None | Some("") | Some("default") => None,
+        Some("broad") => Some(Tier::Broad),
+        Some("quick") => Some(Tier::Quick),
+        Some("all") => Some(Tier::All),
+        Some(name) if name == "lane" || name.starts_with("lane-") => Some(Tier::Lane),
         Some(other) => {
             panic!("NEXTEST_PROFILE={other}: expected default, lane-AREA, quick, broad or all")
         }
+    };
+    if let (Some(named_tier), Some(profile_tier)) = (named_tier, profile_tier)
+        && named_tier != profile_tier
+    {
+        panic!(
+            "STITCHWORT_TIER={} says {} but NEXTEST_PROFILE={} says {}: set the tier to match the profile or leave STITCHWORT_TIER unset",
+            named.unwrap_or(""),
+            tier_name(named_tier),
+            profile.unwrap_or(""),
+            tier_name(profile_tier)
+        );
+    }
+    named_tier.or(profile_tier).unwrap_or(Tier::Broad)
+}
+
+/// `tier`'s name, for a message about a mismatch.
+fn tier_name(tier: Tier) -> &'static str {
+    match tier {
+        Tier::Lane => "lane",
+        Tier::Quick => "quick",
+        Tier::Broad => "broad",
+        Tier::All => "all",
     }
 }
 
@@ -2260,11 +2287,27 @@ mod tests {
     }
 
     #[test]
-    fn a_set_variable_wins_over_the_nextest_profile() {
-        assert_eq!(tier_from(Some("broad"), Some("all")), Tier::Broad);
-        assert_eq!(tier_from(Some(""), Some("all")), Tier::Broad);
-        assert_eq!(tier_from(Some("quick"), Some("all")), Tier::Quick);
+    fn a_set_variable_matching_the_nextest_profile_is_fine() {
+        assert_eq!(tier_from(Some("all"), Some("all")), Tier::All);
+        assert_eq!(tier_from(Some("quick"), Some("quick")), Tier::Quick);
+        assert_eq!(tier_from(Some("broad"), Some("broad")), Tier::Broad);
+        assert_eq!(tier_from(Some(""), Some("broad")), Tier::Broad);
+        assert_eq!(tier_from(Some("lane"), Some("lane-search")), Tier::Lane);
+    }
+
+    #[test]
+    fn the_default_profile_lets_the_variable_choose_the_tier() {
+        assert_eq!(tier_from(Some("quick"), Some("default")), Tier::Quick);
         assert_eq!(tier_from(Some("all"), Some("default")), Tier::All);
+        assert_eq!(tier_from(Some("lane"), Some("default")), Tier::Lane);
+        assert_eq!(tier_from(Some("lane"), None), Tier::Lane);
+        assert_eq!(tier_from(Some("broad"), None), Tier::Broad);
+    }
+
+    #[test]
+    #[should_panic(expected = "STITCHWORT_TIER=quick says quick but NEXTEST_PROFILE=all says all")]
+    fn a_tier_that_disagrees_with_the_nextest_profile_panics() {
+        tier_from(Some("quick"), Some("all"));
     }
 
     #[test]

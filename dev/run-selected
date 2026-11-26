@@ -15,7 +15,7 @@ log=dev/selector-log.tsv
 # A linked worktree's git dir differs from the shared one.
 main_checkout=0
 [ "$(git rev-parse --path-format=absolute --git-dir)" = "$(git rev-parse --path-format=absolute --git-common-dir)" ] && main_checkout=1
-[ "$main_checkout" = 0 ] || [ -e "$log" ] || printf 'date\tcommit\testimated_s\tactual_s\tresult\tfailed\texamples\tfilter\n' > "$log"
+[ "$main_checkout" = 0 ] || [ -e "$log" ] || printf 'date\tcommit\testimated_s\tactual_s\tresult\tfailed\texamples\tfilter\tstage\n' > "$log"
 est=${SELECTOR_ESTIMATE:-$(dev/test-inventory --estimate "$filter" | sed -n '1s/.*ESTIMATE \([0-9.]*\) s.*/\1/p')}
 export STITCHWORT_TIER=quick
 out=$(mktemp)
@@ -31,11 +31,25 @@ junit="$root/target/nextest/quick/junit.xml"
 if [ -f "$junit" ]; then
   "$root/dev/test-inventory" --fold-only --junit "$junit" >/dev/null || true
 fi
-failed=$(sed -E 's/\x1b\[[0-9;]*m//g' "$out" | grep -E '^\s+(FAIL|SIGABRT|SIGSEGV|TIMEOUT) ' | awk '{print $NF}' | sort -u | paste -sd, -)
+plain=$(sed -E 's/\x1b\[[0-9;]*m//g' "$out")
+failed=$(printf '%s\n' "$plain" | grep -E '^\s+(FAIL|SIGABRT|SIGSEGV|TIMEOUT) ' | awk '{print $NF}' | sort -u | paste -sd, -)
+# Which stage failed, when no test name says: the memory guard kills the tree
+# with 137, a compile error means the build, and anything else is the tests.
+# (`test:features` and `fmt` run before this script in the task, so a failure
+# there stops the task before it can log; the log says so by having no line.)
+if [ "$status" -eq 0 ]; then
+  stage=tests
+elif [ "$status" -eq 137 ] || [ "$status" -eq 143 ]; then
+  stage=memguard
+elif printf '%s\n' "$plain" | grep -qE 'error(\[E[0-9]+\])?: (could not compile|failed to (build|compile|run custom build)|linking with)'; then
+  stage=build
+else
+  stage=tests
+fi
 rm -f "$out"
 result=pass; [ "$status" -eq 0 ] || result=fail
 if [ "$main_checkout" = 1 ]; then
-  printf '%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\n' "$(date -u +%FT%TZ)" "$(git rev-parse --short HEAD)" "${est:-?}" "$actual" "$result" "$failed" "${EXAMPLES:-}" "$filter" >> "$log"
+  printf '%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\n' "$(date -u +%FT%TZ)" "$(git rev-parse --short HEAD)" "${est:-?}" "$actual" "$result" "$failed" "${EXAMPLES:-}" "$filter" "$stage" >> "$log"
   echo "selected: $result in ${actual}s (estimated ${est:-?}s); logged in $log"
 else
   echo "selected: $result in ${actual}s (estimated ${est:-?}s); not logged (linked worktree)"

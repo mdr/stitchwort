@@ -336,7 +336,7 @@ tasks:
       profile's settings (STITCHWORT_TIER=quick, memory guard) with the given
       filterset in place of the profile's own, then a line in
       dev/selector-log.tsv (date, commit, estimated and actual seconds,
-      result, failed tests, filter). It folds its JUnit times into
+      result, failed tests, filter, stage). It folds its JUnit times into
       target/test-timings.json at the end. SELECTOR_ESTIMATE=N records the
       selector's own estimate. The log line is written only in the main
       checkout (the file is tracked; a lane's worktree would dirty it). The

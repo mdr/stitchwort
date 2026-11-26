@@ -272,6 +272,86 @@ fn snapshot_name(example: &Example) -> String {
     example.name.trim_end_matches(".sw").replace('/', "__")
 }
 
+/// Whether the snapshot named `name` (the part after `running__examples__`)
+/// has no example file or project folder behind it.
+fn example_snapshot_is_orphaned(name: &str, examples: &Path) -> bool {
+    let exists = if let Some(project) = name.strip_prefix("projects__") {
+        // `projects__goals__NAME` (or `projects__reject__NAME`).
+        project
+            .split_once("__")
+            .is_some_and(|(kind, name)| examples.join("projects").join(kind).join(name).is_dir())
+    } else {
+        // `<category>__<file stem>`.
+        name.split_once("__").is_some_and(|(category, stem)| {
+            examples.join(category).join(format!("{stem}.sw")).is_file()
+        })
+    };
+    !exists
+}
+
+/// The mapping catches a name whose example or project is gone, not just the
+/// current set's empty result.
+#[test]
+fn an_example_snapshot_without_its_example_is_orphaned() {
+    let examples = Path::new(env!("CARGO_MANIFEST_DIR")).join("../../examples");
+    assert!(!example_snapshot_is_orphaned(
+        "accept__abbreviation-meets-call",
+        &examples
+    ));
+    assert!(!example_snapshot_is_orphaned(
+        "projects__goals__across-namespaces",
+        &examples
+    ));
+    assert!(example_snapshot_is_orphaned(
+        "reject__no-such-example",
+        &examples
+    ));
+    assert!(example_snapshot_is_orphaned(
+        "projects__reject__no-such-project",
+        &examples
+    ));
+}
+
+/// Fails listing every `running__examples__*.snap` whose example or project
+/// no longer exists. Insta only notices snapshots a test asked for, so a
+/// renamed or deleted example would leave its snapshot behind silently; this
+/// maps each name back the way [`snapshot_name`] and the project tests write
+/// them (`projects__<kind>__<name>`).
+#[test]
+fn no_example_snapshots_are_orphaned() {
+    let snapshots = Path::new(env!("CARGO_MANIFEST_DIR")).join("tests/running/snapshots");
+    let examples = Path::new(env!("CARGO_MANIFEST_DIR")).join("../../examples");
+    let mut orphans = Vec::new();
+    let mut checked = 0;
+    for entry in std::fs::read_dir(&snapshots).expect("readable snapshots folder") {
+        let path = entry.expect("readable directory entry").path();
+        let Some(file) = path.file_name().and_then(|name| name.to_str()) else {
+            continue;
+        };
+        let Some(name) = file
+            .strip_prefix("running__examples__")
+            .and_then(|name| name.strip_suffix(".snap"))
+        else {
+            continue;
+        };
+        checked += 1;
+        if example_snapshot_is_orphaned(name, &examples) {
+            orphans.push(file.to_string());
+        }
+    }
+    assert!(
+        checked > 0,
+        "found no example snapshots in {}",
+        snapshots.display()
+    );
+    orphans.sort();
+    assert!(
+        orphans.is_empty(),
+        "these example snapshots name no example or project (delete them):\n{}",
+        orphans.join("\n")
+    );
+}
+
 /// Examples run with this much stack (and the matching resource limits), as
 /// they would from the command line, rather than a test thread's 2 MiB.
 const STACK: usize = 16 * 1024 * 1024;
