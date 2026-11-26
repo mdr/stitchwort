@@ -1,5 +1,5 @@
 {
-  "next": 4875,
+  "next": 4876,
   "tickets": [
     {
       "id": 47,
@@ -36435,10 +36435,15 @@
       "where": "scratch-sw-4864",
       "labels": [],
       "epic": "performance",
-      "body": "DeepSeek bisect (not today's merges): check-closed-if-less +543% and check_work's 'if <' growth from SW-4674 (rule I marks: mark_of_type forced a call type such as cost < 5, computing cost); fix 33b81254e in scratch-sw-4864 reads the sort off the definition's declared type; awaiting Fable soundness review. List allocations +21-36% from SW-4671 (proof-mark storage; steps unchanged), peak heap on small benchmarks from SW-4814 (prelude cache kept), extract-js steps +11% from SW-4671/4674: feature costs, baseline update to follow. Why unseen for 3 days: nothing runs the bench crate's tests (not in the quick tier nor any verifier).",
+      "body": "DeepSeek bisect (not today's merges): check-closed-if-less +543% and check_work's 'if <' growth from SW-4674 (rule I marks: mark_of_type forced a call type such as cost < 5, computing cost); fix 33b81254e in scratch-sw-4864 reads the sort off the definition's declared type; awaiting Fable soundness review. List allocations +21-36% from SW-4671 (proof-mark storage; steps unchanged), peak heap on small benchmarks from SW-4814 (prelude cache kept), extract-js steps +11% from SW-4671/4674: feature costs, baseline update to follow. Why unseen for 3 days: nothing runs the bench crate's tests (not in the quick tier nor any verifier).\n\nMerged with Fable's C1 (fall back to forcing when the declared type doesn't decide) and C2 (docs/core.md); test proof_marks::a_field_of_a_call_is_marked_from_its_declared_type. Baseline re-record pending. Review: docs/reviews/SW-4864-proof-mark-fix.md. Model result: deepseek, needed fixes (Fable's C1 narrowing, no test), 70 min (est. 50).",
       "created": "2026-11-26",
       "updated": "2026-11-26",
-      "commits": []
+      "commits": [
+        "33b81254e",
+        "ab20d1fa8",
+        "9d31d73ff",
+        "dfd45b2e0"
+      ]
     },
     {
       "id": 4865,
@@ -36577,6 +36582,19 @@
       "status": "doing",
       "agent": "DeepSeek",
       "where": "scratch-sw-4874",
+      "labels": [],
+      "epic": "editor-playground",
+      "body": "",
+      "created": "2026-11-26",
+      "updated": "2026-11-26",
+      "commits": []
+    },
+    {
+      "id": 4875,
+      "title": "[Sonnet] SW-4868 regression: goal example large-hypothesis-goal now prints 'big: …' for 'big: q (grow 22 (Leaf n))' (running__examples__goals__large-hypothesis-goal.snap); term_within's new depth cap (max_depth = limit) cuts a short term",
+      "status": "doing",
+      "agent": "Sonnet",
+      "where": "",
       "labels": [],
       "epic": "editor-playground",
       "body": "",
