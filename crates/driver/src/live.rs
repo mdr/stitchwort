@@ -521,6 +521,10 @@ struct Step {
     /// Its files as checked: (path, text), by path.
     files: Vec<(String, String)>,
     outcome: NamespaceOutcome,
+    /// It was left unchecked for want of resources ([`Exhausted`]), or
+    /// because a namespace it imports was: those that import it are left
+    /// unchecked too, each with one diagnostic on the import.
+    unchecked: bool,
     diagnostics: Vec<Diagnostic>,
     /// The data types and definitions it added to the kernel's environment,
     /// by index, in the order they were added.
@@ -645,6 +649,18 @@ fn exhausted_diagnostic(span: Option<Span>) -> Diagnostic {
         "the browser's own limit came before the checker's guard; \
          it isn't checked again until its text changes",
     )
+}
+
+/// The diagnostic for a namespace that imports one left unchecked, on its
+/// import of it.
+fn uses_exhausted_diagnostic(used: &str, at: Span) -> Diagnostic {
+    Diagnostic::error(
+        "E-RESOURCE",
+        format!("ran out of resources: `{used}`, which this imports, ran out of resources"),
+    )
+    .with_label(at, format!("`{used}` ran out of resources"))
+    .with_note(stitchwort_core::budget::NO_ANSWER)
+    .with_note("this isn't checked until that namespace is: it waits until its text changes")
 }
 
 impl LiveProject {
@@ -873,13 +889,17 @@ impl LiveProject {
         let analysis = self.analysis.as_ref().expect("a plan has an analysis");
         let first = self.env_sizes();
         let skip = self.exhausted.skips(&name, &files);
+        let unchecked: BTreeSet<String> = (self.steps.iter())
+            .filter(|s| s.unchecked)
+            .map(|s| s.name.clone())
+            .collect();
         let checked = self.session.cancellable_at(&mark, |s| {
             let began = Instant::now();
             let ns = parse_namespace(s, &project, &name, &files);
             phases::add("parse", began.elapsed());
             let began = Instant::now();
+            // Neither is entered, so there is nothing to leave.
             if skip {
-                // Never entered, so nothing to leave.
                 let first_line = ns.files.first().map(|id| {
                     let text = &s.sources.get(*id).text;
                     Span {
@@ -894,6 +914,20 @@ impl LiveProject {
                         crate::project::NamespaceOutcome::Failed,
                     ),
                     Vec::new(),
+                    true,
+                );
+            }
+            // An unchecked namespace declares nothing, so checking this one
+            // would only report what it uses of it as missing.
+            let used: Vec<Diagnostic> = (ns.edges.iter())
+                .filter(|e| unchecked.contains(&e.target))
+                .map(|e| uses_exhausted_diagnostic(&e.target, e.span))
+                .collect();
+            if !used.is_empty() {
+                return (
+                    (used, crate::project::NamespaceOutcome::Failed),
+                    Vec::new(),
+                    true,
                 );
             }
             let found = s.check_project_namespace(analysis, &ns);
@@ -908,12 +942,12 @@ impl LiveProject {
                 }
             }
             s.elab.leave_namespace();
-            (found, names)
+            (found, names, false)
         });
-        let (diagnostics, outcome) = match checked {
-            Ok((found, names)) => {
+        let (diagnostics, outcome, unchecked) = match checked {
+            Ok(((diagnostics, outcome), names, unchecked)) => {
                 self.names.extend(names);
-                found
+                (diagnostics, outcome, unchecked)
             }
             Err(Cancelled) => {
                 // Rewound to it, and checked again from a new one.
@@ -928,6 +962,7 @@ impl LiveProject {
             mark,
             files,
             outcome,
+            unchecked,
             diagnostics,
             datas: first.0..last.0,
             defs: first.1..last.1,

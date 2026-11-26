@@ -23,6 +23,9 @@ import { LSPClient, LSPPlugin, languageServerExtensions, jumpToDefinition, forma
 /** The prefix of the library's documents: `stitchwort-std:Std/List.sw`. */
 const STD = "stitchwort-std:";
 /** The document of a program that isn't a file of a project. */
+/** The most the page keeps of the worker's check-cache entries (`LAYER_CAP_BYTES`). */
+const CACHE_CAP_BYTES = 192 * 1024 * 1024;
+
 export const SINGLE_URI = "file:///playground/main.sw";
 
 /**
@@ -140,6 +143,17 @@ export class Editor {
      * them instead of overflowing again (stack-guard.js, SW-4862).
      */
     this.exhausted = new Set();
+    /**
+     * The namespace entries the server's check cache wrote (`cacheEntry`
+     * from the worker), kept so that a new worker, after a restart, replays
+     * the namespaces the old one had checked instead of checking them
+     * again (SW-4871). They are keyed by content (text, configuration and
+     * dependencies, all in the key and the entry's header), so an entry
+     * that no longer fits is not used, and never wrong. Oldest first; the
+     * two newest of each namespace are kept, as the worker's cache does.
+     */
+    this.cacheEntries = new Map();
+    this.cacheBytes = 0;
     this.stats = { overflows: [], ready: null, crashed: null, restarts: 0, published: [], publishedTotal: 0, isolated: false, firstDiagnostics: null, ticks: 0, idle: false };
     this.projects = [];
     /** The diagnostics the server last published for each document, by uri. */
@@ -181,6 +195,7 @@ export class Editor {
     };
     worker.postMessage({ init: { module: options.module, load: options.load } });
     for (const name of this.exhausted) worker.postMessage({ exhausted: name });
+    if (this.cacheEntries.size) worker.postMessage({ cacheEntries: [...this.cacheEntries.values()] });
     worker.onmessage = ({ data }) => {
       const now = performance.now() - this.t0;
       const handling = performance.now();
@@ -212,6 +227,8 @@ export class Editor {
         p.sendMs += data.sendMs ?? 0;
         p.gapMs += data.gap ?? 0;
         stats.idle = !data.more;
+      } else if (data.cacheEntry !== undefined) {
+        this.keepCacheEntry(data.cacheEntry);
       } else if (data.phases !== undefined) {
         (stats.phaseLog ??= []).push(data.phases);
       } else if (data.received !== undefined) {
@@ -244,6 +261,28 @@ export class Editor {
     this.edits = globalThis.crossOriginIsolated ? new Int32Array(new SharedArrayBuffer(4)) : null;
     if (this.edits) worker.postMessage({ edits: this.edits });
     stats.isolated = !!this.edits;
+  }
+
+  /** Keeps a namespace entry the worker's cache wrote (`cacheEntries`). */
+  keepCacheEntry(entry) {
+    const { root, unit, key } = entry;
+    const prefix = `${root}\0${unit}\0`;
+    const id = prefix + Array.from(key, (b) => b.toString(16).padStart(2, "0")).join("");
+    const forget = (k) => {
+      this.cacheBytes -= this.cacheEntries.get(k).entry.length;
+      this.cacheEntries.delete(k);
+    };
+    if (this.cacheEntries.has(id)) forget(id);
+    this.cacheEntries.set(id, entry);
+    this.cacheBytes += entry.entry.length;
+    // The worker's own cache bounds (check_cache.rs): two entries of a
+    // namespace, 192 MB in all, the oldest dropped first.
+    const same = [...this.cacheEntries.keys()].filter((k) => k.startsWith(prefix));
+    for (const k of same.slice(0, Math.max(0, same.length - 2))) forget(k);
+    for (const k of [...this.cacheEntries.keys()]) {
+      if (this.cacheBytes <= CACHE_CAP_BYTES || this.cacheEntries.size <= 1) break;
+      forget(k);
+    }
   }
 
   /**

@@ -19,6 +19,8 @@ pub struct LanguageServer {
     library: Arc<OnceLock<Arc<LibraryBundle>>>,
     /// The server's [`Options::exhausted`](stitchwort_lsp::Options::exhausted).
     exhausted: Arc<stitchwort_driver::live::Exhausted>,
+    /// The server's [`Options::restored`](stitchwort_lsp::Options::restored).
+    restored: Arc<std::sync::Mutex<stitchwort_lsp::RestoredEntries>>,
 }
 
 #[wasm_bindgen]
@@ -27,15 +29,37 @@ impl LanguageServer {
     #[wasm_bindgen(constructor)]
     pub fn new() -> Result<LanguageServer, String> {
         let projects = Arc::new(Memory::default());
-        let options = options();
+        let mut options = options();
+        options.entry_sink = Some(stitchwort_driver::check_cache::EntrySink(Arc::new(
+            |root, unit, key, entry| js_cache_entry(root, unit, key, entry),
+        )));
         let library = options.library.clone();
         let exhausted = options.exhausted.clone();
+        let restored = options.restored.clone();
         Ok(LanguageServer {
             inner: stitchwort_lsp::Inline::new(options, projects.clone())?,
             projects,
             library,
             exhausted,
+            restored,
         })
+    }
+
+    /// An entry of the project in `root`'s check cache that an earlier
+    /// instance wrote (`stitchwortCacheEntry` was told it), kept by the page:
+    /// the project, added after this, replays it instead of checking the
+    /// namespace again. Call before the project is added. An entry is found
+    /// only by a key covering its namespace's text and configuration, and
+    /// replayed only if its dependencies are as they were, so one that no
+    /// longer fits is simply not used.
+    pub fn restore_cache_entry(&self, root: &str, unit: &str, key: &[u8], entry: &[u8]) {
+        let Ok(key) = <[u8; 32]>::try_from(key) else {
+            return;
+        };
+        (self.restored.lock().unwrap_or_else(|e| e.into_inner()))
+            .entry(std::path::PathBuf::from(root))
+            .or_default()
+            .push((unit.to_string(), key, entry.to_vec()));
     }
 
     /// The engine's stack ran out checking namespace `name` in an earlier
@@ -252,6 +276,11 @@ pub(crate) fn memory_project(
 extern "C" {
     #[wasm_bindgen(js_name = stitchwortEditsWaiting)]
     fn js_edits_waiting() -> bool;
+
+    /// A namespace entry written to a project's check cache (lsp-worker.js
+    /// sends it to the page, which keeps it for the next worker).
+    #[wasm_bindgen(js_name = stitchwortCacheEntry)]
+    fn js_cache_entry(root: &str, unit: &str, key: &[u8], entry: &[u8]);
 }
 
 fn edits_waiting() -> bool {

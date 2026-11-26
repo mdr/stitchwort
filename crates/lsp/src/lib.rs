@@ -44,7 +44,7 @@ use lsp_types::{
 use stitchwort_core::collections::{HashMap, HashSet};
 use stitchwort_driver::at as pos;
 use stitchwort_driver::check_cache::{
-    BundleRecorder, BundleStore, CheckCache, LAYER_CAP_BYTES, LayerBudget, LayeredStore,
+    BundleRecorder, BundleStore, CheckCache, EntrySink, LAYER_CAP_BYTES, LayerBudget, LayeredStore,
     LibraryBundle,
 };
 use stitchwort_driver::driver::Session;
@@ -119,6 +119,14 @@ pub struct Options {
     /// SW-4862): projects loaded later leave them unchecked, reporting
     /// `E-RESOURCE`, until their text changes.
     pub exhausted: Arc<stitchwort_driver::live::Exhausted>,
+    /// Told each namespace entry a project's in-memory check cache writes,
+    /// with the project's folder: the playground's page keeps them, and
+    /// hands them to the next worker as [`Options::restored`], so that a
+    /// restart doesn't check the project again (SW-4871).
+    pub entry_sink: Option<EntrySink>,
+    /// Entries for the projects' in-memory check caches, by project folder
+    /// (unit, key, entry), put in a project's cache when it is first loaded.
+    pub restored: Arc<Mutex<RestoredEntries>>,
     /// For tests: every namespace entry a project's in-memory check cache
     /// (the one used with `library`) is asked for, and whether it had it.
     #[doc(hidden)]
@@ -499,6 +507,9 @@ impl Faults {
 /// The members found for a document text (see [`Options::members`]).
 pub type FoundMembers = (String, Vec<stitchwort_driver::live::ScopeName>);
 
+/// [`Options::restored`]'s entries: (unit, key, entry), by project folder.
+pub type RestoredEntries = BTreeMap<PathBuf, Vec<(String, Key, Vec<u8>)>>;
+
 impl Options {
     pub fn new(stack: usize) -> Self {
         Options {
@@ -513,6 +524,8 @@ impl Options {
             search_time: Duration::from_secs(5),
             library: Arc::default(),
             exhausted: Arc::default(),
+            entry_sink: None,
+            restored: Arc::default(),
             namespace_log: None,
             settings: Arc::default(),
             refresh_tokens: false,
@@ -3543,6 +3556,7 @@ impl ProjectCaches {
         root: &Path,
         bundle: &Arc<LibraryBundle>,
         log: Option<&stitchwort_driver::check_cache::StoreLog>,
+        options: &Options,
     ) -> Rc<LayeredStore> {
         let mut stores = self.stores.borrow_mut();
         let loaded = self.loaded.get() + 1;
@@ -3564,7 +3578,18 @@ impl ProjectCaches {
         if let Some(log) = log {
             store = store.logging(log.clone());
         }
+        if let Some(sink) = &options.entry_sink {
+            store = store.with_sink(&root.to_string_lossy(), sink.clone());
+        }
         let store = Rc::new(store);
+        let restored = options
+            .restored
+            .lock()
+            .unwrap_or_else(|e| e.into_inner())
+            .remove(root);
+        for (unit, key, entry) in restored.into_iter().flatten() {
+            store.restore(&unit, &key, &entry);
+        }
         stores.insert(root.to_path_buf(), (loaded, store.clone()));
         store
     }
@@ -4786,9 +4811,12 @@ impl Checker {
             // The same project loaded again (the page re-opened it) gets the
             // store the first load filled (SW-3072): its entries are keyed by
             // content, so they are found again unless something changed.
-            let store = self
-                .caches
-                .store(dir, bundle, self.options.namespace_log.as_ref());
+            let store = self.caches.store(
+                dir,
+                bundle,
+                self.options.namespace_log.as_ref(),
+                &self.options,
+            );
             session.elab.set_check_cache(store);
             skip = bundle.left_out.clone();
         }

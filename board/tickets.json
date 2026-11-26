@@ -36542,12 +36542,12 @@
     {
       "id": 4871,
       "title": "[Sonnet] Playground after an overflow: each one costs a full project re-check (~100 s on AoC); keep checked namespaces' results across the worker restart (or remember overflows per text hash); dependents of a skipped namespace report it missing rather than failed; the in-page fallback compiler doesn't flag overflows (SW-4862)",
-      "status": "doing",
+      "status": "review",
       "agent": "Sonnet",
       "where": "",
       "labels": [],
       "epic": "editor-playground",
-      "body": "",
+      "body": "Progress (Sonnet lane): (1) the worker's LayeredStore tells a sink each namespace entry it writes; the page keeps the newest two per namespace (192 MB cap) and hands them to each new worker, which restores them into the project's store: re-check after an overflow on AoC Day 2 went from 98 s to 9.9 s (a namespace's entry is found only by a key over its text/config and replayed only if its dependency hashes hold, so a stale entry is never used). (2) Namespaces importing an unchecked one are left unchecked with one E-RESOURCE on the import (live.rs Step.unchecked). (3) InPage reports overflow as E-RESOURCE. Tests: browser 'the stack runs out in a project...', 'the compiler in the page reports...'; native live_namespaces_importing_an_exhausted_one_say_so_once.",
       "created": "2026-11-26",
       "updated": "2026-11-26",
       "commits": []
