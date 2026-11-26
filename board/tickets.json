@@ -36616,9 +36616,9 @@
     {
       "id": 4876,
       "title": "[DeepSeek] bench: std's allocation count differs between runs (351,229,336 then 351,229,284 / 242 / 249 / 266 over five runs, 26 Nov, after SW-1953's drift fix), so the baseline refuses to record it; find what allocates nondeterministically (thread-local caches, HashMap growth, timing) and make the count exact (SW-1953 follow-up)",
-      "status": "backlog",
-      "agent": "",
-      "where": "",
+      "status": "doing",
+      "agent": "DeepSeek",
+      "where": "scratch-sw-4876",
       "labels": [],
       "epic": "performance",
       "body": "",
