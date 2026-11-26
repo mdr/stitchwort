@@ -18,16 +18,54 @@ use crate::timings::kernel_call;
 
 type Result<T> = std::result::Result<T, Diagnostic>;
 
+/// A kernel refusal, recorded for the fuzzer: what it said, and where.
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct Rejection {
+    /// Its stable diagnostic code.
+    pub code: &'static str,
+    /// Its message, before the elaborator rewords or drops it.
+    pub message: String,
+    /// The source location it blamed.
+    pub location: RejectionLocation,
+}
+
+/// Where a [`Rejection`] happened.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum RejectionLocation {
+    /// The source span of the kernel diagnostic's primary label.
+    Span(Span),
+    /// The declaration being checked, when the kernel gave no span. A
+    /// diagnostic matches it when its span lies inside it.
+    Declaration(Span),
+}
+
 /// A kernel call, timed, with its refusal recorded for the fuzzer. The
 /// kernel takes its own modes (gluing off but for a body, D483; no
 /// transparency it doesn't set; erasure off) whatever the elaborator's are
 /// (`machine::in_kernel_modes`, D2294).
-fn timed<T>(g: &mut Kernel, f: impl FnOnce(&mut Kernel) -> Result<T>) -> Result<T> {
+///
+/// `declaration` is the span of the declaration being checked, used when the
+/// kernel's refusal names no source location.
+fn timed<T>(
+    g: &mut Kernel,
+    declaration: Span,
+    f: impl FnOnce(&mut Kernel) -> Result<T>,
+) -> Result<T> {
     let out = kernel_call(|| f(g));
     if let Err(d) = &out
         && RECORDING.get()
     {
-        REJECTIONS.with(|r| r.borrow_mut().push((d.code, d.message.clone())));
+        let location = match d.labels.first().map(|label| label.span) {
+            Some(span) if span != Span::NOWHERE => RejectionLocation::Span(span),
+            _ => RejectionLocation::Declaration(declaration),
+        };
+        REJECTIONS.with(|r| {
+            r.borrow_mut().push(Rejection {
+                code: d.code,
+                message: d.message.clone(),
+                location,
+            })
+        });
     }
     out
 }
@@ -37,14 +75,14 @@ thread_local! {
     /// turns it on, so a long-running session (the language server) doesn't
     /// keep every refusal.
     static RECORDING: std::cell::Cell<bool> = const { std::cell::Cell::new(false) };
-    /// The code and message of every error the kernel returned to a declare
-    /// or define call on this thread while recording, since
+    /// The code, message and location of every error the kernel returned to
+    /// a declare or define call on this thread while recording, since
     /// [`take_rejections`] was last called. For the elaborator fuzzer
     /// (`crates/driver/tests/fuzz_elab.rs`): the kernel's refusal of a term
     /// the elaborator built looks like any other diagnostic, so a test that
     /// wants to tell the two apart has to see what the kernel said before the
     /// elaborator reworded or dropped it.
-    static REJECTIONS: std::cell::RefCell<Vec<(&'static str, String)>> =
+    static REJECTIONS: std::cell::RefCell<Vec<Rejection>> =
         const { std::cell::RefCell::new(Vec::new()) };
 }
 
@@ -96,7 +134,7 @@ pub fn record_rejections(on: bool) {
 
 /// Returns (and clears) the kernel's rejections on this thread: see
 /// `REJECTIONS`.
-pub fn take_rejections() -> Vec<(&'static str, String)> {
+pub fn take_rejections() -> Vec<Rejection> {
     REJECTIONS.with(|r| std::mem::take(&mut *r.borrow_mut()))
 }
 
@@ -116,7 +154,10 @@ pub fn define_def(g: &mut Kernel, tables: &Tables, id: DefId, body: &Term) -> Re
 pub fn define_group(g: &mut Kernel, tables: &Tables, members: &[(DefId, Term)]) -> Result<()> {
     let (members, expanded) = crate::saturate::saturate(&g.ev(), members)?;
     dump_kernel_declaration(g, &members);
-    timed(g, |g| k::define_group(g, &members)).map_err(|d| {
+    let declaration = members
+        .first()
+        .map_or(Span::NOWHERE, |(id, _)| g.def(*id).span());
+    timed(g, declaration, |g| k::define_group(g, &members)).map_err(|d| {
         let own: Vec<HashKey> = members.iter().map(|(id, _)| HashKey::Def(*id)).collect();
         // A member's type was declared without its failed references being
         // refused: the kernel finds them here, with the body's.
@@ -191,14 +232,15 @@ pub fn declare_def(
     span: Span,
 ) -> Result<DefId> {
     let path = unit.path(name);
-    timed(g, |g| {
+    timed(g, span, |g| {
         k::declare_def(g, name, &path, ty, theorem, export, span)
     })
     .map_err(|d| crate::goals::unfinished_dependency(&g.ev(), tables, [ty], &[], d))
 }
 
 pub fn retype_def(g: &mut Kernel, tables: &Tables, id: DefId, ty: &Term) -> Result<()> {
-    timed(g, |g| k::retype_def(g, id, ty))
+    let declaration = g.def(id).span();
+    timed(g, declaration, |g| k::retype_def(g, id, ty))
         .map_err(|d| crate::goals::unfinished_dependency(&g.ev(), tables, [ty], &[], d))
 }
 
@@ -208,7 +250,10 @@ pub fn declare_data_group(
     sort: Sort,
     members: Vec<(Name, Name, Span)>,
 ) -> Result<Vec<DataId>> {
-    timed(g, |g| k::declare_data_group(g, params, sort, members))
+    let declaration = members.first().map_or(Span::NOWHERE, |(_, _, span)| *span);
+    timed(g, declaration, |g| {
+        k::declare_data_group(g, params, sort, members)
+    })
 }
 
 pub fn declare_indexed_data_group(
@@ -217,13 +262,17 @@ pub fn declare_indexed_data_group(
     sort: Sort,
     members: Vec<DataDecl>,
 ) -> Result<Vec<DataId>> {
-    timed(g, |g| {
+    let declaration = members.first().map_or(Span::NOWHERE, |member| member.span);
+    timed(g, declaration, |g| {
         k::declare_indexed_data_group(g, params, sort, members)
     })
 }
 
 pub fn define_data_group(g: &mut Kernel, members: Vec<(DataId, Vec<CtorDecl>)>) -> Result<()> {
-    timed(g, |g| k::define_data_group(g, members))
+    let declaration = members
+        .first()
+        .map_or(Span::NOWHERE, |(id, _)| g.data(*id).span());
+    timed(g, declaration, |g| k::define_data_group(g, members))
 }
 
 // The check cache's trusted admission (`check::admit_trusted_*`, D1660),
@@ -237,7 +286,7 @@ pub fn admit_trusted_def(
     theorem: bool,
     span: Span,
 ) -> Result<DefId> {
-    timed(g, |g| {
+    timed(g, span, |g| {
         k::admit_trusted_def(g, name, path, ty, theorem, span)
     })
 }
@@ -251,7 +300,9 @@ pub fn admit_trusted_stated(
     ty: &Term,
     span: Span,
 ) -> Result<DefId> {
-    timed(g, |g| k::admit_trusted_stated(g, name, path, ty, span))
+    timed(g, span, |g| {
+        k::admit_trusted_stated(g, name, path, ty, span)
+    })
 }
 
 /// Its one caller is the replay of an interface entry
@@ -263,20 +314,27 @@ pub fn admit_trusted_unproved(
     ty: &Term,
     span: Span,
 ) -> Result<DefId> {
-    timed(g, |g| k::admit_trusted_unproved(g, name, path, ty, span))
+    timed(g, span, |g| {
+        k::admit_trusted_unproved(g, name, path, ty, span)
+    })
 }
 
 /// Its one caller is the interface pass (`Elaborator::group_checked`).
 pub fn leave_stated(g: &mut Kernel, id: DefId) -> Result<()> {
-    timed(g, |g| k::leave_stated(g, id))
+    let declaration = g.def(id).span();
+    timed(g, declaration, |g| k::leave_stated(g, id))
 }
 
 pub fn admit_trusted_group(g: &mut Kernel, members: &[(DefId, Term)]) -> Result<()> {
-    timed(g, |g| k::admit_trusted_group(g, members))
+    let declaration = members
+        .first()
+        .map_or(Span::NOWHERE, |(id, _)| g.def(*id).span());
+    timed(g, declaration, |g| k::admit_trusted_group(g, members))
 }
 
 pub fn admit_trusted_run_body(g: &mut Kernel, id: DefId, body: &Term) -> Result<()> {
-    timed(g, |g| k::admit_trusted_run_body(g, id, body))
+    let declaration = g.def(id).span();
+    timed(g, declaration, |g| k::admit_trusted_run_body(g, id, body))
 }
 
 pub fn admit_trusted_data_decls(
@@ -285,7 +343,10 @@ pub fn admit_trusted_data_decls(
     sort: Sort,
     members: Vec<DataDecl>,
 ) -> Result<Vec<DataId>> {
-    timed(g, |g| k::admit_trusted_data_decls(g, params, sort, members))
+    let declaration = members.first().map_or(Span::NOWHERE, |member| member.span);
+    timed(g, declaration, |g| {
+        k::admit_trusted_data_decls(g, params, sort, members)
+    })
 }
 
 pub fn admit_trusted_data_group(
@@ -293,7 +354,10 @@ pub fn admit_trusted_data_group(
     members: Vec<(DataId, Vec<stitchwort_core::globals::Ctor>)>,
     recompute_sorts: bool,
 ) -> Result<()> {
-    timed(g, |g| {
+    let declaration = members
+        .first()
+        .map_or(Span::NOWHERE, |(id, _)| g.data(*id).span());
+    timed(g, declaration, |g| {
         k::admit_trusted_data_group(g, members, recompute_sorts)
     })
 }
@@ -316,14 +380,17 @@ pub fn recheck_def(
     theorem: bool,
     span: Span,
 ) -> Result<DefId> {
-    timed(g, |g| {
+    timed(g, span, |g| {
         let ty = unmarked(g, ty)?;
         k::declare_def(g, name, path, &ty, theorem, false, span)
     })
 }
 
 pub fn recheck_group(g: &mut Kernel, members: &[(DefId, Term)]) -> Result<()> {
-    timed(g, |g| {
+    let declaration = members
+        .first()
+        .map_or(Span::NOWHERE, |(id, _)| g.def(*id).span());
+    timed(g, declaration, |g| {
         let members = members
             .iter()
             .map(|(id, body)| Ok((*id, unmarked(g, body)?)))
@@ -333,7 +400,8 @@ pub fn recheck_group(g: &mut Kernel, members: &[(DefId, Term)]) -> Result<()> {
 }
 
 pub fn recheck_run_body(g: &mut Kernel, id: DefId, body: &Term) -> Result<()> {
-    timed(g, |g| {
+    let declaration = g.def(id).span();
+    timed(g, declaration, |g| {
         let body = unmarked(g, body)?;
         k::set_run_body(g, id, &body)
     })

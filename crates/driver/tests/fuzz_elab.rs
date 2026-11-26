@@ -22,7 +22,9 @@
 //!    refusals come back as ordinary diagnostics, so the elaborator records
 //!    each one as it passes (`stitchwort_elab::take_kernel_rejections`), and a
 //!    refusal with a code that says "ill-typed term" (`BAD_KERNEL_CODES`) whose
-//!    message the check then reports as it stands fails the case. (The kernel
+//!    code, message and location the check then reports as a diagnostic of its
+//!    own fails the case. The location is the kernel's primary span, or the
+//!    declaration being checked when the kernel gave none. (The kernel
 //!    is also the checker for some user mistakes: termination, positivity,
 //!    `E-PROP-ELIM`, `E-NOT-A-PROP`; and the elaborator may rewrite a
 //!    refusal into a better diagnostic, as `E-MUTUAL-SIGNATURE`.);
@@ -66,7 +68,8 @@ use stitchwort_core::budget::{Budget, Limits};
 use stitchwort_driver::check_cache::CheckCache;
 use stitchwort_driver::driver::{Session, Tier, test_threads, tier};
 use stitchwort_elab::cache::{Key, Store};
-use stitchwort_syntax::{SourceMap, parse_module_recovering};
+use stitchwort_elab::{Rejection, RejectionLocation};
+use stitchwort_syntax::{FileId, SourceMap, Span, parse_module_recovering};
 
 #[path = "support/heap_cap.rs"]
 mod heap_cap;
@@ -567,13 +570,22 @@ struct Report {
     /// A recovered partial parse counts, so this can be higher than
     /// [`Report::parsed`].
     reached: bool,
-    rejections: Vec<(&'static str, String)>,
-    /// The message of every diagnostic.
-    messages: Vec<String>,
+    rejections: Vec<Rejection>,
+    /// Every diagnostic's code, message and primary source location.
+    messages: Vec<ReportMessage>,
     /// A message of each diagnostic with an INTERNAL code.
     internal: Vec<String>,
     /// The most heap the check held at once, in bytes.
     peak: i64,
+}
+
+/// What a diagnostic says, and where, for oracle 3 to compare with a kernel
+/// rejection.
+#[derive(Clone, Debug, PartialEq, Eq)]
+struct ReportMessage {
+    code: &'static str,
+    message: String,
+    span: Option<Span>,
 }
 
 /// Which check cache a check uses.
@@ -670,7 +682,18 @@ fn check(text: &str, cache: &CacheUse) -> Option<Report> {
         .map(|d| format!("{}: {}", d.code, d.message))
         .collect();
     let codes = diagnostics.iter().map(|d| d.code).collect();
-    let messages = diagnostics.iter().map(|d| d.message.clone()).collect();
+    let messages = diagnostics
+        .iter()
+        .map(|d| ReportMessage {
+            code: d.code,
+            message: d.message.clone(),
+            span: d
+                .labels
+                .first()
+                .map(|label| label.span)
+                .filter(|span| *span != Span::NOWHERE),
+        })
+        .collect();
     let peak = heap_cap::peak_since(before);
     Some(Report {
         verdict: Verdict { accepted, codes },
@@ -681,6 +704,40 @@ fn check(text: &str, cache: &CacheUse) -> Option<Report> {
         internal,
         peak,
     })
+}
+
+/// Whether `rejection` and `message` describe the same kernel error: same
+/// code, same message, and the same source location. A rejection the kernel
+/// gave no span for is matched by the declaration it happened in.
+fn same_kernel_error(rejection: &Rejection, message: &ReportMessage) -> bool {
+    if rejection.code != message.code || rejection.message != message.message {
+        return false;
+    }
+    match rejection.location {
+        RejectionLocation::Span(span) => message.span == Some(span),
+        RejectionLocation::Declaration(declaration) => message.span.is_some_and(|span| {
+            declaration.file == span.file
+                && declaration.start <= span.start
+                && span.end <= declaration.end
+        }),
+    }
+}
+
+/// Oracle 3: the kernel rejections that the check then reports as a
+/// diagnostic of their own, formatted for the failure message.
+fn bad_kernel_rejections(report: &Report) -> Vec<String> {
+    report
+        .rejections
+        .iter()
+        .filter(|rejection| BAD_KERNEL_CODES.contains(&rejection.code))
+        .filter(|rejection| {
+            report
+                .messages
+                .iter()
+                .any(|message| same_kernel_error(rejection, message))
+        })
+        .map(|rejection| format!("{}: {}", rejection.code, rejection.message))
+        .collect()
 }
 
 enum Ran {
@@ -811,14 +868,7 @@ fn run_case(case: &Case, seed: u64, out_dir: &Path, tally: &mut Tally, starting:
     if !report.internal.is_empty() {
         fail(tally, "2 (no E-INTERNAL)", report.internal.join("; "));
     }
-    let bad: Vec<String> = report
-        .rejections
-        .iter()
-        .filter(|(code, message)| {
-            BAD_KERNEL_CODES.contains(code) && report.messages.contains(message)
-        })
-        .map(|(code, message)| format!("{code}: {message}"))
-        .collect();
+    let bad = bad_kernel_rejections(&report);
     if !bad.is_empty() {
         fail(
             tally,
@@ -1034,4 +1084,131 @@ fn mutated_examples_check_without_internal_errors() {
             "under a quarter of the cases reached the elaborator"
         );
     }
+}
+
+/// A report with only what oracle 3 reads, for the tests that make one by
+/// hand.
+fn report_with(rejections: Vec<Rejection>, messages: Vec<ReportMessage>) -> Report {
+    Report {
+        verdict: Verdict {
+            accepted: false,
+            codes: Vec::new(),
+        },
+        parsed: true,
+        reached: true,
+        rejections,
+        messages,
+        internal: Vec::new(),
+        peak: 0,
+    }
+}
+
+/// SW-4888: a trial arm's kernel rejection and an unrelated elaborator error
+/// in a later declaration both say "type mismatch"; oracle 3 must not pair
+/// them.
+#[test]
+fn oracle_3_ignores_unrelated_messages() {
+    let text = r#"import Std (Bool, Decidable, Eq, Vec)
+type Colour = | Red | Green
+def anyColour (x y: Colour): Decidable (x = y) := match x, y with
+  | Red, Red => Decidable.yes byComputing
+  | Green, Green => Decidable.yes byComputing
+  | Red, Green => Decidable.no (e => Bool.falseNotTrue (Eq.cong isGreen e))
+  | Green, x => Decidable.no (e => Bool.falseNotTrue (Eq.cong isRed e))
+def isGreen: Colour → Bool
+  | Green => True
+  | Red => False
+def isRed: Colour → Bool
+  | Red => True
+  | Green => False
+def three: Vec Nat 2 := VCons 1 (VCons 2 True)
+"#;
+    let report = match run_watched(text, &CacheUse::SharedLibrary) {
+        Ran::Done(report) => report,
+        Ran::Panicked(message) => panic!("check panicked: {message}"),
+        Ran::OverMemory => panic!("check held too much memory"),
+        Ran::Hung => panic!("check hung"),
+    };
+    assert!(
+        report
+            .rejections
+            .iter()
+            .any(|rejection| rejection.code == "E-TYPE-MISMATCH"),
+        "the trial arm's kernel rejection is missing: {:?}",
+        report.rejections
+    );
+    assert!(
+        report
+            .messages
+            .iter()
+            .any(|message| message.code == "E-TYPE-MISMATCH"),
+        "the unrelated diagnostic is missing: {:?}",
+        report.messages
+    );
+    assert!(
+        bad_kernel_rejections(&report).is_empty(),
+        "oracle 3 paired unrelated errors: {:?}",
+        bad_kernel_rejections(&report)
+    );
+}
+
+/// SW-4888: oracle 3 still fires when the kernel's own refusal is what the
+/// check reports, both at the same span and, when the kernel gave no span, in
+/// the declaration it happened in.
+#[test]
+fn oracle_3_pairs_a_rejection_with_its_own_diagnostic() {
+    let span = Span::new(FileId::SCRATCH, 10, 20);
+    let report = report_with(
+        vec![Rejection {
+            code: "E-TYPE-MISMATCH",
+            message: "type mismatch".into(),
+            location: RejectionLocation::Span(span),
+        }],
+        vec![ReportMessage {
+            code: "E-TYPE-MISMATCH",
+            message: "type mismatch".into(),
+            span: Some(span),
+        }],
+    );
+    assert_eq!(
+        bad_kernel_rejections(&report),
+        vec!["E-TYPE-MISMATCH: type mismatch".to_string()]
+    );
+
+    let declaration = Span::new(FileId::SCRATCH, 100, 200);
+    let inside = Span::new(FileId::SCRATCH, 120, 130);
+    let report = report_with(
+        vec![Rejection {
+            code: "E-MALFORMED",
+            message: "malformed core term".into(),
+            location: RejectionLocation::Declaration(declaration),
+        }],
+        vec![ReportMessage {
+            code: "E-MALFORMED",
+            message: "malformed core term".into(),
+            span: Some(inside),
+        }],
+    );
+    assert_eq!(
+        bad_kernel_rejections(&report),
+        vec!["E-MALFORMED: malformed core term".to_string()]
+    );
+
+    let outside = Span::new(FileId::SCRATCH, 300, 310);
+    let report = report_with(
+        vec![Rejection {
+            code: "E-MALFORMED",
+            message: "malformed core term".into(),
+            location: RejectionLocation::Declaration(declaration),
+        }],
+        vec![ReportMessage {
+            code: "E-MALFORMED",
+            message: "malformed core term".into(),
+            span: Some(outside),
+        }],
+    );
+    assert!(
+        bad_kernel_rejections(&report).is_empty(),
+        "a diagnostic outside the declaration was paired"
+    );
 }
