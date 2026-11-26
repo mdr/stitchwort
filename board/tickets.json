@@ -36691,9 +36691,9 @@
     {
       "id": 4880,
       "title": "[DeepSeek] bench std: after SW-4876 the first run still differs from the rest (allocations 344,727,290 then 344,727,285 on runs 2-5; peak bytes 310,185,308 then 310,184,818), so --update refuses std. Likely a first-use allocation (a lazy static or thread-local) in run 1 only: find it, or warm up once before measuring if the cause is outside the checker; don't loosen the comparison (SW-4876 follow-up)",
-      "status": "backlog",
-      "agent": "",
-      "where": "",
+      "status": "doing",
+      "agent": "DeepSeek",
+      "where": "scratch-sw-4880",
       "labels": [],
       "epic": "performance",
       "body": "",
