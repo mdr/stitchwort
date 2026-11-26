@@ -979,6 +979,24 @@ mod tests {
         )
     }
 
+    /// A million nested applications drop on a stack far too small to
+    /// recurse through them.
+    #[test]
+    fn freeing_a_deep_term_does_not_overflow_the_stack() {
+        std::thread::Builder::new()
+            .stack_size(256 * 1024)
+            .spawn(|| {
+                let mut term = Term::Refl;
+                for _ in 0..1_000_000 {
+                    term = Term::app(term, v(0));
+                }
+                drop(term);
+            })
+            .unwrap()
+            .join()
+            .unwrap();
+    }
+
     fn data(args: Vec<Term>) -> Term {
         Term::data(DataId(0), args)
     }
