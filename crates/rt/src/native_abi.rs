@@ -1714,6 +1714,11 @@ pub unsafe extern "C" fn sw_cell_free(cell: u64, n: u64) {
 /// As [`sw_cell_free`]'s.
 #[allow(unsafe_code)]
 pub(crate) unsafe fn free_emptied(cell: u64, n: u64) {
+    debug_assert_eq!(
+        counts_at(cell as *const u8),
+        (1, 1),
+        "freeing a cell that isn't unique"
+    );
     let fields = (cell + RC_VALUE_AT as u64) as *const MaybeUninit<Value>;
     // SAFETY (both paths): the cell is an `Rc<[Value]>` of `n` fields
     // (however it was built), so its data has the size and alignment of
@@ -1849,6 +1854,11 @@ pub unsafe extern "C" fn sw_unpack(
 #[allow(unsafe_code)]
 #[cfg_attr(not(test), unsafe(no_mangle))]
 pub unsafe extern "C" fn sw_empty_cell(cell: u64, n: u64) {
+    debug_assert_eq!(
+        counts_at(cell as *const u8),
+        (1, 1),
+        "emptying a cell that isn't unique"
+    );
     let fields = (cell + RC_VALUE_AT as u64) as *mut Value;
     for i in 0..n as usize {
         // SAFETY: within the cell, which nothing else refers to.

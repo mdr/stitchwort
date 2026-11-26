@@ -250,9 +250,14 @@ impl<'p> Checker<'p> {
                         return Err(format!("arm {c} is for constructor {}", arm.ctor));
                     }
                     let mut saved = Vec::new();
+                    let mut seen = vec![false; fields[c]];
                     for (field, slot) in &arm.fields {
-                        if *field as usize >= fields[c] {
+                        let field_index = *field as usize;
+                        if field_index >= fields[c] {
                             return Err(format!("arm {c} binds field {field}"));
+                        }
+                        if std::mem::replace(&mut seen[field_index], true) {
+                            return Err(format!("arm {c} binds field {field} twice"));
                         }
                         saved.push((*slot, self.bind(*slot)?));
                     }
