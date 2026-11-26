@@ -53,6 +53,7 @@ use stitchwort_syntax::{Diagnostic, Span};
 
 use crate::check::{Ctx, check};
 use crate::congruence::{self, Lookup, without_rows};
+use crate::term_util::apps;
 use crate::{Elaborator, Global, Result, kernel, scope};
 
 /// The parameter of `f.%step` that recursive calls stand for.
@@ -152,11 +153,6 @@ pub(crate) fn lams(binders: &[(Name, Icit)], body: Term) -> Term {
     binders.iter().rev().fold(body, |body, (x, icit)| {
         Term::Lam(x.clone(), *icit, Rc::new(body), ProofMark::Unknown)
     })
-}
-
-pub(crate) fn apps(head: Term, args: impl IntoIterator<Item = (Term, Icit)>) -> Term {
-    args.into_iter()
-        .fold(head, |f, (a, icit)| Term::app_icit(f, a, icit))
 }
 
 fn explicit(args: impl IntoIterator<Item = Term>) -> Vec<(Term, Icit)> {
@@ -341,19 +337,6 @@ fn zeta(g: &Ev, t: &Term) -> Result<Term> {
         Term::Loc(span, inner) => Term::Loc(*span, go(inner)?),
         Term::Case(..) | Term::NumCase(..) => t.clone(),
     })
-}
-
-/// `f a b c` as `f` and its arguments with how each is passed, looking
-/// through locations.
-pub(crate) fn spine(t: &Term) -> (&Term, Vec<(&Term, Icit)>) {
-    let mut args = Vec::new();
-    let mut head = t.strip_loc();
-    while let Term::App(f, a, icit) = head {
-        args.push((a.as_ref(), *icit));
-        head = f.strip_loc();
-    }
-    args.reverse();
-    (head, args)
 }
 
 fn internal_error(message: &str) -> Diagnostic {
@@ -1238,7 +1221,7 @@ impl Elaborator {
         let def = g.def(f);
         let n = def.arity();
         let body = def.body()?;
-        let (head, args) = spine(body.peel_lams(n));
+        let (head, args) = body.peel_lams(n).spine_icit();
         if !matches!(head.strip_loc(), Term::Def(go) if g.def(*go).name().ends_with(".%go")) {
             return None;
         }
@@ -2240,7 +2223,7 @@ impl Elaborator {
                 Tpl::Ctor(*d, *c, out)
             }
             Term::App(..) => {
-                let (head, args) = spine(t);
+                let (head, args) = t.spine_icit();
                 let head = head.clone();
                 let args: Vec<(Term, Icit)> =
                     args.into_iter().map(|(a, i)| (a.clone(), i)).collect();
@@ -2298,7 +2281,7 @@ impl Elaborator {
                         // both are rewritten at once and the terms between
                         // stay well typed.
                         let plain = |s: &Site| {
-                            let (head, args) = spine(&s.pre);
+                            let (head, args) = s.pre.spine_icit();
                             leaf.mentions(head) && !args.iter().any(|(a, _)| leaf.mentions(a))
                         };
                         let index = match sites

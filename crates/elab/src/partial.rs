@@ -43,6 +43,7 @@ use stitchwort_syntax::ast::Decl;
 use stitchwort_syntax::{Diagnostic, Span};
 
 use crate::module::Phase;
+use crate::term_util::apps;
 use crate::{Elaborator, Global, Result, effects};
 
 /// A parameter of a member, as its signature has it.
@@ -82,11 +83,6 @@ struct Names {
 /// The variable for binder `i` of `depth` binders.
 fn var(depth: usize, i: usize) -> Term {
     Term::Var(depth - 1 - i)
-}
-
-fn apps(head: Term, args: impl IntoIterator<Item = (Term, Icit)>) -> Term {
-    args.into_iter()
-        .fold(head, |f, (a, icit)| Term::app_icit(f, a, icit))
 }
 
 fn pis(params: &[Param], body: Term) -> Term {

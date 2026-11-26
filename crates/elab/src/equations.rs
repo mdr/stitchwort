@@ -90,7 +90,8 @@ use stitchwort_syntax::ast::{self, Alt, Decl, Expr, MatchKind, Pattern, Scrutine
 use stitchwort_syntax::{Diagnostic, Span};
 
 use crate::check::{Ctx, Saved};
-use crate::decreasing::{Binder, apps, lams, pis, split_pis};
+use crate::decreasing::{Binder, lams, pis, split_pis};
+use crate::term_util::apps;
 use crate::{Elaborator, Global, Result, kernel};
 
 mod induct;

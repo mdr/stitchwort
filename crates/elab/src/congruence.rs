@@ -27,7 +27,7 @@ use stitchwort_core::registry::Builtin;
 use stitchwort_core::value::eval;
 use stitchwort_core::{DataId, DefId, Ev, Icit, Name, Term, Value};
 
-use crate::decreasing::{Binder, map_vars, spine, split_pis};
+use crate::decreasing::{Binder, map_vars, split_pis};
 use crate::matching::same;
 use crate::{Elaborator, Global, Result};
 
@@ -148,8 +148,8 @@ pub(crate) fn validate_contextual(
     let Term::Eq(_, lhs, rhs) = res.strip_loc() else {
         return Err(sides);
     };
-    let (lhead, largs) = spine(lhs);
-    let (rhead, rargs) = spine(rhs);
+    let (lhead, largs) = lhs.spine_icit();
+    let (rhead, rargs) = rhs.spine_icit();
     let is_f = |h: &Term| matches!(h.strip_loc(), Term::Def(d) if *d == f);
     if !is_f(lhead) || !is_f(rhead) || largs.len() != rargs.len() {
         return Err(sides);
@@ -195,7 +195,7 @@ pub(crate) fn validate_contextual(
         };
         // `c x…`, applied to the premise's first binders: how many.
         let applied = |t: &Term, copy: usize| -> Option<usize> {
-            let (head, args) = spine(t);
+            let (head, args) = t.spine_icit();
             let Term::Var(ix) = head.strip_loc() else {
                 return None;
             };
@@ -459,7 +459,7 @@ pub(crate) fn validate_cong(
             return Ok(Err(wrong()));
         };
         let applied = |t: &Term| -> Option<usize> {
-            let (head, args) = spine(t);
+            let (head, args) = t.spine_icit();
             let Term::Var(ix) = head else { return None };
             if *ix >= depth || args.len() != xs.len() {
                 return None;
@@ -559,7 +559,7 @@ pub(crate) fn validate_cong(
             return false;
         };
         let side = |t: &Term, copy: usize| {
-            let (head, args) = spine(t);
+            let (head, args) = t.spine_icit();
             if !matches!(head, Term::Def(d) if *d == f) {
                 return false;
             }

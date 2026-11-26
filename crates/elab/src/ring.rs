@@ -58,6 +58,7 @@ use stitchwort_syntax::{Diagnostic, Span};
 
 use crate::Global;
 use crate::check::{Ctx, Result, builtin_ctor, builtin_data, builtin_def, check};
+use crate::term_util::apps;
 
 /// The library names the emitted proofs use: the pre-pass loads their files
 /// wherever `algebra` is written (`module.rs`, `free_names`).
@@ -1154,10 +1155,6 @@ fn different(
 }
 
 /// `f a1 … an`.
-fn apps(f: Term, args: Vec<Term>) -> Term {
-    args.into_iter().fold(f, Term::app)
-}
-
 /// Writes the proof and checks it the way the kernel will.
 #[allow(clippy::too_many_arguments)]
 fn emit(

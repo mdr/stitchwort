@@ -34,7 +34,7 @@ use stitchwort_core::Ev;
 use stitchwort_core::ProofMark;
 
 use stitchwort_core::collections::HashMap;
-use stitchwort_core::value::force;
+use stitchwort_core::value::{DUMMY_LEVEL, force};
 use stitchwort_core::{Icit, Name, Term, Value};
 use stitchwort_syntax::ast::{Expr, InductAlt};
 use stitchwort_syntax::{Diagnostic, Span};
@@ -42,10 +42,6 @@ use stitchwort_syntax::{Diagnostic, Span};
 use crate::check::{Ctx, Result, check, infer, insert, quote_unfolded};
 use crate::lift;
 use crate::matching::{free_levels, is_var, occurs, same_shifted};
-
-/// A level no binder in scope has, for walking a telescope without
-/// instantiating it.
-const DUMMY: usize = usize::MAX - 2;
 
 /// `match induct …` where no type is expected: its type is a new unknown,
 /// which the motive then can't be worked out from.
@@ -76,7 +72,7 @@ fn telescope(cx: &Ctx, ty: &Value) -> Result<Vec<(Name, Icit)>> {
     let mut cur = ty.clone();
     while let Value::Pi(name, icit, _, cod, _) = force(&g, cur.clone())? {
         out.push((name, icit));
-        cur = cod.apply(&g, Value::var(DUMMY))?;
+        cur = cod.apply(&g, Value::dummy_var())?;
     }
     Ok(out)
 }
@@ -245,7 +241,7 @@ pub(crate) fn check_induct(cx: &mut Ctx, expr: &Expr, goal: &Value) -> Result<Te
     let params = telescope(cx, &motive_ty)?;
     let k = params.len().saturating_sub(1);
     // The cases, and the targets after them, with the cases' own binders.
-    let rest_dummy = rest.apply(&g, Value::var(DUMMY))?;
+    let rest_dummy = rest.apply(&g, Value::dummy_var())?;
     let after = telescope(cx, &rest_dummy)?;
     let ncases = after.len().saturating_sub(k);
     let mut cases: Vec<(Name, Vec<Name>)> = Vec::new();
@@ -257,7 +253,7 @@ pub(crate) fn check_induct(cx: &mut Ctx, expr: &Expr, goal: &Value) -> Result<Te
             };
             let own = telescope(cx, &dom)?;
             cases.push((name, own.into_iter().map(|(n, _)| n).collect()));
-            cur = cod.apply(&g, Value::var(DUMMY))?;
+            cur = cod.apply(&g, Value::dummy_var())?;
         }
     }
     // The targets are distinct variables.
@@ -487,7 +483,7 @@ pub(crate) fn check_induct(cx: &mut Ctx, expr: &Expr, goal: &Value) -> Result<Te
         let Value::Pi(_, _, dom_shape, cod_shape, _) = force(&g, cur_shape)? else {
             unreachable!("counted")
         };
-        cur_shape = cod_shape.apply(&g, Value::var(DUMMY))?;
+        cur_shape = cod_shape.apply(&g, Value::dummy_var())?;
         let shown = (listing || alt.of > 1).then(|| shown_alternative(alt));
         let saved = std::mem::replace(
             &mut cx.e.goals.borrow_mut().alternative,
@@ -642,7 +638,7 @@ impl Shape {
     ) -> Option<crate::check::Statement> {
         let g = cx.g();
         let stated = self.stated.as_ref()?;
-        let Value::Neutral(stitchwort_core::value::Head::Var(DUMMY, _, _), spine) =
+        let Value::Neutral(stitchwort_core::value::Head::Var(DUMMY_LEVEL, _, _), spine) =
             force(&g, shape.clone()).ok()?
         else {
             return None;

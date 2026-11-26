@@ -123,9 +123,9 @@ impl Saturator<'_> {
     }
 
     /// `term` rewritten, or `None` if nothing in it changes.
-    fn expand(&mut self, term: &Rc<Term>) -> Result<Option<Rc<Term>>> {
+    fn expand(&mut self, term: &Term) -> Result<Option<Rc<Term>>> {
         self.g.machine.budget.nesting("elaborator")?;
-        Ok(match &**term {
+        Ok(match term {
             Term::Loc(span, inner) => {
                 let saved = self.span.replace(*span);
                 let result = self.expand(inner);
@@ -133,7 +133,7 @@ impl Saturator<'_> {
                 result?.map(|inner| Rc::new(Term::Loc(*span, inner)))
             }
             Term::App(..) => {
-                let (head, args) = spine(term);
+                let (head, args) = term.spine_icit();
                 if let Term::Def(id) = head
                     && let Some(params) = self.member(*id)
                     && args.len() < params.len()
@@ -253,8 +253,8 @@ impl Saturator<'_> {
     /// The spine `term` with its arguments rewritten, keeping its
     /// applications and locations. Its head is rewritten too, unless it's a
     /// member, whose occurrence the whole spine is.
-    fn spine_args(&mut self, term: &Rc<Term>) -> Result<Option<Rc<Term>>> {
-        match &**term {
+    fn spine_args(&mut self, term: &Term) -> Result<Option<Rc<Term>>> {
+        match term {
             Term::Loc(span, inner) => Ok(self
                 .spine_args(inner)?
                 .map(|inner| Rc::new(Term::Loc(*span, inner)))),
@@ -281,13 +281,13 @@ impl Saturator<'_> {
         &mut self,
         id: DefId,
         params: &[(Name, Icit)],
-        args: &[(&Rc<Term>, Icit)],
+        args: &[(&Term, Icit)],
     ) -> Result<Term> {
         let missing = &params[args.len()..];
         let shift = missing.len();
         let mut call = Term::Def(id);
         for (arg, icit) in args {
-            let arg = self.expand(arg)?.unwrap_or_else(|| (*arg).clone());
+            let arg = self.expand(arg)?.unwrap_or_else(|| Rc::new((*arg).clone()));
             call = Term::app_icit(call, arg.shift(self.g, shift, 0)?, *icit);
         }
         for (k, (_, icit)) in missing.iter().enumerate() {
@@ -338,17 +338,4 @@ impl Saturator<'_> {
             b_new.unwrap_or_else(|| b.clone()),
         )))
     }
-}
-
-/// Splits `f a b` into `f` and its arguments with their implicitness,
-/// looking through locations.
-fn spine(term: &Rc<Term>) -> (&Term, Vec<(&Rc<Term>, Icit)>) {
-    let mut args = Vec::new();
-    let mut head: &Term = term.strip_loc();
-    while let Term::App(f, a, icit) = head {
-        args.push((a, *icit));
-        head = f.strip_loc();
-    }
-    args.reverse();
-    (head, args)
 }

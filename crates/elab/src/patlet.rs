@@ -231,7 +231,7 @@ fn declared_result(cx: &Ctx, e: &Expr) -> Result<Option<Value>> {
     let mut ty = crate::kernel::def_ty(&g, def)?;
     while let Value::Pi(_, _, _, cod, _) = force(&g, ty.clone())? {
         // A variable no binder in scope has, as in `proposition`.
-        ty = cod.apply(&g, Value::var(usize::MAX - 2))?;
+        ty = cod.apply(&g, Value::dummy_var())?;
     }
     Ok(Some(ty))
 }
@@ -272,7 +272,7 @@ pub(crate) fn proposition(cx: &Ctx, ty: &Value) -> Result<bool> {
         Value::Data(d, _) => g.data(d).sort() == Sort::Prop,
         Value::Pi(_, _, _, cod, _) => {
             // A fresh variable no binder in scope has, for the test only.
-            proposition(cx, &cod.apply(&g, Value::var(usize::MAX - 2))?)?
+            proposition(cx, &cod.apply(&g, Value::dummy_var())?)?
         }
         _ => false,
     })

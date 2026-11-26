@@ -64,6 +64,7 @@ use stitchwort_core::{DataId, DefId, Icit, Name, Sort, Term, Value};
 use stitchwort_syntax::Diagnostic;
 
 use crate::check::quote_folded;
+use crate::term_util::apps;
 use crate::{Elaborator, Global, kernel};
 
 /// Why generation stops: a shape it doesn't cover (nothing is generated),
@@ -228,11 +229,6 @@ fn var(depth: usize, level: usize) -> Term {
 
 fn vars(range: std::ops::Range<usize>) -> Vec<Value> {
     range.map(Value::var).collect()
-}
-
-fn apps(head: Term, args: impl IntoIterator<Item = (Term, Icit)>) -> Term {
-    args.into_iter()
-        .fold(head, |f, (a, icit)| Term::app_icit(f, a, icit))
 }
 
 fn implicit(args: Vec<Term>) -> Vec<(Term, Icit)> {

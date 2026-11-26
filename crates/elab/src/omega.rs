@@ -113,6 +113,7 @@ use stitchwort_syntax::{Diagnostic, Span};
 use crate::Global;
 use crate::check::{Ctx, Result, builtin_ctor, builtin_data, builtin_def};
 use crate::omega_search::{self as search, Case, Cert, Failure, Problem, Rat, Row, Source, Step};
+use crate::term_util::apps;
 
 /// The largest `k` in `k * x` that is quoted: `k * x` unfolds `k` times
 /// whenever its type is compared, so larger ones are refused
@@ -4298,11 +4299,6 @@ fn or_intro(lemma: DefId, sides: Vec<Term>, proof: Term) -> Term {
         Term::app_icit(f, side, Icit::Implicit)
     });
     Term::app(applied, proof)
-}
-
-/// `f a1 … an`.
-fn apps(f: Term, args: Vec<Term>) -> Term {
-    args.into_iter().fold(f, Term::app)
 }
 
 /// The type `which` proves once given `args` and then `rest` more

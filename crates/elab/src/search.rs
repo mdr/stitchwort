@@ -22,6 +22,7 @@
 
 use std::collections::BTreeSet;
 use std::rc::Rc;
+use std::sync::OnceLock;
 use stitchwort_core::ProofMark;
 
 use stitchwort_core::value::{Elim, Head, Value, eval, force};
@@ -1823,7 +1824,10 @@ impl Elaborator {
         match found {
             Ok(hit) => hit,
             Err(why) => {
-                if stitchwort_core::env_flag::env_flag("STITCHWORT_SEARCH_DEBUG") {
+                static DEBUG: OnceLock<bool> = OnceLock::new();
+                if *DEBUG
+                    .get_or_init(|| stitchwort_core::env_flag::env_flag("STITCHWORT_SEARCH_DEBUG"))
+                {
                     eprintln!("search: {} ran out ({why:?})", candidate.item.path(g));
                 }
                 stats.out_of_budget += 1;

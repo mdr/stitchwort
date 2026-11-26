@@ -106,6 +106,7 @@ pub mod search;
 mod shared;
 pub mod shown;
 mod state;
+mod term_util;
 pub mod timings;
 pub use kernel::{
     record_rejections as record_kernel_rejections, take_rejections as take_kernel_rejections,
