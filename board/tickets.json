@@ -36114,13 +36114,13 @@
     },
     {
       "id": 4849,
-      "title": "[DeepSeek] nesting::nested_applications_under_the_playground_guard fails in a fresh scratch clone (E-RESOURCE where None is expected, nesting.rs:151); check whether it fails on main and whether the quick tier runs it (SW-1970 finding)",
+      "title": "[Sonnet] nesting::nested_applications_under_the_playground_guard fails on main on macOS (40 nested applications no longer check under the playground's 320 KiB stack guard; E-RESOURCE at nesting.rs:151); Overmind's Linux quick tier passes it. Find what raised the stack per level (was about 5 KiB, SW-3172) and fix or re-measure (SW-1970 finding)",
       "status": "backlog",
       "agent": "",
       "where": "",
       "labels": [],
       "epic": "test-infra",
-      "body": "",
+      "body": "Confirmed on main at 21b9e455b, 12:52 26 Nov, Speedwell (macOS): fails; the other 17 nesting tests pass.",
       "created": "2026-11-26",
       "updated": "2026-11-26",
       "commits": []
