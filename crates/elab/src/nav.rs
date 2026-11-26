@@ -509,6 +509,11 @@ pub fn std_source(path: &str, stack: usize) -> Option<String> {
         .map(|f| f.text.clone())
 }
 
+/// The longest a signature or a type may be in a hover before its inner
+/// parts are shown as `…`: longer than a message, so that an ordinary
+/// signature is shown whole, but bounded like one.
+const SIGNATURE_LIMIT: usize = 4000;
+
 impl Elaborator {
     /// Starts recording what the index needs. Call before loading anything
     /// that should be in it.
@@ -1431,7 +1436,12 @@ impl Elaborator {
         let i = ctor.fields.iter().position(|(f, _)| **f == *name)?;
         let mut names: Vec<Name> = data.params().iter().map(|(n, _)| n.clone()).collect();
         names.extend(ctor.fields[..i].iter().map(|(n, _)| n.clone()));
-        Some(pretty::term(g, &names, &ctor.fields[i].1))
+        Some(pretty::term_bounded(
+            g,
+            &names,
+            &ctor.fields[i].1,
+            SIGNATURE_LIMIT,
+        ))
     }
 
     /// The parameters of a definition's type with their names (all of
@@ -1446,7 +1456,7 @@ impl Elaborator {
         let mut parts: Vec<String> = Vec::new();
         let mut ty = g.def(id).ty().clone();
         while let Term::Pi(name, icit, dom, cod, _) = ty.strip_loc() {
-            let shown = pretty::term(g, &names, dom);
+            let shown = pretty::term_bounded(g, &names, dom, SIGNATURE_LIMIT);
             // A bare row's divergence index isn't written
             // (docs/proposals/partial-stage-3.md §2.2).
             if name.starts_with("%div.") {
@@ -1469,7 +1479,7 @@ impl Elaborator {
         if parts.is_empty() {
             return None;
         }
-        parts.push(pretty::term(g, &names, &ty));
+        parts.push(pretty::term_bounded(g, &names, &ty, SIGNATURE_LIMIT));
         Some(parts.join(" -> "))
     }
 
@@ -1495,7 +1505,7 @@ impl Elaborator {
             if name.starts_with('%') || &**name == "_" {
                 break;
             }
-            let shown = pretty::term(g, &names, dom);
+            let shown = pretty::term_bounded(g, &names, dom, SIGNATURE_LIMIT);
             let default = self
                 .param_default_shown(id, names.len())
                 .map(|d| format!(" := {d}"))
@@ -1512,7 +1522,7 @@ impl Elaborator {
         if parts.is_empty() {
             return None;
         }
-        let result = pretty::term(g, &names, &ty);
+        let result = pretty::term_bounded(g, &names, &ty, SIGNATURE_LIMIT);
         Some(format!("{}: {result}", parts.join(" ")))
     }
 
@@ -1528,7 +1538,7 @@ impl Elaborator {
             names.push(x.clone());
             body = (**inner).clone();
         }
-        Some(pretty::term(g, &names, &body))
+        Some(pretty::term_bounded(g, &names, &body, SIGNATURE_LIMIT))
     }
 
     /// A definition with parameter defaults, as its header is written:
@@ -1545,7 +1555,7 @@ impl Elaborator {
                 return None;
             };
             if !name.starts_with("%div.") {
-                let shown = pretty::term(g, &names, dom);
+                let shown = pretty::term_bounded(g, &names, dom, SIGNATURE_LIMIT);
                 parts.push(match (icit, self.param_default_shown(id, names.len())) {
                     (Icit::Explicit, Some(d)) => format!("({name}: {shown} := {d})"),
                     (Icit::Explicit, None) => format!("({name}: {shown})"),
@@ -1560,7 +1570,7 @@ impl Elaborator {
         Some(format!(
             "{kind} {short} {}: {}",
             parts.join(" "),
-            pretty::term(g, &names, &ty)
+            pretty::term_bounded(g, &names, &ty, SIGNATURE_LIMIT)
         ))
     }
 
@@ -1593,7 +1603,7 @@ impl Elaborator {
                     Some(header) => header,
                     // The type as elaborated, with calls as written
                     // (`Float.isValid a`): unfolded, it can run to megabytes.
-                    None => pretty::term(g, &[], g.def(id).ty()),
+                    None => pretty::term_bounded(g, &[], g.def(id).ty(), SIGNATURE_LIMIT),
                 };
                 // Checked with its bare row variables total (D1215,
                 // docs/proposals/partial-stage-3.md §2.2): say why.
@@ -1626,7 +1636,7 @@ impl Elaborator {
                         ProofMark::Unknown,
                     );
                 }
-                Some(pretty::term(g, &[], &ty))
+                Some(pretty::term_bounded(g, &[], &ty, SIGNATURE_LIMIT))
             }
             Global::Ctor(d, c) => {
                 let data = g.data(d);
@@ -1658,7 +1668,7 @@ impl Elaborator {
                         ProofMark::Unknown,
                     );
                 }
-                Some(pretty::term(g, &[], &ty))
+                Some(pretty::term_bounded(g, &[], &ty, SIGNATURE_LIMIT))
             }
             _ => None,
         }
