@@ -36405,12 +36405,12 @@
     {
       "id": 4863,
       "title": "[Fable] Playground stack, end state: why real proofs need so much stack in WebAssembly (2020 day 5 314 KiB, 2024 day 22 604 KiB, 2021 day 11 317), what the checker should do differently, and the best end state (frame sizes, explicit work lists for the deep walks, engine stack switching, anything else), with measurements; not only the cheapest change (D3750; SW-4857)",
-      "status": "doing",
+      "status": "review",
       "agent": "Opus",
       "where": "",
       "labels": [],
       "epic": "editor-playground",
-      "body": "D3750 (Matt, 17:35 26 Nov): 'Don't necessarily propose only the cheapest change ... we're interested in the best end state ... should we be doing something differently?' Fable at Matt's suggestion.\n\nRuns on Fable (fable-lane); the board has no Fable agent name.",
+      "body": "D3750 (Matt, 17:35 26 Nov): 'Don't necessarily propose only the cheapest change ... we're interested in the best end state ... should we be doing something differently?' Fable at Matt's suggestion.\n\nRuns on Fable (fable-lane); the board has no Fable agent name.\n\nProgress (Fable lane, 26 Nov): docs/reviews/SW-4863-playground-stack-end-state.md. Day05's and Day22's wasm peaks are the hover printer (flush_navigation prints a 1,024- / 2,000-level term in full, then cuts it to 240 characters), not checking: with the printer stopped at 200 levels (probe) Day22 is 96 KiB, Day05 73, and Chrome 158 checks all six of SW-4857's namespaces. Day11 is a 100-link stuck-sum chain in the kernel's evaluator. Chrome's first tier charges 8 bytes of its stack a local (worker: about 480 KB); wasm-opt -Oz re-inlines the split frames; JSPI can chain engine stacks (376x depth measured in Chrome). Steps and three decisions for Matt in the note.",
       "created": "2026-11-26",
       "updated": "2026-11-26",
       "commits": []
