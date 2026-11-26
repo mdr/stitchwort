@@ -36592,7 +36592,7 @@
     {
       "id": 4875,
       "title": "[Sonnet] SW-4868 regression: goal example large-hypothesis-goal now prints 'big: …' for 'big: q (grow 22 (Leaf n))' (running__examples__goals__large-hypothesis-goal.snap); term_within's new depth cap (max_depth = limit) cuts a short term",
-      "status": "doing",
+      "status": "review",
       "agent": "Sonnet",
       "where": "",
       "labels": [],
