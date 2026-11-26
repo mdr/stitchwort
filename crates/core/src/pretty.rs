@@ -122,8 +122,15 @@ pub fn term(g: &Ev, names: &[Name], term: &Term) -> String {
 /// [`term`], shortened to the length a message may have, and only as deep
 /// as that: for hovers, whose terms may be as nested as a value is.
 pub fn term_shortened(g: &Ev, names: &[Name], term: &Term) -> String {
+    term_bounded(g, names, term, MESSAGE_LIMIT)
+}
+
+/// [`term`], shortened to `limit` characters and printed only as deep as
+/// that: for a hover that shows more than a message, such as a signature,
+/// whose term may be as nested as a value is.
+pub fn term_bounded(g: &Ev, names: &[Name], term: &Term, limit: usize) -> String {
     with_operation(g, || {
-        term_within(g, None, names, term, MESSAGE_LIMIT, Prec::Arrow, None)
+        term_within(g, None, names, term, limit, Prec::Arrow, None)
     })
 }
 

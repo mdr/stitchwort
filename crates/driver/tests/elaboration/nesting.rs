@@ -446,7 +446,12 @@ fn deep_term(f: Term, x: Term, depth: usize) -> Term {
 /// A session with `f : Nat -> Nat` and an export `g : Nat -> Nat`, whose
 /// body is then replaced (without checking it) by `n => f (f (… n))`.
 fn with_deep_definition(depth: usize) -> (Session, DefId) {
-    let mut session = Session::new();
+    with_deep_definition_in(Session::new(), depth)
+}
+
+/// [`with_deep_definition`] in `session`, which may already be recording
+/// navigation: recording has to be on before the file loads to index it.
+fn with_deep_definition_in(mut session: Session, depth: usize) -> (Session, DefId) {
     session
         .load(
             "deep.sw",
@@ -478,7 +483,12 @@ fn with_deep_definition(depth: usize) -> (Session, DefId) {
 /// `(n : Nat) → f (f (… n)) = n`, installed with its evaluation: the
 /// closing search, hashing and the printer all walk a lemma's type.
 fn with_deep_type(depth: usize) -> (Session, DefId) {
-    let (mut session, id) = with_deep_definition(1);
+    let (session, id) = with_deep_definition(1);
+    with_deep_type_of(session, id, depth)
+}
+
+/// [`with_deep_type`] for definition `id` of `session`.
+fn with_deep_type_of(mut session: Session, id: DefId, depth: usize) -> (Session, DefId) {
     let g = &mut session.elab.kernel;
     let f = DefId(
         g.env
@@ -509,6 +519,15 @@ fn with_deep_type(depth: usize) -> (Session, DefId) {
         .def_mut_for_tests(id)
         .set_type_unchecked_for_tests(ty, value);
     (session, id)
+}
+
+/// [`with_deep_type`], recording navigation from the file's load: the
+/// definition's deep signature is in the index for a hover.
+fn with_navigable_deep_type(depth: usize) -> (Session, DefId) {
+    let mut session = Session::new();
+    session.elab.enable_navigation();
+    let (session, id) = with_deep_definition_in(session, 1);
+    with_deep_type_of(session, id, depth)
 }
 
 /// A hover's type, as deep as a value is (`Nat.iterate 2000 f x`), is
@@ -543,6 +562,29 @@ fn hover_prints_only_what_it_shows() {
         assert_eq!(
             pretty::term_shortened(g, &["x".into()], &small),
             "f (f (f x))"
+        );
+    });
+}
+
+/// A definition's signature, as deep as a value's type is, is printed only
+/// as far as a hover shows it too (SW-4874): the header is cut with `…`,
+/// not printed at any depth.
+#[test]
+fn hover_cuts_a_deep_signature() {
+    isolated("hover_cuts_a_deep_signature", || {
+        let (session, _) = with_navigable_deep_type(100_000);
+        let index = session.elab.navigation_index(&|_, _| true);
+        let symbol = index
+            .symbols
+            .iter()
+            .find(|s| s.name.rsplit('.').next() == Some("g"))
+            .expect("the definition is indexed");
+        let header = symbol.header.as_deref().expect("a function's header");
+        assert!(header.contains('…'), "{header}");
+        assert!(
+            header.chars().count() <= 4_001,
+            "{}",
+            header.chars().count()
         );
     });
 }
