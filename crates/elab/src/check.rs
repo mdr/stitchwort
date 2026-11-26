@@ -5450,6 +5450,10 @@ fn not_a_function_hint(
                 }
                 None => e = e.with_label(value.span(), label),
             }
+            // A failure finding the note keeps the error as it was.
+            if let Ok(Some(note)) = unfolded_function_note(cx, head) {
+                e = e.with_note(note);
+            }
             return Ok(match negative {
                 Some(note) => e.with_note(note),
                 None => e,
@@ -5460,6 +5464,41 @@ fn not_a_function_hint(
         Some(note) if e.code == "E-NOT-A-FUNCTION" => e.with_note(note),
         _ => e,
     })
+}
+
+/// The note naming the definition whose unfolding gave `head` its function
+/// type, for an application of too many arguments: the type as written is a
+/// call of one (`Pred`), which unfolds to a function type.
+fn unfolded_function_note(cx: &Ctx, head: &Term) -> Result<Option<String>> {
+    let g = cx.g();
+    let (written, env) = match head.spine().0.strip_loc() {
+        Term::Def(id) => (Rc::new(g.def(*id).ty().clone()), Vec::new()),
+        Term::Var(ix) => {
+            let level = cx.level() - 1 - ix;
+            let Some((written, env)) = crate::dot::written_at(cx, level) else {
+                return Ok(None);
+            };
+            (written, env)
+        }
+        _ => return Ok(None),
+    };
+    let Term::Def(_) = written.spine().0.strip_loc() else {
+        return Ok(None);
+    };
+    let shown = pretty::term_for_message_in(&g, cx.e, &cx.shown_names(false), &written);
+    let unfolded = force(&g, eval(&g, &env, &written)?)?;
+    let Some(wanted) = explicit_parameter_count(cx, &unfolded)? else {
+        return Ok(None);
+    };
+    let takes = match wanted {
+        0 => "takes no arguments".to_string(),
+        1 => "takes 1 argument".to_string(),
+        n => format!("takes {n} arguments"),
+    };
+    Ok(Some(format!(
+        "`{shown}` unfolds to `{}`, which {takes}",
+        cx.show(&unfolded)
+    )))
 }
 
 /// The name and number of explicit parameters of the definition or local

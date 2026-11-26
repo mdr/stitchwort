@@ -1,0 +1,13 @@
+---
+source: crates/cli/tests/running/examples.rs
+expression: output
+---
+[E-NOT-A-FUNCTION] Error: `isZero` takes 1 argument, but is given 2
+   ╭─[ reject/arity-unfolded-application.sw:8:31 ]
+   │
+ 8 │ def tooMany: Bool := isZero 0 1
+   │                               ┬  
+   │                               ╰── this argument is extra
+   │ 
+   │ Note: `Pred` unfolds to `Nat → Bool`, which takes 1 argument
+───╯
