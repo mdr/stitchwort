@@ -14,7 +14,7 @@ use stitchwort_core::ProofMark;
 use stitchwort_core::check as kernel;
 use stitchwort_core::hash::def_hash;
 use stitchwort_core::{DefId, Limits, ResourceError, Term, pretty};
-use stitchwort_driver::driver::Session;
+use stitchwort_driver::driver::{Session, with_stack};
 use stitchwort_elab::search::Item;
 use stitchwort_syntax::{DEFAULT_STACK, SourceMap, parse_module_within};
 
@@ -223,39 +223,54 @@ fn long_sums() {
 
 /// A long left-nested chain that runs out names its length and how to write
 /// it without one (SW-2020, D2844).
+///
+/// Which pass runs out first depends on the build's frame sizes: the parser
+/// (and the lowering after it) may run out before the elaborator or kernel,
+/// and the parser's error has no chain note. So parse with a roomy stack,
+/// then tighten the session's limit before checking: the run-out is after
+/// parsing, and the note comes from the elaborator or the kernel (SW-4850).
 #[test]
 fn long_chain_notes() {
     isolated("long_chain_notes", || {
-        for (op, note) in [
-            (
-                "+",
-                "this sum has 2,000 terms; write long sums as a list, `[…].sum`",
-            ),
-            (
-                "*",
-                "this product has 2,000 terms; write long products as a list, `[…].product`",
-            ),
-            ("-", "this chain has 2,000 terms; split it with `let`"),
-        ] {
-            let mut session = Session::new();
-            let chain = vec!["1"; 2_000].join(&format!(" {op} "));
-            let program = format!("def x : Nat := {chain}\n");
-            let errors = session.load("x.sw", &program).expect_err("runs out");
-            let e = &errors[0];
-            assert_eq!(e.code, "E-RESOURCE", "{op}");
-            assert!(
-                e.message.contains("nested too deeply"),
-                "{op}: {}",
-                e.message
-            );
-            assert_eq!(
-                e.notes.iter().filter(|n| *n == note).count(),
-                1,
-                "{op}: {}\n{:?}",
-                e.message,
-                e.notes
-            );
-        }
+        // Room for the parser on any build, even with debug frames.
+        const ROOMY: usize = 32 * 1024 * 1024;
+        with_stack(ROOMY, || {
+            for (op, note) in [
+                (
+                    "+",
+                    "this sum has 2,000 terms; write long sums as a list, `[…].sum`",
+                ),
+                (
+                    "*",
+                    "this product has 2,000 terms; write long products as a list, `[…].product`",
+                ),
+                ("-", "this chain has 2,000 terms; split it with `let`"),
+            ] {
+                let mut session = Session::for_stack(ROOMY);
+                let chain = vec!["1"; 2_000].join(&format!(" {op} "));
+                let program = format!("def x : Nat := {chain}\n");
+                let file = session.sources.add("x.sw", &program);
+                let module = parse_module_within(file, &program, session.elab.options.limits.stack)
+                    .expect("a long chain parses with room");
+                // Tight enough that checking runs out, as it did before.
+                session.elab.options.limits.stack = guard(320);
+                let errors = session.elab.elaborate_module(&module);
+                let e = errors.first().expect("runs out");
+                assert_eq!(e.code, "E-RESOURCE", "{op}");
+                assert!(
+                    e.message.contains("nested too deeply"),
+                    "{op}: {}",
+                    e.message
+                );
+                assert_eq!(
+                    e.notes.iter().filter(|n| *n == note).count(),
+                    1,
+                    "{op}: {}\n{:?}",
+                    e.message,
+                    e.notes
+                );
+            }
+        });
     });
 }
 

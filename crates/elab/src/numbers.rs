@@ -2152,6 +2152,81 @@ pub(crate) fn has_number(expr: &Expr) -> bool {
     false
 }
 
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    /// The expression `text` parses to, on a thread with room for a long
+    /// chain's frames, as the debug builds have bigger ones.
+    fn parse(text: &str) -> Expr {
+        const STACK: usize = 16 * 1024 * 1024;
+        let text = text.to_owned();
+        std::thread::Builder::new()
+            .stack_size(STACK)
+            .spawn(move || {
+                let mut sources = stitchwort_syntax::SourceMap::new();
+                let file = sources.add("test", &text);
+                let room = STACK - 4 * 1024 * 1024;
+                stitchwort_syntax::parse_expression_within(file, &text, room).expect("parses")
+            })
+            .expect("a test thread")
+            .join()
+            .expect("the test thread parses")
+    }
+
+    /// A left-nested chain of `terms` ones joined by `op`.
+    fn chain(op: &str, terms: usize) -> Expr {
+        parse(&vec!["1"; terms].join(&format!(" {op} ")))
+    }
+
+    /// A chain is long past 1,000 terms.
+    #[test]
+    fn chain_note_at_a_thousand_and_one_terms() {
+        assert_eq!(chain_note(&chain("+", 1_000)), None);
+        assert_eq!(
+            chain_note(&chain("+", 1_001)).as_deref(),
+            Some("this sum has 1,001 terms; write long sums as a list, `[…].sum`")
+        );
+    }
+
+    /// Each operator has its own wording.
+    #[test]
+    fn chain_note_wording_for_each_operator() {
+        assert_eq!(
+            chain_note(&chain("+", 1_001)).as_deref(),
+            Some("this sum has 1,001 terms; write long sums as a list, `[…].sum`")
+        );
+        assert_eq!(
+            chain_note(&chain("*", 1_001)).as_deref(),
+            Some("this product has 1,001 terms; write long products as a list, `[…].product`")
+        );
+        assert_eq!(
+            chain_note(&chain("-", 1_001)).as_deref(),
+            Some("this chain has 1,001 terms; split it with `let`")
+        );
+    }
+
+    /// A chain of mixed operators isn't one of the long chains the note is
+    /// about, however long it is.
+    #[test]
+    fn chain_note_ignores_a_mixed_operator_chain() {
+        let mixed = parse(&format!("1 * 1 + {}", vec!["1"; 1_000].join(" + ")));
+        assert_eq!(chain_note(&mixed), None);
+    }
+
+    /// Passing an error through more than one nested chain adds the note
+    /// only once.
+    #[test]
+    fn long_chain_note_is_added_once() {
+        let expr = chain("+", 1_001);
+        let d = Diagnostic::error("E-RESOURCE", "ran out of resources");
+        let d = long_chain_note(&expr, d);
+        let d = long_chain_note(&expr, d);
+        let note = "this sum has 1,001 terms; write long sums as a list, `[…].sum`";
+        assert_eq!(d.notes.iter().filter(|n| *n == note).count(), 1);
+    }
+}
+
 /// Whether `v` is an unknown applied to nothing but unknowns (`_ _`): a type
 /// that names nothing the reader could compare with another.
 pub(crate) fn all_unknown(cx: &Ctx, v: &Value) -> Result<bool> {
