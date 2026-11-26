@@ -3673,9 +3673,10 @@ fn run_native(g: &Ev, stack: &mut Stack, id: DefId, spine: Spine, asked: usize) 
 }
 
 thread_local! {
-    /// The call [`force_or_ask`] handed back, for [`run_native`] to force.
-    /// Set only between `force_or_ask` returning and the `native::run` it
-    /// was called from returning to `run_native`, which takes it.
+    /// The call [`force_or_ask`] handed back, for the machine to force. Set
+    /// only between `force_or_ask` returning and the read it was called
+    /// from (`native::run` in [`run_native`], `native::view_with` in
+    /// [`branch_asked`]) returning to its caller, which takes it.
     static ASKED: std::cell::Cell<Option<Value>> = const { std::cell::Cell::new(None) };
 }
 
@@ -3697,10 +3698,11 @@ fn forcing_for(asked: usize) -> native::Force {
     if asked < ASKS { force_or_ask } else { force }
 }
 
-/// [`force`] for a native that [`run_native`] runs: a glued call with no
-/// kept unfolding, for which `force` would start another machine, is
-/// handed back to `run_native` instead ([`ASKED`]), with an error that
-/// stops the native there (natives pass every error on, and never look at
+/// [`force`] for a native that [`run_native`] runs, or a number case's
+/// read of its scrutinee ([`branch_asked`]): a glued call with no kept
+/// unfolding, for which `force` would start another machine, is handed
+/// back to the machine instead ([`ASKED`]), with an error that stops the
+/// read there (`native.rs`'s reads pass every error on, and never look at
 /// one). Anything else is forced as `force` does it.
 fn force_or_ask(g: &Ev, value: Value) -> Result<Value> {
     if let Value::Call(_, _, unfolding) = &value
