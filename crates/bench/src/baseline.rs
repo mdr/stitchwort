@@ -39,14 +39,17 @@ pub const TIME_FLOOR_MS: f64 = 20.0;
 /// Benchmark records by name, in the order they're written.
 #[derive(Clone, Debug, Default, PartialEq)]
 pub struct Baseline {
+    /// The `--jobs` the `examples` benchmark ran with when this was recorded.
+    pub jobs: Option<usize>,
     pub records: Vec<(String, Record)>,
 }
 
 const HEADER: &str = "\
 # Benchmark baseline (docs/testing.md, \"Benchmarks\"). Written by
 #   cargo run --release -p stitchwort-bench -- --update
-# steps, visits, allocations and peak_bytes are deterministic: the same on
-# every run.
+# steps, visits, allocations and peak_bytes are the regression signal: they
+# don't depend on how busy the machine is, but the examples benchmark's
+# counts depend a little on `jobs`, so only compare runs with the same value.
 # time_ms is the median wall time on the machine that recorded it.
 # run-machine-* run the runtime's machine, not the checker: their steps and
 # visits are 0, and machine_instructions is the machine's bytecode
@@ -68,6 +71,9 @@ impl Baseline {
 
     pub fn to_toml(&self) -> String {
         let mut out = HEADER.to_string();
+        if let Some(jobs) = self.jobs {
+            let _ = writeln!(out, "jobs = {jobs}");
+        }
         for (name, r) in &self.records {
             let _ = writeln!(out, "\n[{name}]");
             if let Some(inputs) = &r.inputs {
@@ -109,7 +115,22 @@ impl Baseline {
                 continue;
             }
             let Some((_, fields)) = &mut table else {
-                return Err(error("a field outside a table"));
+                let Some((key, value)) = line.split_once('=') else {
+                    return Err(error("expected `key = value`"));
+                };
+                if key.trim() != "jobs" {
+                    return Err(error("a field outside a table"));
+                }
+                if baseline.jobs.is_some() {
+                    return Err(error("`jobs` twice"));
+                }
+                baseline.jobs = Some(
+                    value
+                        .trim()
+                        .parse::<usize>()
+                        .map_err(|_| error("expected a count"))?,
+                );
+                continue;
             };
             let Some((key, value)) = line.split_once('=') else {
                 return Err(error("expected `key = value`"));
@@ -256,12 +277,34 @@ fn counts(c: &Counts) -> [(&'static str, u64, bool); 5] {
 /// Columns: a value and its change.
 const WIDTHS: [usize; 6] = [14, 13, 12, 9, 14, 8];
 
-/// Compares `results` (by benchmark name, in suite order) with `baseline`.
-/// Measures are compared only for the same inputs, and times only if both
-/// have one. Unless `partial`, every benchmark in the baseline should have
-/// been run.
-pub fn compare(baseline: &Baseline, results: &[(&str, &Record)], partial: bool) -> Comparison {
+/// Compares `results` (by benchmark name, in suite order) with `baseline`,
+/// run with `jobs` threads. Measures are compared only for the same inputs,
+/// and times only if both have one. Unless `partial`, every benchmark in the
+/// baseline should have been run.
+pub fn compare(
+    baseline: &Baseline,
+    results: &[(&str, &Record)],
+    jobs: usize,
+    partial: bool,
+) -> Comparison {
     let mut c = Comparison::default();
+    match baseline.jobs {
+        Some(recorded) if recorded != jobs => {
+            c.regressions.push(format!(
+                "the baseline was recorded with --jobs {recorded}, but this run used --jobs \
+                 {jobs}: the examples benchmark's counts depend on it, so it wasn't compared"
+            ));
+            return c;
+        }
+        None if !baseline.records.is_empty() => {
+            c.regressions.push(format!(
+                "the baseline doesn't record the --jobs it was recorded with (this run used \
+                 {jobs}): record it again with --update"
+            ));
+            return c;
+        }
+        _ => {}
+    }
     let width = results.iter().map(|(n, _)| n.len()).max().unwrap_or(0);
     let mut header = format!("{:width$}", "");
     for (label, w) in [
@@ -382,7 +425,10 @@ mod tests {
     }
 
     fn baseline() -> Baseline {
-        let mut b = Baseline::default();
+        let mut b = Baseline {
+            jobs: Some(8),
+            ..Baseline::default()
+        };
         b.set("a", record(1000, 2000, 3000, Some(100.0)));
         b.set(
             "b",
@@ -414,16 +460,16 @@ mod tests {
     fn counts_just_past_the_threshold_are_regressions() {
         let b = baseline();
         let within = record(1099, 2000, 3000, None);
-        assert!(!compare(&b, &[("a", &within)], true).failed());
+        assert!(!compare(&b, &[("a", &within)], 8, true).failed());
         let past = record(1000, 2201, 3000, None);
-        let c = compare(&b, &[("a", &past)], true);
+        let c = compare(&b, &[("a", &past)], 8, true);
         assert!(c.failed());
         assert!(c.regressions[0].contains("allocations +10.1%"), "{c}");
     }
 
     #[test]
     fn improvements_are_notes() {
-        let c = compare(&baseline(), &[("a", &record(10, 20, 30, None))], true);
+        let c = compare(&baseline(), &[("a", &record(10, 20, 30, None))], 8, true);
         assert!(!c.failed());
         assert_eq!(c.notes.len(), 3, "{c}");
     }
@@ -432,16 +478,36 @@ mod tests {
     fn time_needs_both_the_ratio_and_the_floor() {
         let b = baseline();
         // +60% but only 60 ms more: over both.
-        assert!(compare(&b, &[("a", &record(1000, 2000, 3000, Some(160.0)))], true).failed());
+        assert!(
+            compare(
+                &b,
+                &[("a", &record(1000, 2000, 3000, Some(160.0)))],
+                8,
+                true
+            )
+            .failed()
+        );
         // +40%: under the ratio.
-        assert!(!compare(&b, &[("a", &record(1000, 2000, 3000, Some(140.0)))], true).failed());
-        let mut small = Baseline::default();
+        assert!(
+            !compare(
+                &b,
+                &[("a", &record(1000, 2000, 3000, Some(140.0)))],
+                8,
+                true
+            )
+            .failed()
+        );
+        let mut small = Baseline {
+            jobs: Some(8),
+            ..Baseline::default()
+        };
         small.set("a", record(1000, 2000, 3000, Some(10.0)));
         // +100% but only 10 ms more: under the floor.
         assert!(
             !compare(
                 &small,
                 &[("a", &record(1000, 2000, 3000, Some(20.0)))],
+                8,
                 true
             )
             .failed()
@@ -454,9 +520,28 @@ mod tests {
             inputs: Some("4 files, fedcba9876543210".into()),
             ..record(1000, 2000, 3000, None)
         };
-        let c = compare(&baseline(), &[("b", &now)], true);
+        let c = compare(&baseline(), &[("b", &now)], 8, true);
         assert!(!c.failed());
         assert!(c.notes[0].contains("inputs have changed"), "{c}");
+    }
+
+    #[test]
+    fn a_baseline_recorded_with_other_jobs_is_not_compared() {
+        let mut b = baseline();
+        b.jobs = Some(4);
+        let c = compare(&b, &[("a", &record(10, 20, 30, None))], 8, true);
+        assert!(c.failed());
+        assert!(c.regressions[0].contains("--jobs 4"), "{c}");
+        let mut unrecorded = baseline();
+        unrecorded.jobs = None;
+        let c = compare(
+            &unrecorded,
+            &[("a", &record(1000, 2000, 3000, None))],
+            8,
+            true,
+        );
+        assert!(c.failed());
+        assert!(c.regressions[0].contains("doesn't record"), "{c}");
     }
 
     #[test]
