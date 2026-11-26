@@ -36191,12 +36191,12 @@
     {
       "id": 4852,
       "title": "[Sonnet] Playground: a smaller stack guard in WebKit (Safari, and every iOS browser) chosen at run time, so a deep program gets E-RESOURCE there instead of crashing the worker (D3749; Safari overflows at about 297 KiB, SW-4849)",
-      "status": "doing",
+      "status": "review",
       "agent": "Sonnet",
       "where": "",
       "labels": [],
       "epic": "editor-playground",
-      "body": "D3749 (Matt, 14:40 26 Nov): option B, a smaller limit only in Safari; Chrome and Firefox keep 320 KiB.",
+      "body": "D3749 (Matt, 14:40 26 Nov): option B, a smaller limit only in Safari; Chrome and Firefox keep 320 KiB.\n\nDone: set_stack_guard (crates/web), web/stack-guard.js (AppleWebKit without Chrome/ -> 192 KiB), applied in all four workers and InPage; the guard is in the check-cache key (Options::cache_key), so web/build.sh writes std.cache.webkit.gz as well. Fixed std::time::Instant in rewrite/repeatedly.rs, which panicked in the wasm cache build. Headless Chrome with a Safari UA: deepest ok 58, first failure 59 (resource). test:browser: 90 ok, 12 fail, all pre-existing (book line numbers stale; a project test RangeError reproduced on main plus the Instant fix).",
       "created": "2026-11-26",
       "updated": "2026-11-26",
       "commits": []
