@@ -36118,8 +36118,8 @@
     {
       "id": 4849,
       "title": "[Sonnet] nesting::nested_applications_under_the_playground_guard fails on main on macOS (40 nested applications no longer check under the playground's 320 KiB stack guard; E-RESOURCE at nesting.rs:151); Overmind's Linux quick tier passes it. Find what raised the stack per level (was about 5 KiB, SW-3172) and fix or re-measure (SW-1970 finding)",
-      "status": "backlog",
-      "agent": "",
+      "status": "doing",
+      "agent": "Sonnet",
       "where": "",
       "labels": [],
       "epic": "test-infra",
