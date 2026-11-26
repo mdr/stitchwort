@@ -6756,17 +6756,20 @@
     {
       "id": 2016,
       "title": "[DeepSeek] Move misplaced end-of-day friction lists (NOTES-2024.md:1264, 1298, 1633, 1651; NOTES-2021.md:1735)",
-      "status": "doing",
+      "status": "done",
       "agent": "DeepSeek",
       "where": "scratch-sw-2016",
       "labels": [
         "aoc"
       ],
       "epic": "aoc-older",
-      "body": "From docs/research/aoc-friction-synthesis.md. 20 min.\n\nAudit note (22 Nov): 22 Nov 2026 audit: No commit addresses it; the NOTES line numbers were not rechecked.\n",
+      "body": "From docs/research/aoc-friction-synthesis.md. 20 min.\n\nAudit note (22 Nov): 22 Nov 2026 audit: No commit addresses it; the NOTES line numbers were not rechecked.\n\nFive lists moved unchanged (2024 days 3-6, 2021 day 6). Also misplaced, left: the size/time tables of 2024 days 4-6 and 2021 days 6-7. Model result: deepseek, worked, about 10 min (est. 15).",
       "created": "2026-11-07",
       "updated": "2026-11-26",
-      "commits": []
+      "commits": [
+        "bb2bd8217",
+        "195296109"
+      ]
     },
     {
       "id": 2017,
@@ -36134,7 +36137,7 @@
       "where": "",
       "labels": [],
       "epic": "test-infra",
-      "body": "Confirmed on main at 21b9e455b, 12:52 26 Nov, Speedwell (macOS): fails; the other 17 nesting tests pass.",
+      "body": "Confirmed on main at 21b9e455b, 12:52 26 Nov, Speedwell (macOS): fails; the other 17 nesting tests pass.\n\nCorrection: Overmind's loop doesn't run this test, so there is no Linux result; it may fail everywhere.",
       "created": "2026-11-26",
       "updated": "2026-11-26",
       "commits": []
@@ -36142,9 +36145,9 @@
     {
       "id": 4850,
       "title": "[DeepSeek] nesting::long_chain_notes fails on main: at 2,000 terms the parser runs out first (no chain note) on main's build, though it passed in the lane's clone; the test depends on which pass hits its stack limit first. Make it robust (SW-2020 follow-up)",
-      "status": "backlog",
-      "agent": "",
-      "where": "",
+      "status": "doing",
+      "agent": "DeepSeek",
+      "where": "scratch-sw-4850",
       "labels": [],
       "epic": "diagnostics",
       "body": "",
