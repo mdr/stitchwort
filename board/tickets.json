@@ -36787,12 +36787,12 @@
     {
       "id": 4885,
       "title": "[Opus] Checking nested applications f (f (… 0)) takes roughly quadratic time: 2 s at 2,000 levels, 21 s at 8,000, 63 s at 14,000 (SW-4870's probes, browser, under load); measure natively and find the quadratic pass; profile first",
-      "status": "doing",
+      "status": "review",
       "agent": "Opus",
       "where": "",
       "labels": [],
       "epic": "performance",
-      "body": "",
+      "body": "Lane (Opus, 26 Nov): natively quadratic too. Release CLI (64 MiB stack): 1,000 levels 141 ms elab, 2,000 582 ms, 4,000 2,392 ms, 8,000 E-RESOURCE (nested too deeply; the 64 MiB stack reaches about 6,000). Steps linear (13 a level); Budget visits quadratic: f at depths 100/200/400/800 = 6,292 / 22,542 / 85,042 / 330,042 (about n²/2), same for a polymorphic head. Cause: check_special (check.rs, the may_perform_at call before checking a plain value) asks effects::may_perform_at of every expression checked, and that walks the whole argument chain through call_performs; each level of the nesting asks again of its own argument, so n levels walk n²/2 nodes. sample of 5,500 levels: about 98% of busy samples in call_performs, Expr::span, Registry::is_def, scope lookups. Not fixed: remembering the answer is only safe with a stamp of everything it reads (scope, meta solutions, abilities, bare_rows_pure), and the local context has no change counter; design options in the lane report.",
       "created": "2026-11-26",
       "updated": "2026-11-26",
       "commits": []
