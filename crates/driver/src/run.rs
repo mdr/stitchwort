@@ -264,7 +264,7 @@ impl Session {
                         row,
                     });
                 }
-                Err(d) if d.code == "E-RESOURCE" || d.code == "E-UNFINISHED" => {
+                Err(d) if d.is_resource() || d.code == "E-UNFINISHED" => {
                     return Err(CallError::Other(d));
                 }
                 Err(_) => {}

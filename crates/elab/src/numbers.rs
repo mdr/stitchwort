@@ -1012,7 +1012,7 @@ fn has_chain_note(e: &Diagnostic) -> bool {
 /// Adds the note from [`chain_note`] when `e` ran out of stack on `expr`.
 /// An error that passes back up through nested chains keeps one note.
 pub(crate) fn long_chain_note(expr: &Expr, e: Diagnostic) -> Diagnostic {
-    if e.code != "E-RESOURCE" || has_chain_note(&e) {
+    if !e.is_resource() || has_chain_note(&e) {
         return e;
     }
     match chain_note(expr) {

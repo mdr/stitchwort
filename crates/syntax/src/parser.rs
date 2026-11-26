@@ -1271,7 +1271,7 @@ impl<'t> Parser<'t> {
         self.modes.recover = snapshot.modes.recover;
         let read = match parsed {
             Ok(read) => read,
-            Err(error) if error.code == "E-RESOURCE" => return Err(error),
+            Err(error) if error.is_resource() => return Err(error),
             Err(error) => {
                 self.recover_to(snapshot);
                 // One error a place: an `R1` gap may have left what came

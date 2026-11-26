@@ -1790,7 +1790,7 @@ pub fn validate_marks(
             // Running out leaves the lambdas unchecked, so the group is
             // refused; any other error means the kernel admitted a body
             // whose type the same evaluation can't read.
-            Some(Err(e)) if e.code == "E-RESOURCE" => {
+            Some(Err(e)) if e.is_resource() => {
                 return Err(e.with_note(format!(
                     "it ran out while the reference build re-checked the proof marks of \
                      `{name}`'s parameters, reading them off its type computed"

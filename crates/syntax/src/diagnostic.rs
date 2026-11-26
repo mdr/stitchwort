@@ -217,6 +217,12 @@ pub struct Counterexample {
 }
 
 impl Diagnostic {
+    /// Whether this is a resource error: running out of steps, stack, time
+    /// or size, rather than a failure of the code checked.
+    pub fn is_resource(&self) -> bool {
+        self.code == "E-RESOURCE"
+    }
+
     /// The index data, to set: made when first needed.
     pub fn detail_mut(&mut self) -> &mut Detail {
         self.detail.get_or_insert_with(Default::default)
