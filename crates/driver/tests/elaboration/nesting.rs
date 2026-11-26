@@ -221,6 +221,38 @@ fn long_sums() {
     });
 }
 
+/// A long left-nested chain that runs out names its length and how to write
+/// it without one (SW-2020, D2844).
+#[test]
+fn long_chain_notes() {
+    isolated("long_chain_notes", || {
+        for (op, note) in [
+            (
+                "+",
+                "this sum has 2,000 terms; write long sums as a list, `[…].sum`",
+            ),
+            (
+                "*",
+                "this product has 2,000 terms; write long products as a list, `[…].product`",
+            ),
+            ("-", "this chain has 2,000 terms; split it with `let`"),
+        ] {
+            let mut session = Session::new();
+            let chain = vec!["1"; 2_000].join(&format!(" {op} "));
+            let program = format!("def x : Nat := {chain}\n");
+            let errors = session.load("x.sw", &program).expect_err("runs out");
+            let e = &errors[0];
+            assert_eq!(e.code, "E-RESOURCE", "{op}");
+            assert!(
+                e.message.contains("nested too deeply"),
+                "{op}: {}",
+                e.message
+            );
+            assert!(e.notes.iter().any(|n| n == note), "{op}: {:?}", e.notes);
+        }
+    });
+}
+
 /// A block's lines nest: each `let` scopes over the rest.
 #[test]
 fn long_blocks() {

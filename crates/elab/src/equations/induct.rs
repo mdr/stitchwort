@@ -278,7 +278,7 @@ fn calls(
     walking: &[DefId],
     out: &mut Vec<Ih>,
 ) -> R<()> {
-    g.machine.budget.nesting("equations")?;
+    g.machine.budget.nesting("equation compiler")?;
     let n = d.binders.len();
     let decreasing = matches!(d.kind, Kind::Decreasing { .. });
     let (head, args) = spine_icit(t);
@@ -595,7 +595,7 @@ impl HelperWalk<'_> {
         binders: &mut Vec<(Name, Icit, Term)>,
     ) -> R<()> {
         let (g, d, why) = (self.g, self.d, self.why);
-        g.machine.budget.nesting("equations")?;
+        g.machine.budget.nesting("equation compiler")?;
         let cd = self.top + binders.len();
         let unread = || why("whose case tree couldn't be read");
         match tree.strip_loc() {
@@ -3441,7 +3441,7 @@ impl Tree<'_> {
     }
 
     fn go(&mut self, t: &Term, fvals: &mut Vec<PV>, path: &mut Vec<u32>) -> R<Term> {
-        self.g().machine.budget.nesting("equations")?;
+        self.g().machine.budget.nesting("equation compiler")?;
         if self.d.row_at(path).is_none()
             && let Some(j) = self.d.guard_row_at(path)
         {
