@@ -459,9 +459,12 @@ times. A clean rebuild with `RUSTC_WRAPPER=` empty is the test of one run.
   namespace `replayed from its entry`, `loaded from its interface entry`,
   `carried over`, `elaborated`, `a miss: WHY`, `not skipped: WHY`, and `written,
   digest HEX, SHAPE` for an entry it wrote; the same for library files
-  (`std file F: …`). The digest is printed as a hash only, not the inputs it
-  covers; to see why two runs' digests differ, compare these lines, then the
-  edited namespace's interface. The digest tests are in
+  (`std file F: …`), and for the core (`the core: loaded from its entry`, or
+  `the core: a miss: WHY`). After a namespace's `elaborated` line, indented
+  lines show what its key (not its digest) was built from: its `source HEX`,
+  then one line per dependency, `DEP: digest HEX, imported names N` or `DEP:
+  text HEX` (a dependency with no digest is keyed by its text): the changed
+  input is the line whose hash changed. The digest tests are in
   `crates/driver/tests/projects/check_cache/digest.rs` (SW-4777).
   To show a change kept the check-cache keys, don't read entry file names:
   `dev keys` prints each namespace's key, digest and edges and `task

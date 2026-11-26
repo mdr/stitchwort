@@ -362,8 +362,8 @@ impl Elaborator {
             self.forget_namespace_digest(ns);
         }
         let run = |e: &mut Self| match (&cached, namespace, closure) {
-            (Some((unit, key)), Some(ns), Some(closure)) => {
-                e.elaborate_namespace_cached(ns, files, closure, unit, key)
+            (Some(cache_key), Some(ns), Some(closure)) => {
+                e.elaborate_namespace_cached(ns, files, closure, cache_key)
             }
             _ => (
                 e.elaborate_namespace_untimed(namespace, files, closure),

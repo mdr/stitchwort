@@ -11,7 +11,8 @@
 //! To see what a run did with the cache, set `STITCHWORT_CACHE_DEBUG=1`:
 //! `check` then prints a `check cache: …` line per namespace (replayed,
 //! carried over, elaborated, a miss and why, or written with its digest in
-//! hex) on stderr. The digest is shown as a hash only, not its inputs.
+//! hex) on stderr, and an elaborated namespace's key inputs on the lines
+//! indented under it.
 
 use std::path::Path;
 

@@ -635,6 +635,111 @@ fn cache_debug_says_which_namespaces_were_replayed_and_which_left_out() {
     let _ = std::fs::remove_dir_all(&cache);
 }
 
+/// Under `STITCHWORT_CACHE_DEBUG`, the core says whether its entry was used:
+/// a miss on the first run and a hit on the next (SW-4846).
+#[test]
+fn cache_debug_says_when_the_core_came_from_its_entry() {
+    let project = temp_dir("debug-core-project");
+    for (path, text) in [
+        ("stitchwort.yaml", "sources: [src]\n"),
+        ("src/A.sw", "namespace A\n\ndef one: Nat := 1\n"),
+    ] {
+        let full = project.join(path);
+        std::fs::create_dir_all(full.parent().unwrap()).unwrap();
+        std::fs::write(full, text).unwrap();
+    }
+    let cache = temp_dir("debug-core-cache");
+    let lines = |output: &Output| -> Vec<String> {
+        String::from_utf8_lossy(&output.stderr)
+            .lines()
+            .filter_map(|l| l.strip_prefix("check cache: ").map(str::to_string))
+            .collect()
+    };
+    let cold = plain_check(&project, &cache, false, true);
+    assert!(cold.status.success(), "{}", shown(&cold));
+    assert!(
+        lines(&cold).contains(&"the core: a miss: no entry".to_string()),
+        "{:?}",
+        lines(&cold)
+    );
+    let warm = plain_check(&project, &cache, false, true);
+    assert!(warm.status.success(), "{}", shown(&warm));
+    assert!(
+        lines(&warm).contains(&"the core: loaded from its entry".to_string()),
+        "{:?}",
+        lines(&warm)
+    );
+    let _ = std::fs::remove_dir_all(&project);
+    let _ = std::fs::remove_dir_all(&cache);
+}
+
+/// Under `STITCHWORT_CACHE_DEBUG`, an elaborated namespace's line is
+/// followed by the inputs its key was built from: its own source hash and
+/// each dependency's name and digest (SW-4804). After a dependency changes,
+/// the dependent namespace's dependency line carries that dependency's new
+/// digest.
+#[test]
+fn cache_debug_says_what_an_elaborated_namespaces_key_was_built_from() {
+    let project = temp_dir("debug-inputs-project");
+    let write = |path: &str, text: &str| {
+        let full = project.join(path);
+        std::fs::create_dir_all(full.parent().unwrap()).unwrap();
+        std::fs::write(full, text).unwrap();
+    };
+    write("stitchwort.yaml", "sources: [src]\n");
+    write("src/A.sw", "namespace A\n\ndef one: Nat := 1\n");
+    write(
+        "src/B.sw",
+        "namespace B\nimport A (one)\n\ndef two: Nat := one + one\n",
+    );
+    let cache = temp_dir("debug-inputs-cache");
+    let lines = |output: &Output| -> Vec<String> {
+        String::from_utf8_lossy(&output.stderr)
+            .lines()
+            .filter_map(|l| l.strip_prefix("check cache: ").map(str::to_string))
+            .collect()
+    };
+    let cold = plain_check(&project, &cache, false, true);
+    assert!(cold.status.success(), "{}", shown(&cold));
+    let warm = plain_check(&project, &cache, false, true);
+    assert!(warm.status.success(), "{}", shown(&warm));
+    write("src/A.sw", "namespace A\n\ndef one: Nat := 2\n");
+    let edited = plain_check(&project, &cache, false, true);
+    assert!(edited.status.success(), "{}", shown(&edited));
+    let all = lines(&edited);
+    let after = |ns: &str| -> Vec<String> {
+        let start = all
+            .iter()
+            .position(|l| *l == format!("{ns}: elaborated"))
+            .unwrap_or_else(|| panic!("no `{ns}: elaborated` in {all:?}"));
+        (all[start + 1..].iter())
+            .take_while(|l| l.starts_with("  "))
+            .cloned()
+            .collect()
+    };
+    let a = after("A");
+    assert!(
+        a.iter().any(|l| l.starts_with("  source ")),
+        "A's source hash: {a:?}"
+    );
+    let b = after("B");
+    assert!(
+        b.iter().any(|l| l.starts_with("  source ")),
+        "B's source hash: {b:?}"
+    );
+    let digest = all
+        .iter()
+        .find_map(|l| l.strip_prefix("A: written, digest "))
+        .and_then(|rest| rest.split(',').next())
+        .unwrap_or_else(|| panic!("no `A: written, digest` in {all:?}"));
+    assert!(
+        b.contains(&format!("  A: digest {digest}, imported names 1")),
+        "B's inputs after editing A: {b:?}"
+    );
+    let _ = std::fs::remove_dir_all(&project);
+    let _ = std::fs::remove_dir_all(&cache);
+}
+
 /// The "written" line of a debug run says how much of the entry is proofs
 /// (SW-4729): a namespace with a long sealed theorem has a proofs share well
 /// above a namespace of definitions, and the parts add up to at most the
