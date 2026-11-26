@@ -36750,15 +36750,18 @@
     {
       "id": 4883,
       "title": "[DeepSeek] flake.nix runs wasm-opt -Oz without -ocimfs=30, unlike web/build.sh (SW-4868), so the Nix-built playground keeps the frame splits undone; make them match (SW-4870 finding)",
-      "status": "doing",
+      "status": "done",
       "agent": "DeepSeek",
       "where": "scratch-sw-4883",
       "labels": [],
       "epic": "editor-playground",
-      "body": "",
+      "body": "Model result: deepseek, worked, 8 min (est. 20).",
       "created": "2026-11-26",
       "updated": "2026-11-26",
-      "commits": []
+      "commits": [
+        "024a23e48",
+        "e3f2336a3"
+      ]
     },
     {
       "id": 4884,
@@ -36789,7 +36792,7 @@
     {
       "id": 4886,
       "title": "[DeepSeek] docs/reviews/SW-4863-playground-stack-end-state.md option c2 says the JSPI switch is 'one call in Budget::nesting's slow path': it can't be (a check can't move frames already on the stack; the switch wraps the rest of a recursion at each call site); add a dated correction pointing to SW-4870's note; docs/testing.md 'Stack': how to make a named wasm build for overflow traces (--keep-debug, wasm-opt -g)",
-      "status": "doing",
+      "status": "done",
       "agent": "DeepSeek",
       "where": "scratch-sw-4883",
       "labels": [],
@@ -36797,7 +36800,10 @@
       "body": "",
       "created": "2026-11-26",
       "updated": "2026-11-26",
-      "commits": []
+      "commits": [
+        "024a23e48",
+        "e3f2336a3"
+      ]
     }
   ]
 }
