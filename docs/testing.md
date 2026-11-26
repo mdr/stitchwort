@@ -391,6 +391,8 @@ A replayed entry is trusted like any check cache entry, so a test whose point is
 
 A session is told how much stack it has: `Session::new()` and the other constructors without a size assume 2 MiB, a test thread's stack (`Limits::default()`); `Session::for_stack(n)`, `navigable_for_stack(n)`, `eager_for_stack(n)` and `eager_from_source_for_stack(n)` assume `n`. Its stack guard stops deep code with `E-RESOURCE` a quarter short of that. A session told more than its thread has can't stop in time: deep code overflows the real stack first, which aborts the whole test binary instead of failing one test (SW-923: AoC day 22's 2000-deep evaluation did this to two tests run on libtest's 2 MiB thread with 16 MiB limits).
 
+A test of deep nesting needs `Session::for_stack(n)` (`crates/driver/src/driver.rs`), not `Session::new()`: the default 2 MiB guard stops a deep probe with `E-RESOURCE` at about 200 levels.
+
 So a session sized for a big stack runs on a thread of that size, made from the same number:
 
 - `with_session(STACK, Session::for_stack, |session| …)` (`stitchwort_driver::driver`) makes the thread and the session together, so they can't disagree. Prefer it for a new test.
