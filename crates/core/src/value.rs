@@ -1927,6 +1927,13 @@ impl Stack {
     }
 }
 
+/// The most segments ([`Stack`]) a run keeps pending. A chain of 2,000,000
+/// stuck sums held 2.6 GB (about 1.3 KB a link), enough to exhaust a
+/// browser's wasm memory before the frame limit refused it; no configured
+/// stack reached 200,000 nested machines before these forcings shared this
+/// stack (SW-4879).
+const MAX_PENDING_SEGMENTS: usize = 200_000;
+
 fn push(g: &Ev, stack: &mut Stack, frame: Frame) -> Result<()> {
     frames_for(g, stack, stack.counted().len() + 1)?;
     stack.frames.push(frame);
@@ -1936,6 +1943,10 @@ fn push(g: &Ev, stack: &mut Stack, frame: Frame) -> Result<()> {
 /// [`push`] for `frame` waiting for a forcing that was a machine of its own
 /// ([`Stack`]): the frames above it are a new segment.
 fn push_segment(g: &Ev, stack: &mut Stack, frame: Frame) -> Result<()> {
+    if stack.segments.len() >= MAX_PENDING_SEGMENTS {
+        note_deepest(g, stack.counted());
+        return Err(ResourceError::Depth);
+    }
     frames_for(g, stack, stack.segments.len() + 1)?;
     stack.segments.push(stack.frames.len());
     stack.frames.push(frame);
