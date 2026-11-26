@@ -36118,12 +36118,12 @@
     {
       "id": 4849,
       "title": "[Sonnet] nesting::nested_applications_under_the_playground_guard fails on main on macOS (40 nested applications no longer check under the playground's 320 KiB stack guard; E-RESOURCE at nesting.rs:151); Overmind's Linux quick tier passes it. Find what raised the stack per level (was about 5 KiB, SW-3172) and fix or re-measure (SW-1970 finding)",
-      "status": "doing",
+      "status": "review",
       "agent": "Sonnet",
       "where": "",
       "labels": [],
       "epic": "test-infra",
-      "body": "Confirmed on main at 21b9e455b, 12:52 26 Nov, Speedwell (macOS): fails; the other 17 nesting tests pass.",
+      "body": "Confirmed on main at 21b9e455b, 12:52 26 Nov, Speedwell (macOS): fails; the other 17 nesting tests pass.\n\nLane notes (Sonnet, 26 Nov): macOS release, 320 KiB guard: 38 nested applications check, 39 runs out. Minimum guard for 10 levels 98 KiB, for 30 levels 254 KiB: 7.8 KiB a level (20 KiB base). At 93fb96752 (SW-3172's merge, test added) 58 levels passed: about 5.1 KiB a level. Growth is spread, no single big frame: first-parent bisect on min-KiB-for-30 (good <= 215): 209 KiB at 3e1de11e5 -> 223 at b56a335e9 (SW-4449 merge: check_arg holds a saved statement, written type, statement_params; +0.5 KiB a level); SW-2153's merge (a9dcdfc61: check_value split into wrapper + check_value_against holding a boxed-able Option<Value>) cost 2 levels of the 320 KiB threshold. Trial fixes: moving check_value's save/restore out of line and boxed: 254 -> 251 KiB; also parameter_statement #[inline(never)]: 246 (0.27 KiB a level); the test still fails (39 levels). Not committed. Changing 40 / 320 is Matt's call per brief; or a deeper stack-frame reduction in the check_arg -> check -> infer chain (not found cheaply).\n",
       "created": "2026-11-26",
       "updated": "2026-11-26",
       "commits": []
