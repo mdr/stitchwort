@@ -7657,17 +7657,20 @@
     {
       "id": 2099,
       "title": "[DeepSeek] Fuzzer housekeeping from the first soak run: fuzz_elab.rs's timing comment (2,000 cases took 40 min on the laptop); explain or fix 54% parsed vs 77% reached the elaborator; the fuzz tasks' 16 GB memory cap exceeds a 15 GiB machine (scale it to RAM); the syntax fuzzer prints no case count",
-      "status": "doing",
+      "status": "done",
       "agent": "DeepSeek",
       "where": "scratch-sw-4851",
       "labels": [
         "fuzz"
       ],
       "epic": "audit-fuzzing",
-      "body": "From Overmind soak report 1 (Matt's laptop, NixOS i7-6700HQ 8 threads, 15 GiB; 7 Nov, commit a3c652a63). 45 min.\n\nAudit note (22 Nov): 22 Nov 2026 audit: Partly stale: fuzz_elab changed for speed (SW-3705, SW-3707); the 16 GB cap (Taskfile MEM_CAP_*) and the missing syntax-fuzzer case count were not rechecked.\n",
+      "body": "From Overmind soak report 1 (Matt's laptop, NixOS i7-6700HQ 8 threads, 15 GiB; 7 Nov, commit a3c652a63). 45 min.\n\nAudit note (22 Nov): 22 Nov 2026 audit: Partly stale: fuzz_elab changed for speed (SW-3705, SW-3707); the 16 GB cap (Taskfile MEM_CAP_*) and the missing syntax-fuzzer case count were not rechecked.\n\nfuzz_elab's 40-min claim was already gone (docs/workflow.md soak report updated); memguard already scales 16 GB to 75% of RAM (documented); syntax fuzzer already prints seed+count; reached ⊄ parsed explained (recovered partial parses count as reached). Model result: deepseek, worked, with SW-4851.",
       "created": "2026-11-07",
       "updated": "2026-11-26",
-      "commits": []
+      "commits": [
+        "553406d6e",
+        "c37ea7358"
+      ]
     },
     {
       "id": 2100,
@@ -36181,15 +36184,18 @@
     {
       "id": 4851,
       "title": "[DeepSeek] soundness fuzzer: save (or print under SOUND_VERBOSE) every accepted mutated void attempt with its source example and edits, so an accepted one can be read without a rerun (26 Nov: 1 of 200 accepted, source not recoverable)",
-      "status": "doing",
+      "status": "done",
       "agent": "DeepSeek",
       "where": "scratch-sw-4851",
       "labels": [],
       "epic": "audit-fuzzing",
-      "body": "The 26 Nov accepted attempt (batch 5, seed 0x26112605, attempt 579) was examples/soundness/recursive-passed-type.sw with outer deleted and inner's recursive call removed: a plain non-recursive definition, legitimately accepted (Overmind's rerun; orchestrator agrees). Overmind's uncommitted print change is in its scratch worktree.",
+      "body": "The 26 Nov accepted attempt (batch 5, seed 0x26112605, attempt 579) was examples/soundness/recursive-passed-type.sw with outer deleted and inner's recursive call removed: a plain non-recursive definition, legitimately accepted (Overmind's rerun; orchestrator agrees). Overmind's uncommitted print change is in its scratch worktree.\n\nAccepted mutated attempts always print (source, edits, text, verdicts); SOUND_SAVE_DIR saves them. Same seed reproduced 714/713/1 and printed attempt 579. Model result: deepseek, worked, about 25 min (est. 40).",
       "created": "2026-11-26",
       "updated": "2026-11-26",
-      "commits": []
+      "commits": [
+        "553406d6e",
+        "c37ea7358"
+      ]
     },
     {
       "id": 4852,
