@@ -33,6 +33,10 @@ for (let i = 0; i < args.length; i++) {
 
 /** How long the page lets a run take: see RUN_SECONDS in index.html. */
 const RUN_SECONDS = 15;
+// The line of chapter 2's `noAndAnything` theorem, found in the book so the
+// tests need no renumbering when the chapter changes.
+const NO_AND_ANYTHING_AT = readFileSync(join(here, "..", "..", "book", "src", "02-cases.sw"), "utf8")
+  .split("\n").findIndex((l) => l.startsWith("theorem noAndAnything ")) + 1;
 const MAX_OUTPUT = 256 * 1024;
 
 const MAIN_INPUT = "Ada\n40\ntwo\n2\n";
@@ -346,39 +350,41 @@ test("direct links open the dropdown's entries, and follow it", async (page) => 
   assert.equal(await hash(), "#example/proofs-about-lists");
 });
 
-test("a direct link opens the book at line 167 and shows the line", async (page) => {
-  await page.open({ hash: "#book/2:167" });
+test("a direct link opens the book at the theorem noAndAnything and shows the line", async (page) => {
+  await page.open({ hash: `#book/2:${NO_AND_ANYTHING_AT}` });
   await page.until(`document.getElementById("example").value === "book:2" &&
-    location.hash === "#book/2:167"`, 60000, "the book's chapter 2 at line 167");
-  assert.equal(await page.ev(`window.editor.view.state.doc.lineAt(window.editor.selectionStart).number`), 167);
-  assert.equal(await page.ev(`window.editor.view.state.doc.line(167).text`),
-    "theorem noAndAnything (b: Answer): both No b = No := byComputing");
+    location.hash === "#book/2:${NO_AND_ANYTHING_AT}"`, 60000, `the book's chapter 2 at line ${NO_AND_ANYTHING_AT}`);
+  assert.equal(await page.ev(`window.editor.view.state.doc.lineAt(window.editor.selectionStart).number`), NO_AND_ANYTHING_AT);
+  assert.equal(await page.ev(`window.editor.view.state.doc.line(${NO_AND_ANYTHING_AT}).text`),
+    "theorem noAndAnything ∀ (b: Answer): both No b = No := byComputing");
   const visible = await page.ev(`(() => {
     const v = window.editor.view, pos = v.state.selection.main.head;
     const at = v.coordsAtPos(pos), box = v.scrollDOM.getBoundingClientRect();
     return !!at && at.top >= box.top - 1 && at.bottom <= box.bottom + 1;
   })()`);
-  assert.equal(visible, true, "line 167 is in view");
+  assert.equal(visible, true, `line ${NO_AND_ANYTHING_AT} is in view`);
   assert.equal(await page.ev(`!!document.querySelector("#editor .cm-link-line")`), true, "the line is highlighted");
 });
 
 test("a direct link opens another file of a project at its line", async (page) => {
   const path = "src/Sf/Lf/Basics/LateDays.sw";
-  await page.open({ hash: `#sf/basics:${path}:22` });
+  // Found in the file, so the test follows it when its comments move.
+  const at = readFileSync(join(here, "..", "..", "sf", path), "utf8").split("\n").findIndex((l) => l.includes("Then the modifiers")) + 1;
+  await page.open({ hash: `#sf/basics:${path}:${at}` });
   await page.until(`document.getElementById("example").value === "sf:0" &&
     window.editor.path === ${JSON.stringify(path)}`, 60000, "LateDays.sw");
-  assert.equal(await page.ev(`location.hash`), `#sf/basics:${path}:22`);
-  assert.equal(await page.ev(`window.editor.view.state.doc.lineAt(window.editor.selectionStart).number`), 22);
-  assert.match(await page.ev(`window.editor.view.state.doc.line(22).text`), /Then the modifiers/);
+  assert.equal(await page.ev(`location.hash`), `#sf/basics:${path}:${at}`);
+  assert.equal(await page.ev(`window.editor.view.state.doc.lineAt(window.editor.selectionStart).number`), at);
+  assert.match(await page.ev(`window.editor.view.state.doc.line(${at}).text`), /Then the modifiers/);
   // The caret's line keeps the file's path in the link too.
-  await page.ev(`(() => { const e = window.editor; const pos = e.offset(23, 0); e.focus(); e.setSelectionRange(pos, pos); })()`);
-  await page.until(`location.hash === ${JSON.stringify(`#sf/basics:${path}:24`)}`, 5000, "the address bar to follow the caret");
+  await page.ev(`(() => { const e = window.editor; const pos = e.offset(${at + 1}, 0); e.focus(); e.setSelectionRange(pos, pos); })()`);
+  await page.until(`location.hash === ${JSON.stringify(`#sf/basics:${path}:${at + 2}`)}`, 5000, "the address bar to follow the caret");
 });
 
 test("moving the caret updates the address bar's line without a history entry", async (page) => {
-  await page.open({ hash: "#book/2:167" });
+  await page.open({ hash: `#book/2:${NO_AND_ANYTHING_AT}` });
   await page.until(`document.getElementById("example").value === "book:2" &&
-    location.hash === "#book/2:167"`, 60000, "the book's chapter 2 at line 167");
+    location.hash === "#book/2:${NO_AND_ANYTHING_AT}"`, 60000, `the book's chapter 2 at line ${NO_AND_ANYTHING_AT}`);
   const before = await page.ev(`history.length`);
   await page.ev(`(() => { const e = window.editor; const pos = e.offset(199, 0); e.focus(); e.setSelectionRange(pos, pos); })()`);
   await page.until(`location.hash === "#book/2:200"`, 5000, "the address bar to follow the caret");
@@ -400,9 +406,9 @@ test("a direct link past the end of a file opens the entry with a notice", async
 });
 
 test("Copy link to this line copies the URL and says so", async (page) => {
-  await page.open({ hash: "#book/2:167" });
+  await page.open({ hash: `#book/2:${NO_AND_ANYTHING_AT}` });
   await page.until(`document.getElementById("example").value === "book:2" &&
-    location.hash === "#book/2:167"`, 60000, "the book's chapter 2 at line 167");
+    location.hash === "#book/2:${NO_AND_ANYTHING_AT}"`, 60000, `the book's chapter 2 at line ${NO_AND_ANYTHING_AT}`);
   await page.until(`document.getElementById("status").textContent.endsWith("checked by the kernel") ||
     /(goals? open|in all)$/.test(document.getElementById("status").textContent)`, 180000, "the chapter to check");
   await page.ev(`(() => {
@@ -416,7 +422,7 @@ test("Copy link to this line copies the URL and says so", async (page) => {
   assert.ok(item, "the list offers Copy link to this line");
   await page.ev(`[...document.querySelectorAll(".pick-item")].find((b) => b.textContent.includes("Copy link to this line")).click()`);
   await page.until(`window.__copied !== null`, 5000, "the copied link");
-  assert.equal(await page.ev(`window.__copied`), `${await page.ev(`location.origin + location.pathname`)}#book/2:167`);
+  assert.equal(await page.ev(`window.__copied`), `${await page.ev(`location.origin + location.pathname`)}#book/2:${NO_AND_ANYTHING_AT}`);
   await page.until(`document.getElementById("link-notice").textContent === "Link copied"`, 5000, "the notice");
 }, { ms: 240000 });
 
@@ -849,7 +855,7 @@ test("the book's chapter 2 shows a ?'s goal in the panel", async (page) => {
   await page.until(`document.getElementById("example").value === "book:2" &&
     window.editor.value.includes("theorem noAndAnything")`, 60000, "the book's chapter 2");
   const text = await sourceText(page);
-  const line = "theorem noAndAnything (b: Answer): both No b = No := byComputing";
+  const line = "theorem noAndAnything ∀ (b: Answer): both No b = No := byComputing";
   assert.ok(text.includes(line), text.slice(0, 80));
   await page.setSource(text.replace(line, line.slice(0, -"byComputing".length) + "?"));
   await caretAt(page, "both No b = No := ?", "both No b = No := ?".length - 1);
@@ -865,7 +871,7 @@ test("a book chapter's error comes first, with its open goals collapsed", async 
   await page.until(`document.getElementById("example").value === "book:2" &&
     window.editor.value.includes("theorem noAndAnything")`, 60000, "the book's chapter 2");
   const text = await page.ev(`window.editor.value`);
-  const line = "theorem noAndAnything (b: Answer): both No b = No := byComputing";
+  const line = "theorem noAndAnything ∀ (b: Answer): both No b = No := byComputing";
   const at = text.split("\n").findIndex((l) => l === line) + 1;
   assert.ok(at > 0, text.slice(0, 80));
   await page.setSource(text.replace(line, line.slice(0, -"byComputing".length) + "| x"));
@@ -913,7 +919,7 @@ test("a code action on the book's chapter 2 splits the theorem on b", async (pag
   await page.until(`document.getElementById("example").value === "book:2" &&
     window.editor.value.includes("theorem noAndAnything")`, 60000, "the book's chapter 2");
   const text = await sourceText(page);
-  const line = "theorem noAndAnything (b: Answer): both No b = No := byComputing";
+  const line = "theorem noAndAnything ∀ (b: Answer): both No b = No := byComputing";
   assert.ok(text.includes(line), text.slice(0, 80));
   await page.setSource(text.replace(line, line.slice(0, -"byComputing".length) + "?"));
   const hole = "both No b = No := ?";
@@ -936,11 +942,11 @@ test("a code action on the book's chapter 2 splits the theorem on b", async (pag
   console.log(`  Split applied in ${Date.now() - picked} ms`);
   assert.ok(Date.now() - picked < 3000, "the split waited for a search");
   assert.match(await sourceText(page),
-    /theorem noAndAnything \(b: Answer\): both No b = No := match b with\n  \| Yes => \?\n  \| No => \?\n  \| Unknown => \?/);
+    /theorem noAndAnything ∀ \(b: Answer\): both No b = No := match b with\n  \| Yes => \?\n  \| No => \?\n  \| Unknown => \?/);
   // The caret is on the first new ?, and the panel shows that arm's goal (D3530).
   const caret = await page.ev(`(() => { const e = window.editor; return e.value.slice(e.selectionStart - 7, e.selectionEnd) + "|" + (e.selectionEnd - e.selectionStart); })()`);
   assert.equal(caret, "Yes => ?|1", "the selection is the first ?");
-  await page.until(`document.getElementById("goalpanel").innerText.includes("⊢ No = No")`, 60000, "the first arm's goal");
+  await page.until(`document.getElementById("goalpanel").innerText.includes("⊢ both No Yes = No")`, 60000, "the first arm's goal");
 }, { ms: 240000 });
 
 test("a second Cmd+. on the book's chapter 2 waits instead of saying no action", async (page) => {
@@ -950,7 +956,7 @@ test("a second Cmd+. on the book's chapter 2 waits instead of saying no action",
   await page.until(`document.getElementById("example").value === "book:2" &&
     window.editor.value.includes("theorem noAndAnything")`, 60000, "the book's chapter 2");
   const text = await sourceText(page);
-  const line = "theorem noAndAnything (b: Answer): both No b = No := byComputing";
+  const line = "theorem noAndAnything ∀ (b: Answer): both No b = No := byComputing";
   assert.ok(text.includes(line), text.slice(0, 80));
   await page.setSource(text.replace(line, line.slice(0, -"byComputing".length) + "?"));
   const hole = "both No b = No := ?";
@@ -984,7 +990,7 @@ test("the goals panel shows the goal at a rewrite step in a proof with no ?", as
   await page.setSource("theorem swap_eq (a: Nat) (b: Nat) (h: a = b) : b = a :=\n  rewrite h then byComputing\n");
   await page.untilChecked();
   assert.equal(await page.ev(`document.querySelector("#output pre.goals")`), null, "the proof has no goals");
-  await caretAt("h in byComputing");
+  await caretAt("h then byComputing");
   await page.until(`document.getElementById("goalpanel").innerText.includes("b = a")`, 60000, "the goal at the rewrite");
   assert.match(await panel(), /a: Nat/);
   assert.match(await panel(), /h: a = b/);
@@ -2828,7 +2834,7 @@ test("a proof search in the book's chapter 2 shows progress, and a second one do
   await page.until(`document.getElementById("example").value === "book:2" &&
     window.editor.value.includes("theorem noAndAnything")`, 60000, "the book's chapter 2");
   const text = await sourceText(page);
-  const line = "theorem noAndAnything (b: Answer): both No b = No := byComputing";
+  const line = "theorem noAndAnything ∀ (b: Answer): both No b = No := byComputing";
   await page.setSource(text.replace(line, line.slice(0, -"byComputing".length) + "?"));
   const hole = "both No b = No := ?";
   await caretAt(page, hole, hole.length - 1);
@@ -2889,7 +2895,7 @@ test("the search worker warms when the book opens, and a first proof search does
   })()`);
   console.log(`  memory after the warm load: ${JSON.stringify(memory)}`);
   const text = await sourceText(page);
-  const line = "theorem noAndAnything (b: Answer): both No b = No := byComputing";
+  const line = "theorem noAndAnything ∀ (b: Answer): both No b = No := byComputing";
   await page.setSource(text.replace(line, line.slice(0, -"byComputing".length) + "?"));
   const hole = "both No b = No := ?";
   await caretAt(page, hole, hole.length - 1);
@@ -2918,7 +2924,7 @@ test("a single proof is inserted at once with a notice, and undo restores the ?"
   await page.until(`document.getElementById("example").value === "book:2" &&
     window.editor.value.includes("theorem noAndAnything")`, 60000, "the book's chapter 2");
   const text = await sourceText(page);
-  const line = "theorem noAndAnything (b: Answer): both No b = No := byComputing";
+  const line = "theorem noAndAnything ∀ (b: Answer): both No b = No := byComputing";
   await page.setSource(text.replace(line, line.slice(0, -"byComputing".length) + "?"));
   const hole = "both No b = No := ?";
   await caretAt(page, hole, hole.length - 1);
