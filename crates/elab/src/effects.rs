@@ -1664,10 +1664,7 @@ pub fn settle_let_lambda(cx: &Ctx, value: &Expr, ty: Value) -> Result<Value> {
     let mut level = cx.level();
     let mut rest = force(&g, ty.clone())?;
     while let Value::Pi(_, _, dom, cod, _) = rest {
-        rest = force(
-            &g,
-            cod.apply(&g, Value::var_marked(level, cx.mark_of_type(&dom)))?,
-        )?;
+        rest = force(&g, cod.apply(&g, cx.var_at(level, &dom))?)?;
         level += 1;
     }
     let Some((row, _)) = comp_parts_at(cx, level, &rest)? else {
@@ -2043,7 +2040,7 @@ fn pi_slots(cx: &Ctx, mut ty: Value) -> Result<Vec<ParamSlot>> {
                     explicit: !icit.is_implicit(),
                     ty: (*dom).clone(),
                 });
-                ty = cod.apply(&g, Value::var_marked(level, cx.mark_of_type(&dom)))?;
+                ty = cod.apply(&g, cx.var_at(level, &dom))?;
                 level += 1;
             }
             _ => return Ok(out),

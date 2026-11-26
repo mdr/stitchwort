@@ -1038,7 +1038,7 @@ fn membership_facts(cx: &mut Ctx, mems: &[DefId]) -> Result<Vec<(Term, Value)>> 
                 };
                 if icit == Icit::Explicit {
                     term = Term::app(term, here.clone());
-                    ty = cod.apply(&g, Value::var_marked(level, cx.mark_of_type(&dom)))?;
+                    ty = cod.apply(&g, cx.var_at(level, &dom))?;
                     break;
                 }
                 let Some(p) = params.next() else {

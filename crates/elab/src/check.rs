@@ -557,9 +557,15 @@ impl<'e> Ctx<'e> {
             .unwrap_or(stitchwort_core::ProofMark::Unknown)
     }
 
+    /// The variable binding of type `ty` at an explicit `level` makes, with
+    /// its mark. For walks whose level runs ahead of the context's.
+    pub fn var_at(&self, level: usize, ty: &Value) -> Value {
+        Value::var_marked(level, self.mark_of_type(ty))
+    }
+
     /// The variable the next binding of type `ty` makes, with its mark.
     pub fn fresh_var(&self, ty: &Value) -> Value {
-        Value::var_marked(self.level(), self.mark_of_type(ty))
+        self.var_at(self.level(), ty)
     }
 
     /// The variable bound last, as the context holds it (with its mark).
