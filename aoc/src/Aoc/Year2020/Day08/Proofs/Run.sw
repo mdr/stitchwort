@@ -23,9 +23,6 @@ def Ended (program: Program) (executed: List Int) (last: State): (outcome: Outco
 def Unvisited (length: Nat) (done: List Int) (unvisited: Set Nat): Prop :=
   ∀ (position: Nat) => unvisited.contains position = True ↔ (position < length ∧ position.toInt ∉ done)
 
-theorem nextIs ∀ (next: Int) (position: Nat) (found: next.toNatChecked = Some position): next = position.toInt :=
-  match next with | OfNat n => Eq.cong OfNat (Option.someInjective found)
-
 theorem executeSteps ∀ (program: Program) (state: State) (instruction: Instruction)
     (at: instructionAt program state.next = Some instruction):
     Step program state (instruction.execute state) :=
@@ -78,7 +75,7 @@ theorem runFromRuns ∀ (program: Program) (code: Code)
     match e: state.next.toNatChecked with
       | None => Witness [] (Witness state (Both byComputing (Both stopped ())))
       | Some position =>
-        let here: state.next = position.toInt := nextIs state.next position e
+        let here: state.next = position.toInt := Int.toNatCheckedSome state.next position e
         match g: code.byPosition.get position with
           | None =>
             match t: position == code.length with

@@ -107,18 +107,6 @@ theorem scoredOfIncomplete ∀ (line: List Token)
     | Unclosed [] => Void.impossible (And.right incomplete (scanBalanced line e))
     | Unclosed [top, ..below] => Witness (completionScore [top, ..below]) byComputing
 
---| A list with an element `f` keeps has a nonempty `filterMap`.
-theorem filterMapNotNil ∀ (f: a → Option b) (x: a) (y: b)
-    (kept: f x = Some y) (xs: List a)
-    (member: x ∈ xs):
-    xs.filterMap f ≠ [] :=
-  match xs, member with
-    | [], member => empty => member.impossible
-    | [z, ..rest], Inl same => empty => rewrite same, kept at empty then cases
-    | [z, ..rest], Inr later => empty =>
-      match f z with
-        | None => filterMapNotNil f x y kept rest later empty
-
 --| Part 2 is the middle completion score, for every list of lines with at
 --| least one incomplete line.
 theorem part2Correct ∀ (lines: List (List Token)) (line: List Token)
@@ -131,9 +119,8 @@ theorem part2Correct ∀ (lines: List (List Token)) (line: List Token)
         (lines.filterMap autocompleteScore)
         (Both
           (completionScoresCorrect lines)
-          (middleIsMiddle
-            (lines.filterMap autocompleteScore)
-            (filterMapNotNil autocompleteScore line score scored lines member)))
+          (middleIsMiddle (lines.filterMap autocompleteScore) (empty =>
+            rewrite empty at (List.memFilterMapIntro autocompleteScore line score lines member scored))))
 
 --| With an odd number of incomplete lines, as the puzzle promises, the
 --| spec's part 2 answer is unique: the program's is the only one.

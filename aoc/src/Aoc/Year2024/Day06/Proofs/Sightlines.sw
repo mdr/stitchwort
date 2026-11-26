@@ -8,6 +8,7 @@
 namespace Aoc.Year2024.Day06.Proofs
 import Aoc.Year2024.Day06 (..)
 import Aoc.Common (Direction, Position)
+import Aoc.Common.Proofs (positionExt)
 import Aoc.Year2024.Day06.Spec (..)
 import Std (And, Bool, DecEq, Eq, Exists, List, Map, Nat, Not, Option, Set, Void)
 
@@ -68,12 +69,6 @@ theorem foldRepresents ∀ (entries: List (Position, ())) (sightlines: Sightline
           (addRepresents sightlines has represents key))
         row
         column
-
-theorem positionExt ∀ (one other: Position)
-    (rows: one.row = other.row)
-    (columns: one.column = other.column):
-    one = other :=
-  match one, other with | { row, column }, { row = otherRow, column = otherColumn } => rewrite rows, columns
 
 theorem isAtSelf ∀ (position: Position): isAt position.row position.column position = True :=
   rewrite DecEq.refl position.row, DecEq.refl position.column

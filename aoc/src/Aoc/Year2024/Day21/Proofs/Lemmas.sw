@@ -51,9 +51,6 @@ theorem lastFromAppendOne ∀ (from: k) (keys: List k) (key: k): lastFrom from (
     | [] => byComputing
     | [first, ..rest] => lastFromAppendOne first rest key
 
-theorem flatMapSome ∀ (f: a → Option b) (x: Option a) (value: a) (same: x = Some value): x.flatMap f = f value :=
-  match x with | Some found => rewrite Option.someInjective same
-
 theorem flatMapIntoSome ∀ (x: Option a): x.flatMap (value => Some value) = x := match x with
   | None | Some _ => byComputing
 

@@ -163,14 +163,6 @@ theorem positionsHas ∀ (lab: Lab) (position: Position):
           | True => Void.impossible (Bool.falseNotTrue (Eq.trans inside.flipped (positionsOnlyOnMap lab position has)))
           | False => byComputing
 
---| Two Bools true together are equal.
-theorem boolOfIff ∀ [one other: Bool] (same: (one = True) ↔ (other = True)): one = other :=
-  match isOne: one, isOther: other with
-    | True, True => byComputing
-    | False, False => byComputing
-    | True, False => Void.impossible (Bool.falseNotTrue (same.forward byComputing))
-    | False, True => Void.impossible (Bool.falseNotTrue (same.backward byComputing))
-
 theorem startSettled ∀ (lab: Lab) (inside: onMap lab lab.start = True): settledAt lab lab.start = True :=
   rewrite inside, DecEq.refl lab.start
 
@@ -193,6 +185,7 @@ theorem shapeOnRoute ∀ [p: Prop] [atStart: Decidable p] [blocked onTheMap loop
   rewrite same then cases
 
 --| Off the route nothing is kept.
+--| Off the route nothing is kept.
 theorem shapeOffRoute [onTheMap notStart free: Bool]: False = (onTheMap && (notStart && free && False)) := cases
 
 --| The program keeps a position of the route exactly when the spec keeps it.
@@ -209,14 +202,21 @@ theorem keepsTrapsAt ∀ (lab: Lab)
       let settled := routeSettled lab position steps (Some lab.startGuard) (startSettled lab inside) onIt
       let Both onTheMap settledOff := settled
       let loopsSame: lab.loopsWith ((Sightlines.of lab.obstructions).add position) = trapped position :=
-        boolOfIff
+        Bool.eqOf _ _
           (Iff.trans
             (loopsWithCorrect
               (lab.withObstruction position)
               ((Sightlines.of lab.obstructions).add position)
               (simulates position onTheMap)
               inside)
-            (Iff.symm (decides position)))
+            (Iff.symm (decides position))).forward
+          (Iff.trans
+            (loopsWithCorrect
+              (lab.withObstruction position)
+              ((Sightlines.of lab.obstructions).add position)
+              (simulates position onTheMap)
+              inside)
+            (Iff.symm (decides position))).backward
       shapeOnRoute onTheMap settledOff loopsSame
     | False =>
       let free := offRouteFree lab inside steps gone position onIt

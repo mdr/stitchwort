@@ -211,12 +211,10 @@ theorem andKeep ∀ (a b: Bool) [x: Bool]: Bool.toNat ((a ∧ b) ∧ x) = (x.toN
   | True, True | False => byComputing
   | False, b => byComputing
 
-theorem nearSelf ∀ (r: Nat): (r.absDiff r ≤ 1) = True := rewrite Nat.absDiffSelf r
-
 --| The position itself is at most 1 from itself.
 theorem selfNear ∀ (r c x y: Nat) (h: (r == x ∧ c == y) = True): near r x = True ∧ near c y = True :=
   let Both sameRow sameColumn := h
-  Both (rewrite sameRow.read then nearSelf x) (rewrite sameColumn.read then nearSelf y)
+  Both (rewrite sameRow.read, Nat.absDiffSelf x) (rewrite sameColumn.read, Nat.absDiffSelf y)
 
 --| A count over the grid's positions is a sum of 1s and 0s.
 theorem countPositionsSum ∀ (grid: Grid) (p: Nat → Nat → Bool):

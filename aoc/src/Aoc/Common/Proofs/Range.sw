@@ -7,9 +7,6 @@ import Aoc.Common (..)
 import Std (Bool, Eq, List, Nat, Ordering, Void)
 
 --| Which ids from `from` to `to` lie in the run `List.rangeFrom (to + 1 - from) from`.
-theorem rangeEnd ∀ (from to x: Nat) (h1: from ≤ x) (h2: x < from + (to + 1 - from)): x ≤ to := arithmetic
-
-theorem rangeIn ∀ (from to y: Nat) (h1: from ≤ y) (h2: y ≤ to): y < from + (to + 1 - from) := arithmetic
 
 -- Counting the ids that ranges hold, for example to show that disjoint ranges
 -- add up (day 5 uses these in `Aoc.Year2025.Day05.solvePart2Correct`).

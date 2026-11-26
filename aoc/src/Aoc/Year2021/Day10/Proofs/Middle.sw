@@ -8,16 +8,14 @@ import Aoc.Year2021.Day10.Spec (..)
 import Std (Bool, Eq, List, Nat, Void)
 
 --| `y < x` is false when `x ≤ y`.
-theorem notBelow ∀ (x y: Nat) (h: x ≤ y): (y < x) = False := arithmetic
-
 --| In a sorted list, at most k elements are below the one at index k.
 theorem countBelowSorted: ∀ (sorted: List Nat) => List.Sorted Nat.leq sorted
       → ∀ (k: Nat) => k < sorted.length → sorted.count (score => score < sorted.getOr k 0) ≤ k
   | [], s, k, h => cases
   | [x, ..rest], s, Zero, h =>
     let none := List.countNone rest (score => score < x) (y member =>
-      notBelow x y (List.sortedHeadLe Nat.leq Nat.leTrans x y rest s member))
-    rewrite List.countCons rest x (score => score < x), notBelow x x (Nat.leRefl x), none then Nat.leRefl 0
+      arithmetic [List.sortedHeadLe Nat.leq Nat.leTrans x y rest s member])
+    rewrite List.countCons rest x (score => score < x), (arithmetic: (x < x) = False), none then Nat.leRefl 0
   | [x, ..rest], Both _ s, Succ k, h =>
     let below := countBelowSorted rest s k h
     let one := Bool.toNatLeOne (x < rest.getOr k 0)
@@ -29,11 +27,12 @@ theorem countAboveSorted: ∀ (sorted: List Nat) => List.Sorted Nat.leq sorted
   | [], s, k, h => cases
   | [x, ..rest], s, Zero, h =>
     let most := List.countLeLength rest (score => x < score)
-    rewrite List.countCons rest x (score => x < score), notBelow x x (Nat.leRefl x) then arithmetic
+    rewrite List.countCons rest x (score => x < score), (arithmetic: (x < x) = False) then arithmetic
   | [x, ..rest], Both first s, Succ k, h =>
     let above := countAboveSorted rest s k h
     let atMost: x ≤ rest.getOr k 0 := List.sortedGetOrLe [x, ..rest] 0 (Both first s) 0 (Succ k) (arithmetic) h
-    rewrite List.countCons rest x (score => rest.getOr k 0 < score), notBelow x (rest.getOr k 0) atMost then arithmetic
+    rewrite List.countCons rest x (score => rest.getOr k 0 < score), (arithmetic: (rest.getOr k 0 < x) = False) then
+      arithmetic
 
 --| The program's middle is a middle score of any nonempty list.
 theorem middleIsMiddle ∀ (scores: List Nat) (some: scores ≠ []): Middle scores (middle scores) :=

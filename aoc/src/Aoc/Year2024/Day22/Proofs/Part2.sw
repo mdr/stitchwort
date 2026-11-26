@@ -9,15 +9,8 @@ import Aoc.Year2024.Day22 (..)
 import Aoc.Year2024.Day22.Spec (..)
 import Std (Eq, List, Map, Nat, Option, Pair)
 
-theorem getOrSome ∀ (totals: Map Changes Nat) (key: Changes) (value: Nat)
-    (found: totals.get key = Some value):
-    totals.getOr key 0 = value :=
-  rewrite found
-
 theorem getOrNone ∀ (totals: Map Changes Nat) (key: Changes) (missing: totals.get key = None): totals.getOr key 0 = 0 :=
   rewrite missing
-
-theorem leBoth ∀ (m n: Nat) (below: m ≤ n) (above: n ≤ m): m = n := arithmetic
 
 --| The best total is no more than the most bananas over any list holding
 --| the changes of every five digits.
@@ -37,7 +30,7 @@ theorem bestTotalAtMost ∀ (possible: List Changes)
         (((key, value)) inList same =>
           let found := (Map.memToList totals key value).forward inList
           let earns: value = bananas count buyers key :=
-            Eq.trans (getOrSome totals key value found).flipped (totalsBananas count buyers key)
+            Eq.trans (rewrite found: totals.getOr key 0 = value).flipped (totalsBananas count buyers key)
           let bound :=
             List.leFoldMax
               (possible.map (bananas count buyers))
@@ -70,7 +63,7 @@ theorem bestTotalAtLeast ∀ (possible: List Changes) (count: Nat) (buyers: List
                     (sequence, value)
                     ((Map.memToList totals sequence value).backward found)
                     Pair.snd)
-              arithmetic [same, earns, getOrSome totals sequence value found, bound]
+              arithmetic [same, earns, (rewrite found: totals.getOr sequence 0 = value), bound]
             | None => arithmetic [same, earns, getOrNone totals sequence found])
 
 --| Stated for any such list and only then for `possibleSequences`: a `≤`
@@ -80,7 +73,7 @@ theorem bestTotalAmong ∀ (possible: List Changes)
     (contains: HoldsDigitChanges possible)
     (count: Nat) (buyers: List Nat):
     bestTotal count buyers = mostBananas possible count buyers :=
-  leBoth
+  Nat.leAntisym
     (bestTotal count buyers)
     (mostBananas possible count buyers)
     (bestTotalAtMost possible contains count buyers)

@@ -464,9 +464,9 @@ theorem repBlockCount ∀ (x n: Nat)
 theorem sumIdsEq ∀ (from to y: Nat):
     List.sumBy (List.rangeFrom (to + 1 - from) from) (x => x.keepIf (y == x)) = y.keepIf (from ≤ y ≤ to) :=
   match t: Nat.leq from y, t2: Nat.leq y to with
-    | True, True => List.sumRangeFromEq y (to + 1 - from) from t (rangeIn from to y t t2)
+    | True, True => List.sumRangeFromEq y (to + 1 - from) from t arithmetic
     | True, False => List.sumRangeFromEqNone y (to + 1 - from) from (x hx1 hx2 e =>
-      Bool.trueNotFalse (Eq.trans (Eq.flipped (rewrite <- e at rangeEnd from to x hx1 hx2)) t2))
+      Bool.trueNotFalse (Eq.trans (Eq.flipped (rewrite <- e at (arithmetic: x ≤ to))) t2))
     | False, _ => List.sumRangeFromEqNone y (to + 1 - from) from (x hx1 hx2 e =>
       Bool.trueNotFalse (Eq.trans (rewrite <- e at hx1).flipped t))
 
@@ -573,6 +573,4 @@ theorem collapse ∀ (x n: Nat)
 
 --| The ids of a range have at most as many digits as its end.
 theorem idsBelow ∀ (r: Range) (x: Nat) (h1: r.from ≤ x) (h2: x < r.from + r.size): x.digitCount ≤ r.to.digitCount :=
-  Nat.digitsLengthLe x r.to.digitCount
-    (Nat.digitsNonEmpty r.to)
-    (arithmetic [rangeEnd r.from r.to x h1 h2, Nat.ltPowTenDigits r.to])
+  Nat.digitsLengthLe x r.to.digitCount (Nat.digitsNonEmpty r.to) (arithmetic [Nat.ltPowTenDigits r.to])

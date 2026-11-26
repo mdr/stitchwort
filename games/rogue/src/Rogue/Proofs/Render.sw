@@ -16,7 +16,7 @@ import Std (Bool, DecEq, Eq, List, Nat, Option, Pair, Text, Void)
 --| The player's mark is the first on the player's row, so it's drawn.
 theorem glyphAtPlayer ∀ (state: State) (terrain: Char):
     glyphAt (marksIn state state.player.row) state.player.column terrain = '@' :=
-  rewrite natEqSelf state.player.row, natEqSelf state.player.column
+  rewrite DecEq.refl state.player.row, DecEq.refl state.player.column
 
 --| Among the monsters' marks on a cell's row, the first in the cell's column
 --| is the glyph of the monster `monsterAt` finds there.
@@ -33,7 +33,7 @@ theorem lookupMonsterMark ∀ (position: Position) (found: Monster) (rest: List 
         | True =>
           let here := same.read
           let itIs := Option.someInjective located
-          rewrite here, natEqSelf position.row, natEqSelf position.column, itIs
+          rewrite here, DecEq.refl position.row, DecEq.refl position.column, itIs
         | False =>
           match sameRow: monster.position.row == position.row with
             | True =>

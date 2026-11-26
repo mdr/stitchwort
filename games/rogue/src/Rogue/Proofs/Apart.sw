@@ -14,15 +14,6 @@ def positions (monsters: List Monster): List Position := monsters.map (monster =
 --| No two monsters stand on one cell.
 def Apart (monsters: List Monster): Prop := List.Distinct (positions monsters)
 
-theorem memAppendLeft ∀ (x: a) (ys xs: List a) (inside: List.Mem x xs): List.Mem x (xs ++ ys) := match xs, inside with
-  | [], inside => inside.impossible
-  | [first, ..rest], Inl here => Inl here
-  | [first, ..rest], Inr later => Inr (memAppendLeft x ys rest later)
-
-theorem memAppendRight ∀ (x: a) (ys xs: List a) (inside: List.Mem x ys): List.Mem x (xs ++ ys) := match xs with
-  | [] => inside
-  | [first, ..rest] => Inr (memAppendRight x ys rest inside)
-
 --| A cell with no monster on it isn't among their positions.
 theorem vacantNotMem ∀ (position: Position) (monsters: List Monster)
     (vacant: monsterAt position monsters = None):

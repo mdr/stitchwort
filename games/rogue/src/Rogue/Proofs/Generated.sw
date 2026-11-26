@@ -30,8 +30,6 @@ theorem withSeedAlways ∀ (property: a → Prop) (prog: () → {Random} a)
         | AlwaysCall later => withSeedAlways property (() => k (lcg seed / 65536)) (later (lcg seed / 65536)) (lcg seed)
 
 --| Whatever number a roll is given, its result is below its bound.
-theorem rollBound ∀ (drawn most: Nat): drawn % Succ most < Succ most := Nat.modLt drawn (Succ most)
-
 --| Every room fits on the map.
 --
 -- Opaque, so that a list of rooms stays a list while the proof
@@ -85,39 +83,39 @@ theorem generatedLaidOut ∀ (depth: Nat) (property: Level → Prop)
           (Effect.alwaysUnit _)
           (swords alwaysSword =>
             laidOut _ _ _ _
-              (rollBound entrance 5)
-              (rollBound _ 5)
+              (Nat.modLt entrance (Succ 5))
+              (Nat.modLt _ (Succ 5))
               (sixFit
                 (roomFits 0 byComputing _ _ _ _
-                  (rollBound down0 _)
-                  (rollBound across0 _)
-                  (rollBound row0 _)
-                  (rollBound column0 _))
+                  (Nat.modLt down0 (Succ _))
+                  (Nat.modLt across0 (Succ _))
+                  (Nat.modLt row0 (Succ _))
+                  (Nat.modLt column0 (Succ _)))
                 (roomFits 1 byComputing _ _ _ _
-                  (rollBound down1 _)
-                  (rollBound across1 _)
-                  (rollBound row1 _)
-                  (rollBound column1 _))
+                  (Nat.modLt down1 (Succ _))
+                  (Nat.modLt across1 (Succ _))
+                  (Nat.modLt row1 (Succ _))
+                  (Nat.modLt column1 (Succ _)))
                 (roomFits 2 byComputing _ _ _ _
-                  (rollBound down2 _)
-                  (rollBound across2 _)
-                  (rollBound row2 _)
-                  (rollBound column2 _))
+                  (Nat.modLt down2 (Succ _))
+                  (Nat.modLt across2 (Succ _))
+                  (Nat.modLt row2 (Succ _))
+                  (Nat.modLt column2 (Succ _)))
                 (roomFits 3 byComputing _ _ _ _
-                  (rollBound down3 _)
-                  (rollBound across3 _)
-                  (rollBound row3 _)
-                  (rollBound column3 _))
+                  (Nat.modLt down3 (Succ _))
+                  (Nat.modLt across3 (Succ _))
+                  (Nat.modLt row3 (Succ _))
+                  (Nat.modLt column3 (Succ _)))
                 (roomFits 4 byComputing _ _ _ _
-                  (rollBound down4 _)
-                  (rollBound across4 _)
-                  (rollBound row4 _)
-                  (rollBound column4 _))
+                  (Nat.modLt down4 (Succ _))
+                  (Nat.modLt across4 (Succ _))
+                  (Nat.modLt row4 (Succ _))
+                  (Nat.modLt column4 (Succ _)))
                 (roomFits 5 byComputing _ _ _ _
-                  (rollBound down5 _)
-                  (rollBound across5 _)
-                  (rollBound row5 _)
-                  (rollBound column5 _)))))
+                  (Nat.modLt down5 (Succ _))
+                  (Nat.modLt across5 (Succ _))
+                  (Nat.modLt row5 (Succ _))
+                  (Nat.modLt column5 (Succ _))))))
 
 --| Whatever is true of every laid-out level is true of every level the game
 --| generates, for every seed and depth.
