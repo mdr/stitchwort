@@ -80,11 +80,11 @@ Firefox 160 **[cited, SW-4870]**:
 4. **The need has gone.** SW-4863 found the failing proofs overflowed on printing and on
    chains made by computing, not on nesting people write. After SW-4863, SW-4865 and
    SW-4868 every measured AoC proof fits the guard (Day05 73, Day22 96, Day11 126 KiB), and
-   the deepest real nesting in the repo is 53 levels **[cited, SW-4863; the three figures
-   and the follow-up tickets as given in the SW-4893 brief]**.
+   the deepest real nesting in the repo is 53 levels **[cited: SW-4863 §1 and its table for Day05 and Day22;
+   Day11 from SW-4865, docs/worklog/2026-11-26.md]**.
 5. **Depth has another ceiling.** Past about 8,000 levels the elaborator's roughly
    quadratic time is the limit, not the stack (SW-4885, being fixed by SW-4891 and
-   SW-4892) **[cited, SW-4870; ticket numbers from the brief]**.
+   SW-4892) **[cited: SW-4870; SW-4885, docs/proposals/effects-prepass-cost.md]**.
 6. **Loose ends:** a browser test about hover text failed three times out of three on the
    chain's build and not on `main`'s (a race with the editor's redraw that the chain moved;
    cause not found); and a raised guard needs a third library cache, about 5 MB and a
