@@ -938,6 +938,44 @@ fn an_edit_checks_again_only_what_uses_it() {
     });
 }
 
+/// A namespace the host's stack ran out on (SW-4862) is reported as
+/// `E-RESOURCE`, and so is the one import of it in each namespace that
+/// imports it, in place of the import's names being reported missing
+/// (SW-4871); a namespace that doesn't use it is checked. An edit of its
+/// text checks it, and what imports it, again.
+#[test]
+fn live_namespaces_importing_an_exhausted_one_say_so_once() {
+    with_stack(STACK, || {
+        let nonce = nonce();
+        let order_a = order_a(&nonce);
+        let cache = order_cache(&nonce);
+        let mut live = order_project(order_files(&order_a), &cache);
+        let exhausted = Arc::new(stitchwort_driver::live::Exhausted::default());
+        exhausted.insert("Order.A");
+        live.share_exhausted(exhausted);
+        assert_eq!(checked_log(&mut live), ["Order.A", "Order.B", "Order.C"]);
+        let answers = live.answers();
+        assert_eq!(codes(&answers, "src/a.sw"), ["E-RESOURCE"]);
+        assert_eq!(codes(&answers, "src/b.sw"), ["E-RESOURCE"]);
+        assert_eq!(codes(&answers, "src/c.sw"), Vec::<&str>::new());
+        let b = &answers[&Place::Program("src/b.sw".to_string())].diagnostics[0];
+        assert!(b.message.contains("`Order.A`"), "{}", b.message);
+        // On the import of it, not the file's start.
+        assert_eq!(b.range[0], 2, "{:?}", b.range);
+
+        live.set_text(
+            "src/a.sw",
+            Some(format!("{order_a}\ndef more: Nat := base + 1\n")),
+        );
+        assert_eq!(checked_log(&mut live), ["Order.A", "Order.B", "Order.C"]);
+        let answers = live.answers();
+        for path in ["src/a.sw", "src/b.sw", "src/c.sw"] {
+            assert_eq!(codes(&answers, path), Vec::<&str>::new(), "{path}");
+        }
+        let _ = std::fs::remove_dir_all(&cache);
+    });
+}
+
 // ---- an importer of a namespace with an error ------------------------------
 
 const GAP_A: &str = "namespace Gap.A\n\ndef one: Nat := 1\n\ndef two: Nat := 2\n";

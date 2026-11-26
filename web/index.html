@@ -978,12 +978,14 @@ export def area: Shape -> Nat
     broken = null;
     stdLoaded = null;
     guarded = null;
+    /** The engine's stack ran out (`broken` says so): the instance can't be used again. */
+    overflowed = false;
     async call(request, seconds, onOutput) {
-      if (this.broken) return { crashed: true, error: this.broken, inPage: true };
+      if (this.broken) return { crashed: true, overflow: this.overflowed, error: this.broken, inPage: true };
       try {
         const compiler = await import(`./pkg/stitchwort_web.js${LOAD}`);
         await compiler.default({ module_or_path: await wasm });
-        this.guarded ??= import(`./stack-guard.js${LOAD}`).then((g) => g.applyStackGuard(compiler));
+        this.guarded ??= import(`./stack-guard.js${LOAD}`).then((g) => (this.isStackOverflow = g.isStackOverflow, g.applyStackGuard(compiler)));
         await this.guarded;
         this.stdLoaded ??= fetch(new URL(`pkg/std.bundle${LOAD}`, import.meta.url))
           .then((r) => { if (!r.ok) throw new Error(`std.bundle: HTTP ${r.status}`); return r.arrayBuffer(); })
@@ -1012,7 +1014,9 @@ export def area: Shape -> Nat
         return { out: JSON.parse(answer()) };
       } catch (e) {
         this.broken = `${e?.name ?? "Error"}: ${e?.message ?? e}`;
-        return { crashed: true, error: this.broken, inPage: true };
+        // As in playground-worker.js: not a crash, but the answer E-RESOURCE.
+        this.overflowed = !!this.isStackOverflow?.(e);
+        return { crashed: true, overflow: this.overflowed, error: this.broken, inPage: true };
       }
     }
     cancel() {}
@@ -1036,17 +1040,18 @@ export def area: Shape -> Nat
     if (result.noCompiler) {
       return "This page runs the Stitchwort compiler as WebAssembly, and it couldn’t start here: " + result.error;
     }
+    if (result.overflow) {
+      // The engine's own stack ran out before the checker's guard (stack-guard.js, D3750).
+      return "E-RESOURCE: ran out of resources: the browser's stack ran out. This isn't a type error " +
+        "or a failed test: there's no answer within the limits of this browser. " +
+        (result.inPage ? "Reload the page to restart it" : "It has been restarted; change the program to try again") +
+        `. (${result.error})`;
+    }
     if (result.inPage) {
       return `The compiler crashed (${result.error}). Reload the page to restart it.`;
     }
     if (result.timedOut) {
       return `The compiler took longer than ${result.seconds} s, so it was stopped.`;
-    }
-    if (result.overflow) {
-      // The engine's own stack ran out before the checker's guard (stack-guard.js, D3750).
-      return "E-RESOURCE: ran out of resources: the browser's stack ran out. This isn't a type error " +
-        "or a failed test: there's no answer within the limits of this browser. It has been restarted; " +
-        `change the program to try again. (${result.error})`;
     }
     return `The compiler crashed (${result.error}). This can happen with very deeply nested ` +
       "programs or values. It has been restarted; change the program to try again.";

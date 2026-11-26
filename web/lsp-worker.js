@@ -232,6 +232,14 @@ function loadProject(project) {
 let editsSent = null;
 let editsRead = 0;
 const STALE = new Set(["textDocument/didOpen", "textDocument/didChange", "textDocument/didClose"]);
+// Each namespace entry the server's check cache writes goes to the page,
+// which keeps it for the next worker (SW-4871): the views into the
+// instance's memory are copied first.
+globalThis.stitchwortCacheEntry = (root, unit, key, entry) => {
+  const k = key.slice();
+  const e = entry.slice();
+  postMessage({ cacheEntry: { root, unit, key: k, entry: e } }, [k.buffer, e.buffer]);
+};
 globalThis.stitchwortEditsWaiting = () => editsSent !== null && Atomics.load(editsSent, 0) !== editsRead;
 
 async function handle(data) {
@@ -248,6 +256,11 @@ async function handle(data) {
     // Namespaces (or files) an earlier worker overflowed on. Before the
     // project is added, which reads them.
     server.mark_exhausted(data.exhausted);
+    return;
+  }
+  if (data.cacheEntries !== undefined) {
+    // What an earlier worker had checked; before the projects are added.
+    for (const { root, unit, key, entry } of data.cacheEntries) server.restore_cache_entry(root, unit, key, entry);
     return;
   }
   if (data.project !== undefined) {

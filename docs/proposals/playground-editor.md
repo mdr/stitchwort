@@ -699,13 +699,26 @@ the projects and the client reopens the documents), but tells it first
 published on the first line of its first file instead, until the text of its
 files changes (`Exhausted` in `crates/driver/src/live.rs`), so the server
 doesn't overflow in a loop; the page re-tells every later worker. This is
-not counted as a crash. The namespaces after it are checked without its
-declarations, so ones that use it report errors of their own. An overflow
+not counted as a crash. A namespace that imports it is left unchecked
+too, with one `E-RESOURCE` on the import ("`X`, which this imports, ran out
+of resources"), not a cascade of missing names; so are those that import
+that one (SW-4871). The new worker doesn't check the project again either:
+each namespace entry the worker's check cache writes (`LayeredStore`'s
+sink, `stitchwortCacheEntry`) goes to the page, which keeps the newest two
+of each namespace, and the page hands them all to the next worker before the
+projects (`restore_cache_entry`), where they go into the project's cache
+when it is first made. That is as sound as the cache is: an entry is found
+only by a key covering the namespace's text, configuration and namespace
+set, and is replayed only if its header's dependency hashes still hold.
+(The old worker's memory can't be read after an overflow, which is why the
+entries are sent as they are written, not on the overflow.) An overflow
 in a request rather than a check (a hover that loads namespaces) names
 nothing, and restarts the server as a crash does. The search worker answers
 the search with nothing and is replaced; the page's own Check, Tests and Run
 (`playground-worker.js`) reply with the overflow flagged, and the page shows
-the `E-RESOURCE` text and starts a fresh worker.
+the `E-RESOURCE` text and starts a fresh worker; the in-page fallback
+compiler (`InPage` in `web/index.html`), which can't restart, shows the same
+text, asking for a reload (SW-4871).
 
 **Next:**
 

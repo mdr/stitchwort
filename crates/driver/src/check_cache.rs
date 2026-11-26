@@ -826,6 +826,22 @@ pub struct LayeredStore {
     local: std::cell::RefCell<Layer>,
     log: Option<StoreLog>,
     budget: LayerBudget,
+    sink: Option<(String, EntrySink)>,
+}
+
+/// Told each namespace entry a [`LayeredStore`] writes (its project's
+/// folder, unit, key, entry):
+/// the playground's page keeps them, so that a new worker can start from
+/// what the last one had checked (SW-4871).
+#[derive(Clone)]
+pub struct EntrySink(pub std::sync::Arc<SinkFn>);
+
+type SinkFn = dyn Fn(&str, &str, &Key, &[u8]) + Send + Sync;
+
+impl std::fmt::Debug for EntrySink {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.write_str("EntrySink")
+    }
 }
 
 #[derive(Default)]
@@ -900,6 +916,25 @@ impl LayeredStore {
             local: Default::default(),
             log: None,
             budget,
+            sink: None,
+        }
+    }
+
+    /// Tells `sink` of every namespace entry written from now on, as the
+    /// entries of the project in `root`.
+    pub fn with_sink(mut self, root: &str, sink: EntrySink) -> Self {
+        self.sink = Some((root.to_string(), sink));
+        self
+    }
+
+    /// Adds an entry an earlier store of this build wrote (the sink was
+    /// told it), as if it had been written here. Sound for the same
+    /// reason a written entry is: it is found only by its key, which
+    /// covers the namespace's text, configuration and namespace set, and
+    /// replayed only if its header's dependencies are still what they were.
+    pub fn restore(&self, unit: &str, key: &Key, entry: &[u8]) {
+        if unit.starts_with("ns.") {
+            self.insert(unit, key, entry);
         }
     }
 
@@ -973,6 +1008,15 @@ impl Store for LayeredStore {
             return;
         }
         self.note(unit, StoreEvent::Wrote);
+        if let Some((root, sink)) = &self.sink {
+            (sink.0)(root, unit, key, entry);
+        }
+        self.insert(unit, key, entry);
+    }
+}
+
+impl LayeredStore {
+    fn insert(&self, unit: &str, key: &Key, entry: &[u8]) {
         let mut layer = self.local.borrow_mut();
         let id = (unit.to_string(), *key);
         self.budget.remove(layer.remove(&id));

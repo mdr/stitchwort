@@ -1664,13 +1664,13 @@ test("after a crash, the next request starts a fresh compiler", async (page) => 
   assert.equal(await page.printed(), MAIN_OUTPUT);
 }, { ms: 120000 });
 
-// D3750, SW-4862: the engine's stack running out inside the language server's check is reported as
-// E-RESOURCE on what was being checked, not as a crash; the new worker doesn't check it again, and a
-// later edit is checked normally. The served worker overflows the engine's stack from inside the check
-// (the checker polls `stitchwortEditsWaiting` every few thousand steps, which then recurses until
-// the stack runs out) while a document with CRASH is checked, until the new worker has been told that the file
-// overflowed.
-test("the engine's stack running out in the language server is reported as E-RESOURCE, and an edit is checked again", async (page) => {
+/**
+ * Serves a language server worker that overflows the engine's stack from inside a check: the checker polls
+ * `stitchwortEditsWaiting` every few thousand steps, which then recurses until the stack runs out while a
+ * document with CRASH is open and `inNamespace` (JavaScript, over `checking_namespace()`) holds, until the new
+ * worker has been told that a namespace overflowed.
+ */
+function overflowingWorker(inNamespace) {
   const hook = "globalThis.stitchwortEditsWaiting = () => editsSent !== null && Atomics.load(editsSent, 0) !== editsRead;";
   // At the line's start: the search worker's `searcher.onmessage` has the same text.
   const message = "\nonmessage = ({ data }) => {";
@@ -1678,7 +1678,7 @@ test("the engine's stack running out in the language server is reported as E-RES
   assert.ok(worker.includes(hook) && worker.includes(message), "the worker's hook and message handler");
   overrides.set("/lsp-worker.js", worker
     .replace(hook, `globalThis.stitchwortEditsWaiting = () => {
-  if (crashing && !told && checking_namespace() !== "") { const eat = () => eat(); eat(); }
+  if (crashing && !told && ${inNamespace}) { const eat = () => eat(); eat(); }
   return editsSent !== null && Atomics.load(editsSent, 0) !== editsRead;
 };`)
     .replace(message, `
@@ -1687,6 +1687,16 @@ let told = false;
 ${message}
   if (typeof data === "string" && data.includes("textDocument/did")) crashing = data.includes(${JSON.stringify(CRASH)});
   if (data.exhausted !== undefined) told = true;`));
+}
+
+// D3750, SW-4862: the engine's stack running out inside the language server's check is reported as
+// E-RESOURCE on what was being checked, not as a crash; the new worker doesn't check it again, and a
+// later edit is checked normally. The served worker overflows the engine's stack from inside the check
+// (the checker polls `stitchwortEditsWaiting` every few thousand steps, which then recurses until
+// the stack runs out) while a document with CRASH is checked, until the new worker has been told that the file
+// overflowed.
+test("the engine's stack running out in the language server is reported as E-RESOURCE, and an edit is checked again", async (page) => {
+  overflowingWorker('checking_namespace() !== ""');
   await page.open();
   await page.untilChecked();
   const diagnostics = `(() => { const e = window.editor; const uri = [...e.published.keys()].find((u) => u.endsWith("main.sw")); return uri ? e.published.get(uri).map((d) => d.message) : null; })()`;
@@ -1708,6 +1718,63 @@ ${message}
   assert.equal(await page.ev(`window.editor.stats.overflows.length`), 1);
   assert.equal(await page.ev(`window.editor.stats.restarts`), 0);
 }, { ms: 150000 });
+
+// SW-4871: after the engine's stack runs out in a project namespace, the new worker is handed the check
+// cache entries the old one wrote (`editor.cacheEntries`), so it replays the namespaces already checked
+// instead of checking the project again, and the namespaces that import the exhausted one (Day 2's tests
+// and proofs) each say so once, on the import, in place of the import's names being missing.
+test("after the stack runs out in a project, the new worker replays what was checked, and importers say so once", async (page) => {
+  overflowingWorker('checking_namespace() === "Aoc.Year2025.Day02"');
+  await page.open();
+  await page.untilChecked();
+  await openDay(page, 2);
+  await page.until(DAY2_TABS_READY);
+  const began = Date.now();
+  await page.until(`window.editor.stats.idle || window.editor.stats.restarts > 0`, 240000, "the project's first check to finish");
+  const first = Date.now() - began;
+  console.log(`    (the project's first check took ${Math.round(first / 100) / 10} s after its tabs opened)`);
+  assert.equal(await page.ev(`window.editor.stats.restarts`), 0);
+  const kept = await page.ev(`window.editor.cacheEntries.size`);
+  assert.ok(kept > 20, `the page keeps the namespaces' cache entries: ${kept}`);
+  const own = await sourceText(page);
+  await page.setSource(own + "\n" + CRASH + "\n");
+  await page.until(`window.editor.stats.overflows.length > 0`, 120000, "the overflow");
+  const overflow = await page.ev(`window.editor.stats.overflows[0]`);
+  assert.equal(overflow.checking, "Aoc.Year2025.Day02", JSON.stringify(overflow));
+  const t = Date.now();
+  await page.until(`window.editor.stats.idle`, 240000, "the new worker's check to finish");
+  const again = Date.now() - t;
+  console.log(`    (the new worker's check: ${Math.round(again / 100) / 10} s; the first was ${Math.round(first / 100) / 10} s)`);
+  assert.equal(await page.ev(`window.editor.stats.overflows.length`), 1, "it overflowed once");
+  assert.equal(await page.ev(`window.editor.stats.restarts`), 0, "the server didn't crash");
+  const messages = (file) => page.ev(`(() => { const e = window.editor; const uri = [...e.published.keys()].find((u) => u.endsWith(${JSON.stringify(file)})); return uri ? e.published.get(uri).map((d) => d.message) : null; })()`);
+  assert.ok((await messages("Year2025/Day02/Day02.sw"))?.some((m) => m.includes("ran out of resources")), "the namespace itself");
+  // A namespace may span several files: its one diagnostic is on the first file that uses the import.
+  const others = await page.ev(`[...window.editor.published].filter(([u]) => u.includes("Year2025/Day02/") && !u.endsWith("Day02/Day02.sw")).flatMap(([, d]) => d.map((x) => x.message))`);
+  assert.ok(others.length >= 2, `the importing namespaces say so: ${JSON.stringify(others)}`);
+  for (const m of others) assert.match(m, /^ran out of resources: `Aoc\.Year2025\.Day02`, which this imports/, "no cascade of other errors");
+  assert.ok(again < first / 2, `the new worker replayed what the old one had checked: ${again} ms against ${first} ms`);
+}, { ms: 600000 });
+
+// SW-4871: the in-page compiler (used where workers don't start) reports the engine's stack
+// running out as E-RESOURCE, as the worker's answer does, not as a crash. The page's JSON.parse,
+// which reads each answer inside the compiler's call, recurses until the stack runs out while
+// `window.overflowing` is set.
+test("the compiler in the page reports the engine's stack running out as E-RESOURCE", async (page) => {
+  await page.open({
+    patch: `window.Worker = function () { throw new Error("workers are blocked"); };
+      { const parse = JSON.parse; JSON.parse = function (...a) { if (window.overflowing) { const eat = () => eat(); eat(); } return parse.apply(this, a); }; }`,
+  });
+  await page.untilChecked();
+  await page.ev(`window.overflowing = true`);
+  await page.setSource("def x : Nat := 2\n");
+  await page.tab("tests");
+  await page.untilStatus("Ran out of resources");
+  await page.ev(`window.overflowing = false`);
+  assert.match(await page.output(), /E-RESOURCE: ran out of resources: the browser's stack ran out/);
+  assert.match(await page.output(), /Reload the page to restart it/);
+  assert.doesNotMatch(await page.output(), /The compiler crashed/);
+}, { ms: 120000 });
 
 for (const [how, patch] of [
   ["the Worker constructor throws", `window.Worker = function () { throw new Error("workers are blocked"); };`],
