@@ -36234,8 +36234,8 @@
     {
       "id": 4854,
       "title": "[Sonnet] Browser tests failing on main: the book tests expect book/src/02-cases.sw's old line numbers (167, noAndAnything); the after-a-jump-into-another-file project test overflows (RangeError) in headless Chrome 158, then F2 renames fails with recursive use of an object; find whether the RangeError is new since the 16 Nov wasm breakage (SW-4852 report)",
-      "status": "backlog",
-      "agent": "",
+      "status": "doing",
+      "agent": "Sonnet",
       "where": "",
       "labels": [],
       "epic": "editor-playground",
