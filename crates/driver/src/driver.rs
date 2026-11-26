@@ -78,6 +78,16 @@ pub struct Session {
     pub warnings: Vec<Diagnostic>,
 }
 
+impl stitchwort_core::budget::HasBudget for Session {
+    fn budget(&self) -> &stitchwort_core::budget::Budget {
+        &self.elab.kernel.machine.budget
+    }
+
+    fn operation_limits(&self) -> Limits {
+        self.elab.options.limits
+    }
+}
+
 impl Default for Session {
     fn default() -> Self {
         Self::new()

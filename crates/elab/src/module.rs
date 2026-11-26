@@ -573,12 +573,7 @@ impl Elaborator {
             // The open goals, printed while their metavariables are solved.
             // Printing reaches stack guards, and the component's operation
             // has ended.
-            let saved = (!self.kernel.machine.budget.is_running())
-                .then(|| self.kernel.machine.budget.start(self.options.limits));
-            let goals = self.take_goals();
-            if let Some(saved) = saved {
-                self.kernel.machine.budget.restore(saved);
-            }
+            let goals = stitchwort_core::budget::within(self, |elab| elab.take_goals());
             let errors: Vec<&str> = diagnostics[before..]
                 .iter()
                 .filter(|(_, d)| d.severity == Severity::Error)
@@ -984,12 +979,7 @@ impl Elaborator {
         }
         // Called after its component's operation ends, but the search hashes
         // the statement (`type_hash`), which reaches a stack guard.
-        let saved = (!self.kernel.machine.budget.is_running())
-            .then(|| self.kernel.machine.budget.start(self.options.limits));
-        let found = self.counterexample_note(def);
-        if let Some(saved) = saved {
-            self.kernel.machine.budget.restore(saved);
-        }
+        let found = stitchwort_core::budget::within(self, |elab| elab.counterexample_note(def));
         let Some((note, log)) = found else {
             return;
         };

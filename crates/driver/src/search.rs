@@ -575,14 +575,7 @@ impl Session {
         options: &Options,
         scope: &Scope,
     ) -> Result<Report, Diagnostic> {
-        let budget = &self.elab.kernel.machine.budget;
-        if budget.is_running() {
-            return self.search_inner(text, options, scope);
-        }
-        let saved = budget.start(self.elab.options.limits);
-        let result = self.search_inner(text, options, scope);
-        self.elab.kernel.machine.budget.restore(saved);
-        result
+        stitchwort_core::budget::within(self, |session| session.search_inner(text, options, scope))
     }
 
     fn search_inner(
