@@ -1,5 +1,5 @@
 {
-  "next": 4861,
+  "next": 4864,
   "tickets": [
     {
       "id": 47,
@@ -36375,6 +36375,45 @@
         "1bf667069",
         "a12d5c989"
       ]
+    },
+    {
+      "id": 4861,
+      "title": "[Sonnet] Make STITCHWORT_CHECK_OPERATIONS's assert the default again: run the quick-tier suites with STITCHWORT_CHECK_OPERATIONS=1 (agreed broader run), fix every path that reaches Budget::nesting outside an operation (at 56099fab0 Overmind saw ~140 failures across cli running/tools/server and driver proofs/elaboration, guards hasher, type checker, elaborator; SW-4858 fixed some since) with budget::within, then turn the check on by default in test builds",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "epic": "elaborator-kernel",
+      "body": "",
+      "created": "2026-11-26",
+      "updated": "2026-11-26",
+      "commits": []
+    },
+    {
+      "id": 4862,
+      "title": "[Sonnet] Playground: catch the engine's stack overflow (RangeError) in the language-server and playground workers, restart the worker, and report E-RESOURCE ('ran out of resources') on the namespace or file instead of crashing; keep the per-engine guards (D3750)",
+      "status": "doing",
+      "agent": "Sonnet",
+      "where": "",
+      "labels": [],
+      "epic": "editor-playground",
+      "body": "D3750 (Matt, 17:35 26 Nov): catch the overflow regardless and report out of resources.",
+      "created": "2026-11-26",
+      "updated": "2026-11-26",
+      "commits": []
+    },
+    {
+      "id": 4863,
+      "title": "[Fable] Playground stack, end state: why real proofs need so much stack in WebAssembly (2020 day 5 314 KiB, 2024 day 22 604 KiB, 2021 day 11 317), what the checker should do differently, and the best end state (frame sizes, explicit work lists for the deep walks, engine stack switching, anything else), with measurements; not only the cheapest change (D3750; SW-4857)",
+      "status": "doing",
+      "agent": "Opus",
+      "where": "",
+      "labels": [],
+      "epic": "editor-playground",
+      "body": "D3750 (Matt, 17:35 26 Nov): 'Don't necessarily propose only the cheapest change ... we're interested in the best end state ... should we be doing something differently?' Fable at Matt's suggestion.\n\nRuns on Fable (fable-lane); the board has no Fable agent name.",
+      "created": "2026-11-26",
+      "updated": "2026-11-26",
+      "commits": []
     }
   ]
 }
