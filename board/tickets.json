@@ -1,5 +1,5 @@
 {
-  "next": 4883,
+  "next": 4887,
   "tickets": [
     {
       "id": 47,
@@ -36537,15 +36537,19 @@
     {
       "id": 4870,
       "title": "[Opus] Prototype the JSPI chain of stacks for the playground's checking calls (SW-4863 step 6: Chrome 1,000,000 levels vs 2,658, Firefox 24x)",
-      "status": "doing",
+      "status": "done",
       "agent": "Opus",
       "where": "",
       "labels": [],
       "epic": "editor-playground",
-      "body": "D3752 (Matt, 26 Nov 2026): 'I think it's an interesting idea. Prototype it to see what you think.' Prior art: none found (Pyodide, WordPress Playground use JSPI for async only); moved to Opus since it's novel.",
+      "body": "D3752 (Matt, 26 Nov 2026): 'I think it's an interesting idea. Prototype it to see what you think.' Prior art: none found (Pyodide, WordPress Playground use JSPI for async only); moved to Opus since it's novel.\n\nNote: docs/reviews/SW-4870-jspi-stack-chain.md. Prototype kept on branch lane/SW-4870 (483e0c48f), not merged. Works: nested apps 2,000 levels ok in Chrome and Firefox with a 7 MiB guard (vs 200/400 crash), ~3% cost; live-stack caps ~780 Chrome, 271-400 Firefox, capped at 200. Needs a wrap at every recursion (69 Budget::nesting sites + parser/lowering), not one call. Safari probe in /Users/Shared/SW-4870-site. Model result: opus, worked, 79 min (est. 90).",
       "created": "2026-11-26",
       "updated": "2026-11-26",
-      "commits": []
+      "commits": [
+        "483e0c48f",
+        "ba826af11",
+        "8ba27fc94"
+      ]
     },
     {
       "id": 4871,
@@ -36738,6 +36742,58 @@
       "where": "",
       "labels": [],
       "epic": "performance",
+      "body": "",
+      "created": "2026-11-26",
+      "updated": "2026-11-26",
+      "commits": []
+    },
+    {
+      "id": 4883,
+      "title": "[DeepSeek] flake.nix runs wasm-opt -Oz without -ocimfs=30, unlike web/build.sh (SW-4868), so the Nix-built playground keeps the frame splits undone; make them match (SW-4870 finding)",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "epic": "editor-playground",
+      "body": "",
+      "created": "2026-11-26",
+      "updated": "2026-11-26",
+      "commits": []
+    },
+    {
+      "id": 4884,
+      "title": "[Sonnet] Browser test 'an error is underlined, its message shows on hover…' races the editor's redraw: the semantic-tokens answer landing after the mouse move swallows the hover (fails 3/3 on SW-4870's build, passes on main); make the test wait for the redraw, or fix the editor if a real user can lose a hover this way (SW-4870 finding)",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "epic": "editor-playground",
+      "body": "",
+      "created": "2026-11-26",
+      "updated": "2026-11-26",
+      "commits": []
+    },
+    {
+      "id": 4885,
+      "title": "[Opus] Checking nested applications f (f (… 0)) takes roughly quadratic time: 2 s at 2,000 levels, 21 s at 8,000, 63 s at 14,000 (SW-4870's probes, browser, under load); measure natively and find the quadratic pass; profile first",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "epic": "performance",
+      "body": "",
+      "created": "2026-11-26",
+      "updated": "2026-11-26",
+      "commits": []
+    },
+    {
+      "id": 4886,
+      "title": "[DeepSeek] docs/reviews/SW-4863-playground-stack-end-state.md option c2 says the JSPI switch is 'one call in Budget::nesting's slow path': it can't be (a check can't move frames already on the stack; the switch wraps the rest of a recursion at each call site); add a dated correction pointing to SW-4870's note; docs/testing.md 'Stack': how to make a named wasm build for overflow traces (--keep-debug, wasm-opt -g)",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "epic": "docs-tutorials",
       "body": "",
       "created": "2026-11-26",
       "updated": "2026-11-26",
