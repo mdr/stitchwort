@@ -1,5 +1,5 @@
 {
-  "next": 4893,
+  "next": 4895,
   "tickets": [
     {
       "id": 47,
@@ -36542,7 +36542,7 @@
       "where": "",
       "labels": [],
       "epic": "editor-playground",
-      "body": "D3752 (Matt, 26 Nov 2026): 'I think it's an interesting idea. Prototype it to see what you think.' Prior art: none found (Pyodide, WordPress Playground use JSPI for async only); moved to Opus since it's novel.\n\nNote: docs/reviews/SW-4870-jspi-stack-chain.md. Prototype kept on branch lane/SW-4870 (483e0c48f), not merged. Works: nested apps 2,000 levels ok in Chrome and Firefox with a 7 MiB guard (vs 200/400 crash), ~3% cost; live-stack caps ~780 Chrome, 271-400 Firefox, capped at 200. Needs a wrap at every recursion (69 Budget::nesting sites + parser/lowering), not one call. Safari probe in /Users/Shared/SW-4870-site. Model result: opus, worked, 79 min (est. 90).",
+      "body": "D3752 (Matt, 26 Nov 2026): 'I think it's an interesting idea. Prototype it to see what you think.' Prior art: none found (Pyodide, WordPress Playground use JSPI for async only); moved to Opus since it's novel.\n\nNote: docs/reviews/SW-4870-jspi-stack-chain.md. Prototype kept on branch lane/SW-4870 (483e0c48f), not merged. Works: nested apps 2,000 levels ok in Chrome and Firefox with a 7 MiB guard (vs 200/400 crash), ~3% cost; live-stack caps ~780 Chrome, 271-400 Firefox, capped at 200. Needs a wrap at every recursion (69 Budget::nesting sites + parser/lowering), not one call. Safari probe in /Users/Shared/SW-4870-site. Model result: opus, worked, 79 min (est. 90).\n\nD3753 (Matt, 26 Nov 2026): write it up as a research note and conclude 'not yet': SW-4893.",
       "created": "2026-11-26",
       "updated": "2026-11-26",
       "commits": [
@@ -36882,8 +36882,8 @@
     {
       "id": 4891,
       "title": "[Sonnet] Context refactor for the effects memo (docs/proposals/effects-prepass-cost.md, option B, step 1): make the elaborator's local-context fields private and route the ~70 direct changes in ~20 files through methods that maintain a context identity (new on every binding and narrowing, restored on going back to a saved point). Behaviour unchanged: results, messages and hashes identical",
-      "status": "backlog",
-      "agent": "",
+      "status": "doing",
+      "agent": "Sonnet",
       "where": "",
       "labels": [],
       "epic": "performance",
@@ -36900,6 +36900,32 @@
       "where": "",
       "labels": [],
       "epic": "performance",
+      "body": "",
+      "created": "2026-11-26",
+      "updated": "2026-11-26",
+      "commits": []
+    },
+    {
+      "id": 4893,
+      "title": "[Sonnet] Research note: the JSPI chain of stacks (docs/research/), from docs/reviews/SW-4870-jspi-stack-chain.md and SW-4863's prior-art search; conclusion 'not yet' (D3753, Matt, 26 Nov 2026), with what would change the answer",
+      "status": "doing",
+      "agent": "Sonnet",
+      "where": "",
+      "labels": [],
+      "epic": "editor-playground",
+      "body": "",
+      "created": "2026-11-26",
+      "updated": "2026-11-26",
+      "commits": []
+    },
+    {
+      "id": 4894,
+      "title": "[Sonnet] Regression: browser test 'an error is underlined, its message shows on hover…' fails on main after SW-4884 (times out waiting for the message; the new SW-4884 test fails too) on a fresh web/build.sh at 2498b6043; passed on main's build before (SW-4870 note). Find whether SW-4884's pointer replay or something else broke it",
+      "status": "doing",
+      "agent": "Sonnet",
+      "where": "",
+      "labels": [],
+      "epic": "editor-playground",
       "body": "",
       "created": "2026-11-26",
       "updated": "2026-11-26",
