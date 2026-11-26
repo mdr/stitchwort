@@ -33199,15 +33199,18 @@
     {
       "id": 4667,
       "title": "[DeepSeek] Tooling: a task that re-checks only the examples whose message snapshots mention given names (for message changes, without running the examples suite), and a documented way to see which std hashes moved (hash_stability::prelude with INSTA_UPDATE=always, diff) (SW-4665 friction)",
-      "status": "backlog",
-      "agent": "",
-      "where": "",
+      "status": "done",
+      "agent": "DeepSeek",
+      "where": "scratch-sw-4667",
       "labels": [],
       "epic": "test-infra",
-      "body": "",
+      "body": "It found one orphaned snapshot (reject/record-not-a-record, its example removed in e38accd53); deleted by the orchestrator. Model result: deepseek, worked, about 15 min (est. 30).",
       "created": "2026-11-23",
-      "updated": "2026-11-23",
-      "commits": []
+      "updated": "2026-11-26",
+      "commits": [
+        "303a250cc",
+        "faa502a67"
+      ]
     },
     {
       "id": 4668,
