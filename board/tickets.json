@@ -5118,14 +5118,14 @@
     {
       "id": 1857,
       "title": "[DeepSeek] Guide and tour house-style sweep: the seven (.field) sections, List.range where ..= reads better, Set.fromList and qualified calls in tour pages",
-      "status": "doing",
+      "status": "done",
       "agent": "DeepSeek",
       "where": "scratch-sw-1857",
       "labels": [
         "docs"
       ],
       "epic": "docs-tutorials",
-      "body": "From SW-1850's audit (docs/reviews/SW-1850-guide-accuracy.md §6, ticket 4). 30 min.\n\nAudit note (22 Nov): 22 Nov 2026 audit: No commit or ticket addresses it.\n",
+      "body": "From SW-1850's audit (docs/reviews/SW-1850-guide-accuracy.md §6, ticket 4). 30 min.\n\nAudit note (22 Nov): 22 Nov 2026 audit: No commit or ticket addresses it.\n\nAlready done by SW-2533/SW-2618: DeepSeek rechecked every item against the guide and tour; nothing left (method sections with arguments stay bracketed, per docs/syntax.md). guide:update 4/4. Model result: deepseek, worked (nothing to change), about 15 min (est. 30).",
       "created": "2026-11-07",
       "updated": "2026-11-26",
       "commits": []
@@ -6160,17 +6160,20 @@
     {
       "id": 1953,
       "title": "[DeepSeek] Bench tidy-ups from docs/reviews/code-review-cli-lsp-web-fmt.md (lane G)",
-      "status": "doing",
+      "status": "done",
       "agent": "DeepSeek",
       "where": "scratch-sw-1953",
       "labels": [
         "bench"
       ],
       "epic": "test-infra",
-      "body": "From docs/reviews/code-review-cli-lsp-web-fmt.md (lane G). 30 min.\n\nAudit note (22 Nov): See docs/reviews/code-review-cli-lsp-web-fmt.md, lane G.\n",
+      "body": "From docs/reviews/code-review-cli-lsp-web-fmt.md (lane G). 30 min.\n\nAudit note (22 Nov): See docs/reviews/code-review-cli-lsp-web-fmt.md, lane G.\n\nAll five lane G items applied; new test a_baseline_recorded_with_other_jobs_is_not_compared (failed before). Default --jobs is 8, matching the baseline. Model result: deepseek, worked, about 20 min (est. 30).",
       "created": "2026-11-07",
       "updated": "2026-11-26",
-      "commits": []
+      "commits": [
+        "ea8a98b73",
+        "ff5574968"
+      ]
     },
     {
       "id": 1954,
