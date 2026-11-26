@@ -1,5 +1,5 @@
 {
-  "next": 4877,
+  "next": 4878,
   "tickets": [
     {
       "id": 47,
@@ -36542,15 +36542,19 @@
     {
       "id": 4871,
       "title": "[Sonnet] Playground after an overflow: each one costs a full project re-check (~100 s on AoC); keep checked namespaces' results across the worker restart (or remember overflows per text hash); dependents of a skipped namespace report it missing rather than failed; the in-page fallback compiler doesn't flag overflows (SW-4862)",
-      "status": "review",
+      "status": "done",
       "agent": "Sonnet",
       "where": "",
       "labels": [],
       "epic": "editor-playground",
-      "body": "Progress (Sonnet lane): (1) the worker's LayeredStore tells a sink each namespace entry it writes; the page keeps the newest two per namespace (192 MB cap) and hands them to each new worker, which restores them into the project's store: re-check after an overflow on AoC Day 2 went from 98 s to 9.9 s (a namespace's entry is found only by a key over its text/config and replayed only if its dependency hashes hold, so a stale entry is never used). (2) Namespaces importing an unchecked one are left unchecked with one E-RESOURCE on the import (live.rs Step.unchecked). (3) InPage reports overflow as E-RESOURCE. Tests: browser 'the stack runs out in a project...', 'the compiler in the page reports...'; native live_namespaces_importing_an_exhausted_one_say_so_once.",
+      "body": "Progress (Sonnet lane): (1) the worker's LayeredStore tells a sink each namespace entry it writes; the page keeps the newest two per namespace (192 MB cap) and hands them to each new worker, which restores them into the project's store: re-check after an overflow on AoC Day 2 went from 98 s to 9.9 s (a namespace's entry is found only by a key over its text/config and replayed only if its dependency hashes hold, so a stale entry is never used). (2) Namespaces importing an unchecked one are left unchecked with one E-RESOURCE on the import (live.rs Step.unchecked). (3) InPage reports overflow as E-RESOURCE. Tests: browser 'the stack runs out in a project...', 'the compiler in the page reports...'; native live_namespaces_importing_an_exhausted_one_say_so_once.\n\nPage keeps the worker's namespace cache entries (newest two per namespace, 192 MB cap) and hands them to a new worker (LayeredStore::restore). Re-check after an overflow 98 s -> 9.9 s (AoC). Importers get one E-RESOURCE on the import. Model result: sonnet, worked, 33 min (est. 50).",
       "created": "2026-11-26",
       "updated": "2026-11-26",
-      "commits": []
+      "commits": [
+        "bfd0e564d",
+        "40b303d13",
+        "91017c77c"
+      ]
     },
     {
       "id": 4872,
@@ -36622,6 +36626,19 @@
       "where": "scratch-sw-4876",
       "labels": [],
       "epic": "performance",
+      "body": "",
+      "created": "2026-11-26",
+      "updated": "2026-11-26",
+      "commits": []
+    },
+    {
+      "id": 4877,
+      "title": "[DeepSeek] SW-4871 follow-ups: a native round-trip test for LayeredStore::with_sink/restore (crates/driver check_cache) and the LSP's entry_sink/restored options; docs/testing.md: web/test.sh --no-build takes several names, matched by substring, and one web/build.sh at a time per worktree; the guide's playground page: an exhausted namespace's importers stay unchecked until it is edited",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "epic": "editor-playground",
       "body": "",
       "created": "2026-11-26",
       "updated": "2026-11-26",
