@@ -36502,8 +36502,8 @@
     {
       "id": 4869,
       "title": "[Sonnet] task stack:wasm from SW-4863's scratch scripts (Node --stack-size bisection, overflow trace, wasm-objdump join; scratchpad/SW-4863/n, frames.py): per-namespace engine-stack need of the shipped wasm; then Overmind runs it over all of AoC and the guards are set from the list (SW-4863 step 3)",
-      "status": "backlog",
-      "agent": "",
+      "status": "doing",
+      "agent": "Sonnet",
       "where": "",
       "labels": [],
       "epic": "editor-playground",
