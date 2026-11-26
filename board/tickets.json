@@ -36536,13 +36536,13 @@
     },
     {
       "id": 4870,
-      "title": "[Sonnet] Prototype the JSPI chain of stacks for the playground's checking calls (SW-4863 step 6: Chrome 1,000,000 levels vs 2,658, Firefox 24x; waits for Matt's D)",
-      "status": "backlog",
-      "agent": "",
+      "title": "[Opus] Prototype the JSPI chain of stacks for the playground's checking calls (SW-4863 step 6: Chrome 1,000,000 levels vs 2,658, Firefox 24x)",
+      "status": "doing",
+      "agent": "Opus",
       "where": "",
       "labels": [],
       "epic": "editor-playground",
-      "body": "",
+      "body": "D3752 (Matt, 26 Nov 2026): 'I think it's an interesting idea. Prototype it to see what you think.' Prior art: none found (Pyodide, WordPress Playground use JSPI for async only); moved to Opus since it's novel.",
       "created": "2026-11-26",
       "updated": "2026-11-26",
       "commits": []
