@@ -1,5 +1,5 @@
 {
-  "next": 4856,
+  "next": 4857,
   "tickets": [
     {
       "id": 47,
@@ -6273,17 +6273,22 @@
     {
       "id": 1966,
       "title": "[DeepSeek] Lint: self-recursive functions with no guard and no // Depth: comment; a test-build panic when a stack guard is reached outside an operation (today it silently does nothing, budget.rs:178, :652)",
-      "status": "doing",
+      "status": "done",
       "agent": "DeepSeek",
       "where": "scratch-sw-1966",
       "labels": [
         "robustness"
       ],
       "epic": "test-infra",
-      "body": "From docs/proposals/deep-input.md. Stage 2. 45 min.\n\nAudit note (22 Nov): 22 Nov 2026 audit: No commit or ticket addresses it.\n",
+      "body": "From docs/proposals/deep-input.md. Stage 2. 45 min.\n\nAudit note (22 Nov): 22 Nov 2026 audit: No commit or ticket addresses it.\n\nLint crates/core/tests/it/recursion.rs scans syntax, elab, core, driver; 246 allowlisted (some textual false positives); fails on new offenders and stale entries. The test-build assert moved to SW-4856: it broke many core tests whose helpers run outside an operation. Model result: deepseek, needed fixes (546 noisy entries from method-name matching; assert part stopped), about 45 min (est. 40).",
       "created": "2026-11-07",
       "updated": "2026-11-26",
-      "commits": []
+      "commits": [
+        "748bcd6d9",
+        "c9f9c0f91",
+        "4ea2c42ad",
+        "33383eac2"
+      ]
     },
     {
       "id": 1967,
@@ -36259,6 +36264,19 @@
         "69d525181",
         "c24d15d77"
       ]
+    },
+    {
+      "id": 4856,
+      "title": "[Sonnet] Budget: a stack guard reached outside an operation should fail in test builds (it silently does nothing); first make core's test helpers (Prelude::new, arrow, with_refl, the kernel tests) and any other crate's start a Budget::operation, then add the assert (SW-1966 tried it: many core tests run the checker outside an operation)",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "epic": "elaborator-kernel",
+      "body": "",
+      "created": "2026-11-26",
+      "updated": "2026-11-26",
+      "commits": []
     }
   ]
 }
