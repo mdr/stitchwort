@@ -40,7 +40,7 @@ use crate::specialise::{self, RowConstant, Specialiser};
 
 type Result<T> = std::result::Result<T, Diagnostic>;
 
-const PASS: &str = "runtime lowering";
+const PASS: &str = "runtime lowering pass";
 
 fn internal(message: impl Into<String>) -> Diagnostic {
     Diagnostic::error("E-RUNTIME", format!("internal error: {}", message.into()))

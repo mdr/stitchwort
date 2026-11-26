@@ -91,7 +91,7 @@ pub(crate) fn arms_call_itself(cx: &Ctx, alts: &[ast::Alt]) -> bool {
 /// `[decreasing := p]`.
 const PROOF: &str = "decreasing";
 
-const PASS: &str = "decreasing";
+const PASS: &str = "decreasing checker";
 
 /// While the body of a definition with `decreasing` is elaborated: which
 /// definition a recursive call names, and what its measure is, for the

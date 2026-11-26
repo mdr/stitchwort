@@ -16,6 +16,7 @@ use std::rc::Rc;
 use stitchwort_core::Ev;
 
 use num_bigint::BigUint;
+use stitchwort_core::budget::with_commas;
 use stitchwort_core::registry::Builtin;
 use stitchwort_core::value::{Head, eval, force};
 use stitchwort_core::{DataId, DefId, Icit, Sort, Term, Value};
@@ -963,6 +964,63 @@ fn function_operand_note(cx: &mut Ctx, expr: &Expr, e: Diagnostic) -> Diagnostic
     ))
 }
 
+/// The number of terms in a left-nested chain of one of `+`, `-` or `*`, and
+/// the operator, or `None` if `expr` isn't one.
+fn left_chain(expr: &Expr) -> Option<(BinOp, usize)> {
+    let Expr::Binary(op @ (BinOp::Add | BinOp::Sub | BinOp::Mul), _, _) = expr else {
+        return None;
+    };
+    let op = *op;
+    let mut terms = 1;
+    let mut cur = expr;
+    while let Expr::Binary(o, left, _) = cur {
+        if *o != op {
+            return None;
+        }
+        terms += 1;
+        cur = left.as_ref();
+    }
+    Some((op, terms))
+}
+
+/// A note about a long left-nested chain of `+`, `-` or `*` (D2844), or
+/// `None` if `expr` isn't one or isn't long.
+fn chain_note(expr: &Expr) -> Option<String> {
+    let (op, terms) = left_chain(expr)?;
+    if terms <= 1_000 {
+        return None;
+    }
+    let terms = with_commas(terms as u64);
+    Some(match op {
+        BinOp::Add => format!("this sum has {terms} terms; write long sums as a list, `[…].sum`"),
+        BinOp::Mul => {
+            format!("this product has {terms} terms; write long products as a list, `[…].product`")
+        }
+        _ => format!("this chain has {terms} terms; split it with `let`"),
+    })
+}
+
+/// Whether `e` already carries a note from [`chain_note`].
+fn has_chain_note(e: &Diagnostic) -> bool {
+    e.notes.iter().any(|n| {
+        n.starts_with("this sum has ")
+            || n.starts_with("this product has ")
+            || n.starts_with("this chain has ")
+    })
+}
+
+/// Adds the note from [`chain_note`] when `e` ran out of stack on `expr`.
+/// An error that passes back up through nested chains keeps one note.
+pub(crate) fn long_chain_note(expr: &Expr, e: Diagnostic) -> Diagnostic {
+    if e.code != "E-RESOURCE" || has_chain_note(&e) {
+        return e;
+    }
+    match chain_note(expr) {
+        Some(note) => e.with_note(note),
+        None => e,
+    }
+}
+
 /// The two sides of a comparison, or the one tree of an arithmetic group.
 type Sides = (Node, Option<Node>);
 
@@ -981,8 +1039,12 @@ fn prepare<'a>(
     let (top, sides) = match expr {
         Expr::Binary(op, a, b) if is_comparison(*op) => {
             g.ordering = matches!(op, BinOp::Lt | BinOp::Le);
-            let a = g.tree(cx, a, op_text(*op))?;
-            let b = g.tree(cx, b, op_text(*op))?;
+            let a = g
+                .tree(cx, a, op_text(*op))
+                .map_err(|e| long_chain_note(a, e))?;
+            let b = g
+                .tree(cx, b, op_text(*op))
+                .map_err(|e| long_chain_note(b, e))?;
             if *op == BinOp::Eq {
                 for side in [&a, &b] {
                     if let Node::Leaf(i) = side
@@ -994,7 +1056,13 @@ fn prepare<'a>(
             }
             (Some(*op), (a, Some(b)))
         }
-        _ => (None, (g.tree(cx, expr, "")?, None)),
+        _ => (
+            None,
+            (
+                g.tree(cx, expr, "").map_err(|e| long_chain_note(expr, e))?,
+                None,
+            ),
+        ),
     };
     Ok((g, top, sides))
 }

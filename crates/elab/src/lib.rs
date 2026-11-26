@@ -3895,6 +3895,25 @@ impl Elaborator {
         };
         if let Err(d) = defined {
             let d = self.explain_lifted(d);
+            // The kernel checks the long term the group built, so the
+            // source expression is still here to explain it (D2844).
+            let d = if d.code == "E-RESOURCE" {
+                let chain = members
+                    .iter()
+                    .flat_map(|(_, _, equations)| equations.iter())
+                    .find_map(|decl| match decl {
+                        Decl::Equation {
+                            rhs: Some(expr), ..
+                        } => Some(expr),
+                        _ => None,
+                    });
+                match chain {
+                    Some(expr) => crate::numbers::long_chain_note(expr, d),
+                    None => d,
+                }
+            } else {
+                d
+            };
             out.extend(Self::blame_group(members, d));
             return out;
         }
