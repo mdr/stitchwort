@@ -634,6 +634,27 @@ tasks:
     cmds:
       - '{{.ROOT_DIR}}/dev/examples-scan'
 
+  test:examples:mentioning:
+    desc: 'Re-check examples whose message snapshots quote TEXT (task test:examples:mentioning -- ''old wording''; UPDATE=1 re-records them)'
+    summary: |
+      dev/examples-mentioning: finds every example snapshot under
+      `crates/cli/tests/running/snapshots/` (and any other snapshots folder
+      under `crates/` that uses examples.rs's `__examples__` naming) whose
+      content contains TEXT, turns each file name back into its example's (or
+      project folder's) name the way examples.rs does, prints them, and runs
+      only those examples through the CLI's example tests with
+      `EXAMPLES=<comma-separated names>`, `STITCHWORT_TEST_THREADS=2`,
+      `NEXTEST_TEST_THREADS=2` and `nice -n 19`. TEXT is one fixed string, not
+      a regular expression, and should not contain a comma (EXAMPLES splits
+      on it). With no match it says so and exits 0 without running a test.
+      A snapshot naming no current example is listed and skipped.
+      `UPDATE=1` re-records them with `INSTA_UPDATE=always` and lists the
+      changed `.snap` files. docs/testing.md, "Snapshots and generated text".
+    env:
+      UPDATE: '{{.UPDATE}}'
+    cmds:
+      - 'python3 -I dev/examples-mentioning {{.CLI_ARGS}}'
+
   snap:examples:
     desc: 'Update the examples'' error-message snapshots (NAME=part of a file name, or a comma-separated list; all if unset), then list them'
     env:

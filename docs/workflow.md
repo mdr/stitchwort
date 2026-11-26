@@ -689,6 +689,10 @@ lane missed it and a batch failed:
   SW-1440). To check them without updating, run `task test:hashes NAME=<the
   same stem>`. For a std change, "commit the regenerated prelude snapshot
   (additions only)" (SW-1494).
+- **Changes a message or note:** "run `task test:examples:mentioning --
+  '<old text>'` and re-record what changes (`UPDATE=1` for the same task
+  writes them); it finds the examples whose snapshots quote the old text
+  instead of running the whole examples sweep" (SW-4667).
 - **Adds files under `examples/goals`:** re-record the server's goal_index
   snapshots with `INSTA_UPDATE=always cargo nextest run --release -p
   stitchwort-cli --test server -E 'test(/^goal_index::/)'`, reading each

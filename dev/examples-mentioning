@@ -1,0 +1,165 @@
+#!/usr/bin/env python3
+"""Re-check the examples whose message snapshots mention TEXT.
+
+`task test:examples:mentioning -- 'TEXT'` scans the examples snapshot
+folders for `.snap` files whose content contains TEXT, maps each file back to
+its example name the way `crates/cli/tests/running/examples.rs` names its
+snapshots, prints the names, and runs only those examples through the CLI's
+examples tests with EXAMPLES=<comma-separated names>. A snapshot naming no
+current example is listed and skipped. UPDATE=1 re-records them with
+INSTA_UPDATE=always and lists the changed `.snap` files.
+"""
+
+import os
+import subprocess
+import sys
+from pathlib import Path
+
+ROOT = Path(__file__).resolve().parent.parent
+# The marker between the test binary/module and an example's snapshot name,
+# e.g. `running__examples__reject__match-loop-lifted.snap`.
+MARKER = "__examples__"
+
+
+def snapshot_files():
+    """Every `.snap` file under a `snapshots` folder that uses examples.rs's
+    naming (`<binary>__examples__...`). Today that is only
+    `crates/cli/tests/running/snapshots`; another examples snapshot folder is
+    found automatically if it uses the same naming."""
+    for folder in sorted((ROOT / "crates").rglob("snapshots")):
+        if not folder.is_dir():
+            continue
+        for path in sorted(folder.glob("*.snap")):
+            if MARKER in path.name:
+                yield path
+
+
+def example_name(path):
+    """The name `EXAMPLES` must contain for this snapshot.
+
+    `snapshot_name` in examples.rs turns `reject/foo.sw` into
+    `reject__foo`, and insta prefixes it with its module: `running__examples__`.
+    `EXAMPLES` filters on the example file name (`foo.sw`), not the folder.
+    Project snapshots are `projects__goals__NAME` and `projects__reject__NAME`,
+    and `EXAMPLES` filters on the project folder name, NAME.
+    """
+    stem = path.name[: -len(".snap")]
+    rest = stem.split(MARKER, 1)[1]
+    if rest.startswith("projects__"):
+        parts = rest.split("__", 2)
+        if len(parts) == 3:
+            return parts[2]
+    return rest.split("__", 1)[-1]
+
+
+def current_example_names():
+    """Every name `EXAMPLES` can name: example file stems and project folders."""
+    examples = {path.stem for path in (ROOT / "examples").rglob("*.sw")}
+    projects = {
+        path.name
+        for path in (ROOT / "examples" / "projects").glob("*/*")
+        if path.is_dir()
+    }
+    return examples | projects
+
+
+def main():
+    text = " ".join(sys.argv[1:])
+    if not text:
+        print(
+            "usage: task test:examples:mentioning -- 'TEXT' "
+            "(UPDATE=1 to re-record)",
+            file=sys.stderr,
+        )
+        return 2
+
+    update = os.environ.get("UPDATE", "").strip().lower() not in ("", "0", "false")
+    available = current_example_names()
+    chosen = []
+    skipped = []
+    seen = set()
+    for path in snapshot_files():
+        content = path.read_text(encoding="utf-8", errors="replace")
+        if text in content:
+            name = example_name(path)
+            if name not in available:
+                skipped.append((name, path))
+                continue
+            if name not in seen:
+                seen.add(name)
+                chosen.append((name, path))
+
+    if not chosen:
+        if skipped:
+            print(
+                f"test:examples:mentioning: only stale snapshots mention {text!r}; "
+                "their examples no longer exist:"
+            )
+            for name, path in skipped:
+                print(f"  {name}  ({path.relative_to(ROOT)})")
+            print("nothing to run")
+        else:
+            print(
+                f"test:examples:mentioning: no example snapshot mentions {text!r}; "
+                "nothing to run"
+            )
+        return 0
+
+    chosen.sort()
+    print(
+        f"test:examples:mentioning: {len(chosen)} example(s) whose snapshots "
+        f"mention {text!r}:"
+    )
+    for name, path in chosen:
+        print(f"  {name}  ({path.relative_to(ROOT)})")
+    for name, path in skipped:
+        print(
+            f"  skipping {path.relative_to(ROOT)}: no example named {name!r} "
+            "(a stale snapshot)"
+        )
+
+    names = ",".join(name for name, _ in chosen)
+    print(f"EXAMPLES={names}", flush=True)
+
+    env = os.environ.copy()
+    env["EXAMPLES"] = names
+    env["STITCHWORT_TEST_THREADS"] = "2"
+    env["NEXTEST_TEST_THREADS"] = "2"
+    if update:
+        env["INSTA_UPDATE"] = "always"
+
+    command = [
+        "nice",
+        "-n",
+        "19",
+        "cargo",
+        "nextest",
+        "run",
+        "--release",
+        "-p",
+        "stitchwort-cli",
+        "--test",
+        "running",
+        "--no-fail-fast",
+        "-E",
+        "binary(running) & test(/examples::(accepted|goal|rejected|soundness)/)",
+    ]
+    print("+ " + " ".join(command), flush=True)
+    status = subprocess.run(command, cwd=ROOT, env=env).returncode
+
+    if update:
+        print("changed snapshots:")
+        changed = subprocess.run(
+            ["git", "status", "--short", "--", "*.snap"],
+            cwd=ROOT,
+            text=True,
+            capture_output=True,
+        )
+        sys.stdout.write(changed.stdout)
+        if not changed.stdout.strip():
+            print("  (none)")
+    return status
+
+
+if __name__ == "__main__":
+    sys.exit(main())
