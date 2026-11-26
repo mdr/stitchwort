@@ -2,13 +2,14 @@
 //! docs/proposals/deep-input.md §6.2, SW-1966.
 //!
 //! It reads the source as text, not as a parser. A function's body is found by
-//! brace matching, and a call is any occurrence of `name(` (also `.name(` or
-//! `Self::name(`), so a same-named method or field is a false positive and
-//! mutual recursion (`a` calling `b` calling `a`) is missed. Braces or calls
-//! inside strings and comments do not count, while braces in a macro body are
-//! read as ordinary braces; a guard anywhere in the body, even in a nested
-//! function, counts for the outer one. A `// Depth:` comment in the function
-//! or immediately above it (past attributes) states a bound instead of a guard.
+//! brace matching. A call is `name(` for a free function, and `self.name(` or
+//! `Self::name(` for a method; a call on another receiver is not counted. A
+//! same-named local or method still gives a false positive, and mutual
+//! recursion (`a` calling `b` calling `a`) is missed. Braces or calls inside
+//! strings and comments do not count, while braces in a macro body are read as
+//! ordinary braces; a guard anywhere in the body, even in a nested function,
+//! counts for the outer one. A `// Depth:` comment in the function or
+//! immediately above it (past attributes) states a bound instead of a guard.
 //!
 //! The allowlist below is to shrink: remove an entry when its function gains
 //! a guard or a `// Depth:` reason.
@@ -25,42 +26,17 @@ const GUARDS: &[&str] = &["nesting(", "deeper()", "exceeded()", "stack_exhausted
 
 /// This list only shrinks: remove an entry when its function gains a guard or a `// Depth:` reason.
 const ALLOWED: &[&str] = &[
-    "crates/core/src/backend.rs:defaults",
-    "crates/core/src/backend.rs:js",
     "crates/core/src/check.rs:conv",
-    "crates/core/src/check.rs:ctor",
-    "crates/core/src/check.rs:error",
     "crates/core/src/check.rs:eval",
-    "crates/core/src/check.rs:new",
     "crates/core/src/check.rs:prop_mark",
     "crates/core/src/check.rs:quote",
     "crates/core/src/check.rs:stored_only",
-    "crates/core/src/check.rs:substitute",
     "crates/core/src/check.rs:why_not_nestable",
-    "crates/core/src/env.rs:rewind",
-    "crates/core/src/env.rs:truncate",
-    "crates/core/src/ev.rs:data",
-    "crates/core/src/ev.rs:def",
     "crates/core/src/float.rs:js_to_string",
-    "crates/core/src/float.rs:name",
-    "crates/core/src/globals.rs:data",
-    "crates/core/src/globals.rs:def",
-    "crates/core/src/globals.rs:mark",
-    "crates/core/src/hash.rs:new",
-    "crates/core/src/machine.rs:insert",
-    "crates/core/src/machine.rs:is_empty",
-    "crates/core/src/machine.rs:len",
-    "crates/core/src/machine.rs:reset",
-    "crates/core/src/nat_add.rs:contains",
-    "crates/core/src/native.rs:name",
-    "crates/core/src/partial.rs:term",
-    "crates/core/src/pins.rs:hex",
     "crates/core/src/pretty.rs:defaulted",
     "crates/core/src/pretty.rs:go",
     "crates/core/src/pretty.rs:list_pieces",
     "crates/core/src/pretty.rs:map_tree_entries",
-    "crates/core/src/pretty.rs:new",
-    "crates/core/src/pretty.rs:placeholder",
     "crates/core/src/pretty.rs:size",
     "crates/core/src/pretty.rs:within",
     "crates/core/src/reference.rs:compact_or_lazy",
@@ -68,7 +44,6 @@ const ALLOWED: &[&str] = &[
     "crates/core/src/reference.rs:eval",
     "crates/core/src/reference.rs:eval_tree",
     "crates/core/src/reference.rs:expand_term",
-    "crates/core/src/reference.rs:folds_mul",
     "crates/core/src/reference.rs:force",
     "crates/core/src/reference.rs:number_view",
     "crates/core/src/reference.rs:quote",
@@ -77,129 +52,40 @@ const ALLOWED: &[&str] = &[
     "crates/core/src/reference.rs:unfold",
     "crates/core/src/reference.rs:unfold_folded",
     "crates/core/src/reference.rs:validate_pi_marks",
-    "crates/core/src/registry.rs:install_library",
-    "crates/core/src/sct.rs:new",
     "crates/core/src/termination.rs:rebuilt",
     "crates/core/src/value.rs:bound_fields",
     "crates/core/src/value.rs:branch",
-    "crates/core/src/value.rs:default",
     "crates/core/src/value.rs:drop",
     "crates/core/src/value.rs:field_type",
-    "crates/core/src/value.rs:get",
-    "crates/core/src/value.rs:hash",
-    "crates/core/src/value.rs:into_iter",
-    "crates/core/src/value.rs:into_vec",
     "crates/core/src/value.rs:matches_at_once",
-    "crates/core/src/value.rs:new",
-    "crates/core/src/value.rs:ptr_eq",
-    "crates/core/src/value.rs:push",
     "crates/core/src/value.rs:quick",
     "crates/core/src/value.rs:resume",
     "crates/core/src/value.rs:stuck_on_variable",
-    "crates/core/src/value.rs:take",
     "crates/core/src/value.rs:unfold_folded",
     "crates/core/src/value.rs:unfold_once",
     "crates/core/src/value.rs:visit",
-    "crates/driver/src/axioms.rs:axioms",
-    "crates/driver/src/axioms.rs:new",
-    "crates/driver/src/check_cache.rs:abandon",
-    "crates/driver/src/check_cache.rs:clear",
-    "crates/driver/src/check_cache.rs:compiler",
-    "crates/driver/src/check_cache.rs:default",
-    "crates/driver/src/check_cache.rs:is_empty",
-    "crates/driver/src/check_cache.rs:kernel",
-    "crates/driver/src/check_cache.rs:len",
-    "crates/driver/src/check_cache.rs:new",
-    "crates/driver/src/check_cache.rs:read",
-    "crates/driver/src/check_cache.rs:read_others",
-    "crates/driver/src/check_cache.rs:remove",
-    "crates/driver/src/check_cache.rs:salt",
-    "crates/driver/src/check_cache.rs:write",
     "crates/driver/src/counterexample.rs:tree",
-    "crates/driver/src/declhash.rs:is_empty",
-    "crates/driver/src/doc.rs:new",
-    "crates/driver/src/driver.rs:for_stack",
-    "crates/driver/src/driver.rs:with_stack",
     "crates/driver/src/fingerprint.rs:collect",
-    "crates/driver/src/live.rs:new",
-    "crates/driver/src/live.rs:step",
-    "crates/driver/src/live.rs:take",
-    "crates/driver/src/live/trial.rs:is_empty",
-    "crates/driver/src/palette.rs:set",
-    "crates/driver/src/parallel.rs:abandon",
-    "crates/driver/src/parallel.rs:compiler",
-    "crates/driver/src/parallel.rs:kernel",
-    "crates/driver/src/parallel.rs:new",
-    "crates/driver/src/parallel.rs:read",
-    "crates/driver/src/parallel.rs:read_others",
-    "crates/driver/src/parallel.rs:salt",
-    "crates/driver/src/parallel.rs:write",
-    "crates/driver/src/project.rs:config",
-    "crates/driver/src/project.rs:entries",
-    "crates/driver/src/project.rs:include_files",
-    "crates/driver/src/project.rs:is_file",
-    "crates/driver/src/project.rs:new",
-    "crates/driver/src/project.rs:read",
-    "crates/driver/src/project.rs:read_all",
     "crates/driver/src/project.rs:walk",
-    "crates/driver/src/reliance.rs:is_empty",
-    "crates/driver/src/rewind.rs:cancel_flag",
-    "crates/driver/src/rewind.rs:mark",
-    "crates/driver/src/rewind.rs:mark_fresh",
-    "crates/driver/src/rewind.rs:release",
-    "crates/driver/src/rewind.rs:rewind",
-    "crates/driver/src/rewind.rs:rewind_fresh",
     "crates/driver/src/search.rs:ambiguities",
     "crates/driver/src/search.rs:append_chain",
-    "crates/driver/src/search.rs:default",
     "crates/driver/src/search.rs:numeric_group",
-    "crates/driver/src/search.rs:search",
-    "crates/driver/src/search_at.rs:compiler",
-    "crates/driver/src/search_at.rs:config",
-    "crates/driver/src/search_at.rs:entries",
-    "crates/driver/src/search_at.rs:include_files",
-    "crates/driver/src/search_at.rs:kernel",
-    "crates/driver/src/search_at.rs:read",
-    "crates/driver/src/search_at.rs:read_others",
-    "crates/driver/src/search_at.rs:salt",
-    "crates/driver/src/search_at.rs:write",
-    "crates/elab/src/arm_display.rs:same",
     "crates/elab/src/arm_display.rs:set",
     "crates/elab/src/arm_display.rs:set_facts",
     "crates/elab/src/arm_display.rs:tally",
-    "crates/elab/src/auto.rs:prove",
     "crates/elab/src/auto.rs:size",
     "crates/elab/src/auto.rs:take_apart",
     "crates/elab/src/autobind.rs:pattern_vars",
-    "crates/elab/src/bind.rs:build",
     "crates/elab/src/bind.rs:shape",
-    "crates/elab/src/build.rs:is_empty",
-    "crates/elab/src/cache/dump.rs:dump",
     "crates/elab/src/cache/dump.rs:dump_probe",
-    "crates/elab/src/cache/mod.rs:commit",
-    "crates/elab/src/cache/mod.rs:count",
-    "crates/elab/src/cache/mod.rs:data",
-    "crates/elab/src/cache/mod.rs:def",
-    "crates/elab/src/cache/mod.rs:holds_unproved_theorems",
-    "crates/elab/src/cache/mod.rs:is_empty",
     "crates/elab/src/cache/mod.rs:probe",
-    "crates/elab/src/cache/mod.rs:span",
-    "crates/elab/src/cache/mod.rs:span_after",
-    "crates/elab/src/cache/mod.rs:term",
-    "crates/elab/src/cache/rows.rs:decode",
-    "crates/elab/src/cache/rows.rs:encode",
-    "crates/elab/src/carry.rs:new",
     "crates/elab/src/cases.rs:by_parts_at",
     "crates/elab/src/cases.rs:case_value",
     "crates/elab/src/cases.rs:ctor_vars",
-    "crates/elab/src/cases.rs:find",
-    "crates/elab/src/cases.rs:new",
     "crates/elab/src/cases.rs:walk",
-    "crates/elab/src/chain.rs:check_type",
     "crates/elab/src/chain.rs:on_spine",
     "crates/elab/src/check.rs:alias_notes",
     "crates/elab/src/check.rs:check",
-    "crates/elab/src/check.rs:error",
     "crates/elab/src/check.rs:eval",
     "crates/elab/src/check.rs:fill_placeholder",
     "crates/elab/src/check.rs:fresh_function_type_in",
@@ -208,8 +94,6 @@ const ALLOWED: &[&str] = &[
     "crates/elab/src/check.rs:infer_inner",
     "crates/elab/src/check.rs:infer_value",
     "crates/elab/src/check.rs:is_true_test",
-    "crates/elab/src/check.rs:mark_of_type",
-    "crates/elab/src/check.rs:new",
     "crates/elab/src/check.rs:proof_search",
     "crates/elab/src/check.rs:quote_folded",
     "crates/elab/src/check.rs:quote_internal",
@@ -223,16 +107,13 @@ const ALLOWED: &[&str] = &[
     "crates/elab/src/closing.rs:smaller_vars",
     "crates/elab/src/counterexample/inputs.rs:compositions",
     "crates/elab/src/counterexample/inputs.rs:decidable_value",
-    "crates/elab/src/counterexample/inputs.rs:new",
     "crates/elab/src/counterexample/inputs.rs:proof",
     "crates/elab/src/counterexample/inputs.rs:random",
     "crates/elab/src/counterexample/inputs.rs:shown",
     "crates/elab/src/counterexample/inputs.rs:shrink",
     "crates/elab/src/counterexample/inputs.rs:size",
     "crates/elab/src/counterexample/inputs.rs:tier",
-    "crates/elab/src/counterexample/mod.rs:now",
     "crates/elab/src/decreasing.rs:leaf_lambda",
-    "crates/elab/src/decreasing.rs:mentions",
     "crates/elab/src/decreasing/plain.rs:mark_tree",
     "crates/elab/src/decreasing/plain.rs:rebuild",
     "crates/elab/src/derive_induct.rs:classify",
@@ -245,29 +126,21 @@ const ALLOWED: &[&str] = &[
     "crates/elab/src/dot.rs:dot_on_reading",
     "crates/elab/src/dot.rs:dotted",
     "crates/elab/src/dot.rs:helper_owner",
-    "crates/elab/src/dot.rs:note_left_out",
     "crates/elab/src/dot.rs:receiver_type",
     "crates/elab/src/effects.rs:done_value",
-    "crates/elab/src/effects.rs:is_empty",
-    "crates/elab/src/effects.rs:new",
-    "crates/elab/src/effects.rs:position",
     "crates/elab/src/effects.rs:run_scrutinees",
     "crates/elab/src/equation_notes.rs:rule_equation",
     "crates/elab/src/equations.rs:branch_paths",
-    "crates/elab/src/equations.rs:calls_itself",
     "crates/elab/src/equations.rs:expand_one",
     "crates/elab/src/equations.rs:guard_terms",
-    "crates/elab/src/equations.rs:is_empty",
     "crates/elab/src/equations.rs:match_pattern",
     "crates/elab/src/equations.rs:match_pv",
-    "crates/elab/src/equations.rs:new",
     "crates/elab/src/equations.rs:probe_body",
     "crates/elab/src/equations.rs:pv_in",
     "crates/elab/src/equations.rs:pv_of",
     "crates/elab/src/equations.rs:resolve",
     "crates/elab/src/equations.rs:same_but_proofs",
     "crates/elab/src/equations.rs:same_pv",
-    "crates/elab/src/equations.rs:shift",
     "crates/elab/src/equations.rs:tail_split",
     "crates/elab/src/equations.rs:term",
     "crates/elab/src/equations.rs:test",
@@ -281,11 +154,8 @@ const ALLOWED: &[&str] = &[
     "crates/elab/src/equations/induct.rs:build",
     "crates/elab/src/equations/induct.rs:clash",
     "crates/elab/src/equations/induct.rs:find_places",
-    "crates/elab/src/equations/induct.rs:get",
     "crates/elab/src/equations/induct.rs:helper_calls",
     "crates/elab/src/equations/induct.rs:induct_split",
-    "crates/elab/src/equations/induct.rs:insert",
-    "crates/elab/src/equations/induct.rs:len",
     "crates/elab/src/equations/induct.rs:node_proof",
     "crates/elab/src/equations/induct.rs:node_term",
     "crates/elab/src/equations/induct.rs:parse_pat",
@@ -294,64 +164,30 @@ const ALLOWED: &[&str] = &[
     "crates/elab/src/equations/induct.rs:term",
     "crates/elab/src/equations/induct.rs:values",
     "crates/elab/src/facts.rs:add",
-    "crates/elab/src/facts.rs:apply",
-    "crates/elab/src/facts.rs:define",
-    "crates/elab/src/facts.rs:error",
     "crates/elab/src/facts.rs:fit",
     "crates/elab/src/facts.rs:is_fact",
     "crates/elab/src/facts.rs:split",
-    "crates/elab/src/families.rs:is_empty",
     "crates/elab/src/families.rs:leaf_spans",
-    "crates/elab/src/goals.rs:aliases",
-    "crates/elab/src/goals.rs:eq_decision",
-    "crates/elab/src/goals.rs:full_name",
     "crates/elab/src/goals.rs:loose_ctor",
-    "crates/elab/src/goals.rs:names",
     "crates/elab/src/interfaces.rs:specialise_in",
-    "crates/elab/src/kernel.rs:admit_trusted_data_decls",
-    "crates/elab/src/kernel.rs:admit_trusted_data_group",
-    "crates/elab/src/kernel.rs:admit_trusted_def",
-    "crates/elab/src/kernel.rs:admit_trusted_group",
-    "crates/elab/src/kernel.rs:admit_trusted_run_body",
-    "crates/elab/src/kernel.rs:admit_trusted_stated",
-    "crates/elab/src/kernel.rs:admit_trusted_unproved",
-    "crates/elab/src/kernel.rs:declare_data_group",
-    "crates/elab/src/kernel.rs:declare_def",
-    "crates/elab/src/kernel.rs:declare_indexed_data_group",
-    "crates/elab/src/kernel.rs:define_data_group",
-    "crates/elab/src/kernel.rs:define_group",
-    "crates/elab/src/kernel.rs:leave_stated",
-    "crates/elab/src/kernel.rs:reread",
-    "crates/elab/src/kernel.rs:reread_in",
-    "crates/elab/src/kernel.rs:retype_def",
     "crates/elab/src/lib.rs:chosen_in",
-    "crates/elab/src/lib.rs:error",
     "crates/elab/src/lib.rs:eval",
     "crates/elab/src/lib.rs:first_absurd",
     "crates/elab/src/lib.rs:guard_chain_missing",
-    "crates/elab/src/lib.rs:is_empty",
     "crates/elab/src/lib.rs:is_flat",
-    "crates/elab/src/lib.rs:is_unfinished",
     "crates/elab/src/lib.rs:mark_text_gaps",
-    "crates/elab/src/lib.rs:moved",
-    "crates/elab/src/lib.rs:note_meta_shown",
     "crates/elab/src/lib.rs:rest_of_text",
-    "crates/elab/src/lib.rs:split_levels",
     "crates/elab/src/lib.rs:unfinished_use_of",
     "crates/elab/src/lib.rs:walk",
     "crates/elab/src/lib.rs:without_alternatives",
-    "crates/elab/src/library.rs:install_library",
     "crates/elab/src/library/index_cache.rs:key",
-    "crates/elab/src/library/index_cache.rs:write",
     "crates/elab/src/lift.rs:in_helper",
     "crates/elab/src/literal_facts.rs:differs",
     "crates/elab/src/literal_facts.rs:tree",
     "crates/elab/src/logic.rs:conjunction_lhs",
     "crates/elab/src/logic.rs:equation_side",
-    "crates/elab/src/matching.rs:new",
     "crates/elab/src/matching.rs:same_in",
     "crates/elab/src/matching/as_written.rs:agree",
-    "crates/elab/src/matching/as_written.rs:note_kept",
     "crates/elab/src/matching/untouched.rs:rigid",
     "crates/elab/src/matching/untouched.rs:value",
     "crates/elab/src/membership.rs:written_range",
@@ -361,28 +197,14 @@ const ALLOWED: &[&str] = &[
     "crates/elab/src/missing.rs:numbers",
     "crates/elab/src/missing.rs:show_column",
     "crates/elab/src/module.rs:pattern_binders",
-    "crates/elab/src/named.rs:any",
     "crates/elab/src/named.rs:bind_missing",
-    "crates/elab/src/named.rs:map",
-    "crates/elab/src/named.rs:unknown",
-    "crates/elab/src/nav.rs:bytes",
-    "crates/elab/src/nav.rs:distinct_keys",
-    "crates/elab/src/nav.rs:entries",
     "crates/elab/src/nav.rs:pattern_binder_spans",
     "crates/elab/src/nav.rs:pattern_binders",
-    "crates/elab/src/nav.rs:set_generation",
-    "crates/elab/src/nav.rs:undo_to",
     "crates/elab/src/no_effect.rs:call_like",
     "crates/elab/src/no_effect.rs:named",
-    "crates/elab/src/numbers.rs:attempt",
-    "crates/elab/src/numbers.rs:map",
-    "crates/elab/src/omega.rs:atoms",
     "crates/elab/src/omega.rs:cert_term",
-    "crates/elab/src/omega.rs:ctor",
     "crates/elab/src/omega.rs:go",
-    "crates/elab/src/omega.rs:lin",
     "crates/elab/src/omega.rs:linear_split",
-    "crates/elab/src/omega.rs:new",
     "crates/elab/src/omega.rs:prove_goal",
     "crates/elab/src/omega.rs:prove_or",
     "crates/elab/src/omega.rs:quote",
@@ -390,15 +212,10 @@ const ALLOWED: &[&str] = &[
     "crates/elab/src/omega.rs:read",
     "crates/elab/src/omega.rs:render",
     "crates/elab/src/omega.rs:render_int",
-    "crates/elab/src/omega.rs:renumber",
-    "crates/elab/src/omega.rs:term",
     "crates/elab/src/omega.rs:used_inputs",
     "crates/elab/src/omega_search.rs:emit",
     "crates/elab/src/omega_search.rs:go",
-    "crates/elab/src/omega_search.rs:push",
-    "crates/elab/src/omega_search.rs:refute",
     "crates/elab/src/omega_search.rs:write",
-    "crates/elab/src/patlet.rs:bind",
     "crates/elab/src/patlet.rs:opens_exists",
     "crates/elab/src/patlet.rs:projectable",
     "crates/elab/src/patlet.rs:proposition",
@@ -412,131 +229,28 @@ const ALLOWED: &[&str] = &[
     "crates/elab/src/probe.rs:tree",
     "crates/elab/src/probe.rs:walk",
     "crates/elab/src/proof_chain.rs:is_trans",
-    "crates/elab/src/queue.rs:apply_default",
-    "crates/elab/src/queue.rs:clear",
-    "crates/elab/src/queue.rs:forget",
     "crates/elab/src/queue.rs:go",
     "crates/elab/src/queue.rs:lambda",
-    "crates/elab/src/queue.rs:len",
-    "crates/elab/src/queue.rs:stuck_error",
     "crates/elab/src/queue.rs:syntax",
-    "crates/elab/src/reading.rs:last",
     "crates/elab/src/records.rs:brace_arguments",
     "crates/elab/src/redundant.rs:arm_spans",
     "crates/elab/src/redundant.rs:redundant_alternatives",
     "crates/elab/src/redundant.rs:subsumes",
-    "crates/elab/src/rewind.rs:bytes",
-    "crates/elab/src/rewind.rs:defs",
-    "crates/elab/src/rewind.rs:distinct_keys",
-    "crates/elab/src/rewind.rs:entries",
-    "crates/elab/src/rewind.rs:mark",
-    "crates/elab/src/rewind.rs:positions",
-    "crates/elab/src/rewind.rs:release",
-    "crates/elab/src/rewind.rs:rewind",
-    "crates/elab/src/rewind.rs:rewind_fresh",
-    "crates/elab/src/rewind.rs:set_generation",
-    "crates/elab/src/rewind.rs:undo_to",
-    "crates/elab/src/rewrite.rs:carried",
     "crates/elab/src/rewrite.rs:checks_against",
     "crates/elab/src/rewrite.rs:infers",
-    "crates/elab/src/rewrite.rs:new",
-    "crates/elab/src/rewrite.rs:unconfirmed",
-    "crates/elab/src/rewrite/as_written.rs:opened",
     "crates/elab/src/rewrite/repeatedly.rs:close_parts",
     "crates/elab/src/rewrite/repeatedly.rs:depth",
-    "crates/elab/src/rewrite/repeatedly.rs:get",
-    "crates/elab/src/rewrite/repeatedly.rs:insert",
     "crates/elab/src/rewrite/repeatedly.rs:path",
     "crates/elab/src/rewrite/repeatedly.rs:render",
-    "crates/elab/src/rewrite/repeatedly.rs:restore",
     "crates/elab/src/rewrite/under.rs:is_lambda",
-    "crates/elab/src/ring.rs:ctor",
-    "crates/elab/src/ring.rs:poly",
     "crates/elab/src/ring.rs:read_nat",
     "crates/elab/src/ring.rs:split_fact",
-    "crates/elab/src/ring.rs:term",
     "crates/elab/src/saturate.rs:spine_args",
-    "crates/elab/src/scope.rs:aliases",
-    "crates/elab/src/scope.rs:bytes",
-    "crates/elab/src/scope.rs:distinct_keys",
-    "crates/elab/src/scope.rs:entries",
-    "crates/elab/src/scope.rs:eq_decision",
-    "crates/elab/src/scope.rs:get",
-    "crates/elab/src/scope.rs:imported_namespaces",
-    "crates/elab/src/scope.rs:insert",
-    "crates/elab/src/scope.rs:keys",
-    "crates/elab/src/scope.rs:positions",
-    "crates/elab/src/scope.rs:remove",
-    "crates/elab/src/scope.rs:set_generation",
-    "crates/elab/src/scope.rs:undo_to",
-    "crates/elab/src/search.rs:name",
-    "crates/elab/src/search.rs:path",
-    "crates/elab/src/search.rs:span",
     "crates/elab/src/search.rs:split_conjunction",
-    "crates/elab/src/search.rs:ty",
     "crates/elab/src/shown.rs:walk",
-    "crates/elab/src/state/attempt.rs:mark",
-    "crates/elab/src/state/attempt.rs:restore",
-    "crates/elab/src/state/caches.rs:clear",
-    "crates/elab/src/state/journal.rs:contains_key",
-    "crates/elab/src/state/journal.rs:default",
-    "crates/elab/src/state/journal.rs:get",
-    "crates/elab/src/state/journal.rs:get_key_value",
-    "crates/elab/src/state/journal.rs:insert",
-    "crates/elab/src/state/journal.rs:is_empty",
-    "crates/elab/src/state/journal.rs:iter",
-    "crates/elab/src/state/journal.rs:keys",
-    "crates/elab/src/state/journal.rs:pop",
-    "crates/elab/src/state/journal.rs:push",
-    "crates/elab/src/state/journal.rs:retain",
-    "crates/elab/src/state/journal.rs:values",
-    "crates/elab/src/state/metas.rs:clear",
-    "crates/elab/src/state/metas.rs:default",
-    "crates/elab/src/state/metas.rs:keys",
-    "crates/elab/src/state/owners.rs:truncate",
-    "crates/elab/src/state/paths.rs:truncate",
-    "crates/elab/src/state/presentation.rs:dump",
-    "crates/elab/src/state/presentation.rs:mark",
-    "crates/elab/src/state/presentation.rs:rewind",
-    "crates/elab/src/state/session.rs:bytes",
-    "crates/elab/src/state/session.rs:distinct_keys",
-    "crates/elab/src/state/session.rs:entries",
-    "crates/elab/src/state/session.rs:mark",
-    "crates/elab/src/state/session.rs:rewind",
-    "crates/elab/src/state/session.rs:set_generation",
-    "crates/elab/src/state/session.rs:undo_to",
-    "crates/elab/src/state/table.rs:decode",
-    "crates/elab/src/state/table.rs:default",
-    "crates/elab/src/state/table.rs:insert",
-    "crates/elab/src/state/table.rs:push",
-    "crates/elab/src/state/table.rs:remove",
-    "crates/elab/src/state/tables.rs:bytes",
-    "crates/elab/src/state/tables.rs:decode",
-    "crates/elab/src/state/tables.rs:distinct_keys",
-    "crates/elab/src/state/tables.rs:dump",
-    "crates/elab/src/state/tables.rs:encode_since",
-    "crates/elab/src/state/tables.rs:entries",
-    "crates/elab/src/state/tables.rs:insert",
-    "crates/elab/src/state/tables.rs:mark",
-    "crates/elab/src/state/tables.rs:replay",
-    "crates/elab/src/state/tables.rs:rewind",
-    "crates/elab/src/state/tables.rs:set_generation",
-    "crates/elab/src/state/tables.rs:undo_to",
-    "crates/elab/src/state/tables.rs:update",
     "crates/elab/src/std_dir.rs:collect",
-    "crates/elab/src/std_dir.rs:leak",
-    "crates/elab/src/tailrec.rs:in_block",
-    "crates/elab/src/tailrec.rs:is_field",
-    "crates/elab/src/tailrec.rs:label",
-    "crates/elab/src/timings.rs:report",
-    "crates/elab/src/undo.rs:defaulted",
-    "crates/elab/src/undo.rs:metas",
-    "crates/elab/src/undo.rs:restore",
-    "crates/elab/src/undo.rs:unify_abstracting",
-    "crates/elab/src/undo.rs:unify_by_unknown_arguments",
     "crates/elab/src/unify.rs:blocked_within",
     "crates/elab/src/unify.rs:eta_contract",
-    "crates/elab/src/unify.rs:is_proof",
     "crates/elab/src/unify.rs:rename_in",
     "crates/elab/src/unify.rs:rigidly_mentions",
     "crates/elab/src/unify.rs:stale_within",
@@ -545,16 +259,9 @@ const ALLOWED: &[&str] = &[
     "crates/elab/src/unify.rs:unannotate_let_heads",
     "crates/elab/src/unify.rs:zonk_changed",
     "crates/elab/src/walk/expand.rs:flatten",
-    "crates/elab/src/walk/mod.rs:len",
-    "crates/elab/src/walk/mod.rs:step",
-    "crates/elab/src/walk/mod.rs:truncate",
     "crates/elab/src/walk/source.rs:code_lines",
     "crates/elab/src/walk/source.rs:performs",
     "crates/elab/src/walk/source.rs:statement_source",
-    "crates/syntax/src/ast.rs:show_into",
-    "crates/syntax/src/ast.rs:span",
-    "crates/syntax/src/diagnostic.rs:new",
-    "crates/syntax/src/lexer.rs:error",
     "crates/syntax/src/lower/binding.rs:exists_chain",
     "crates/syntax/src/lower/coverage.rs:bodies",
     "crates/syntax/src/lower/exprs.rs:binary",
@@ -564,13 +271,7 @@ const ALLOWED: &[&str] = &[
     "crates/syntax/src/lower/sections.rs:method_section",
     "crates/syntax/src/lower/sections.rs:section_body",
     "crates/syntax/src/lower/sections.rs:section_dot",
-    "crates/syntax/src/parser.rs:error",
-    "crates/syntax/src/parser.rs:new",
-    "crates/syntax/src/source.rs:is_empty",
-    "crates/syntax/src/source.rs:len",
-    "crates/syntax/src/source.rs:truncate",
     "crates/syntax/src/tree.rs:dump_node",
-    "crates/syntax/src/tree.rs:for_each_leaf",
 ];
 
 fn is_ident_start(b: u8) -> bool {
@@ -848,6 +549,36 @@ fn preceded_by_fn(code: &[u8], mut i: usize) -> bool {
     i >= 2 && &code[i - 2..i] == b"fn" && (i == 2 || !is_ident(code[i - 3]))
 }
 
+/// Whether `word` is the identifier just before `end`, past whitespace.
+fn preceded_by_word(code: &[u8], mut end: usize, word: &[u8]) -> bool {
+    while end > 0 && is_space(code[end - 1]) {
+        end -= 1;
+    }
+    if end < word.len() || &code[end - word.len()..end] != word {
+        return false;
+    }
+    let before = end - word.len();
+    before == 0 || !is_ident(code[before - 1])
+}
+
+/// Whether the occurrence at `i` is `self.name`, with any whitespace.
+fn preceded_by_self_dot(code: &[u8], i: usize) -> bool {
+    let mut j = i;
+    while j > 0 && is_space(code[j - 1]) {
+        j -= 1;
+    }
+    j > 0 && code[j - 1] == b'.' && preceded_by_word(code, j - 1, b"self")
+}
+
+/// Whether the occurrence at `i` is `Self::name`, with any whitespace.
+fn preceded_by_self_path(code: &[u8], i: usize) -> bool {
+    let mut j = i;
+    while j > 0 && is_space(code[j - 1]) {
+        j -= 1;
+    }
+    j >= 2 && &code[j - 2..j] == b"::" && preceded_by_word(code, j - 2, b"Self")
+}
+
 fn calls_itself(code: &[u8], body: (usize, usize), name: &str) -> bool {
     let needle = name.as_bytes();
     let (start, end) = body;
@@ -857,6 +588,12 @@ fn calls_itself(code: &[u8], body: (usize, usize), name: &str) -> bool {
             && (i == 0 || !is_ident(code[i - 1]))
             && (i + needle.len() == code.len() || !is_ident(code[i + needle.len()]))
         {
+            let mut before = i;
+            while before > 0 && is_space(code[before - 1]) {
+                before -= 1;
+            }
+            let free = !matches!(code.get(before.wrapping_sub(1)), Some(b'.' | b':'));
+            let method = preceded_by_self_dot(code, i) || preceded_by_self_path(code, i);
             let mut j = i + needle.len();
             while j < end && is_space(code[j]) {
                 j += 1;
@@ -887,7 +624,7 @@ fn calls_itself(code: &[u8], body: (usize, usize), name: &str) -> bool {
                     }
                 }
             }
-            if code.get(j) == Some(&b'(') && !preceded_by_fn(code, i) {
+            if (free || method) && code.get(j) == Some(&b'(') && !preceded_by_fn(code, i) {
                 return true;
             }
         }
@@ -992,4 +729,54 @@ fn self_recursion_is_guarded_or_stated() {
             .collect::<Vec<_>>()
             .join("\n")
     );
+}
+
+/// A name in a string or a line comment is not a call.
+#[test]
+fn strings_and_comments_do_not_count() {
+    let text = r#"
+fn probe(n: usize) -> usize {
+    let _ = "probe(n)";
+    // probe(n)
+    n
+}
+"#;
+    let code = strip_code(text);
+    let f = functions(&code)
+        .into_iter()
+        .find(|f| f.name == "probe")
+        .expect("probe");
+    assert!(!calls_itself(&code, f.body, &f.name));
+}
+
+/// A method call on another receiver is not self-recursion; `self.` and
+/// `Self::` are.
+#[test]
+fn only_free_or_self_calls_count() {
+    let text = r#"
+fn free(n: usize) -> usize {
+    free(n - 1)
+}
+impl T {
+    fn only_other(&self, other: &T) {
+        other.only_other();
+    }
+    fn self_call(&self) {
+        self.self_call();
+    }
+    fn path_call(&self) {
+        Self::path_call();
+    }
+}
+"#;
+    let code = strip_code(text);
+    let found = functions(&code);
+    let calls = |name: &str| {
+        let f = found.iter().find(|f| f.name == name).expect("a function");
+        calls_itself(&code, f.body, &f.name)
+    };
+    assert!(!calls("only_other"));
+    assert!(calls("self_call"));
+    assert!(calls("path_call"));
+    assert!(calls("free"));
 }

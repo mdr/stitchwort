@@ -257,9 +257,11 @@ fn recursive(
 fn rejects_recursion_on_a_larger_argument() {
     let mut p = Prelude::new();
     let nat = p.nat;
+    let saved = p.g.machine.budget.start(Limits::default());
     let result = recursive(&mut p, "grow", |f| {
         lam("n", app(f, [Term::ctor(nat, 1, vec![v(0)])]))
     });
+    p.g.machine.budget.restore(saved);
     assert_eq!(result, Err("E-TERMINATION"));
 }
 
@@ -286,6 +288,7 @@ fn rejects_a_self_reference_passed_as_an_argument() {
 fn rejects_recursion_on_the_matched_variable_itself() {
     let mut p = Prelude::new();
     let (nat, zero) = (p.nat, p.num(0));
+    let saved = p.g.machine.budget.start(Limits::default());
     // n matched as Succ m, but the call passes n again.
     let result = recursive(&mut p, "same", |f| {
         lam(
@@ -293,6 +296,7 @@ fn rejects_recursion_on_the_matched_variable_itself() {
             case(0, nat, vec![(vec![], zero), (vec!["m"], app(f, [v(1)]))]),
         )
     });
+    p.g.machine.budget.restore(saved);
     assert_eq!(result, Err("E-TERMINATION"));
 }
 
@@ -301,6 +305,7 @@ fn accepts_recursion_on_a_field_of_a_field() {
     let mut p = Prelude::new();
     let nat = p.nat;
     let zero = || Term::Ctor(nat, 0, vec![]);
+    let saved = p.g.machine.budget.start(Limits::default());
     // half n = case n of Zero -> 0; Succ m -> case m of Zero -> 0; Succ k -> Succ (half k)
     let result = recursive(&mut p, "half", |f| {
         lam(
@@ -325,12 +330,14 @@ fn accepts_recursion_on_a_field_of_a_field() {
             ),
         )
     });
+    p.g.machine.budget.restore(saved);
     assert_eq!(result, Ok(()));
 }
 
 #[test]
 fn accepts_recursion_on_the_second_parameter() {
     let mut p = Prelude::new();
+    let saved = p.g.machine.budget.start(Limits::default());
     let (nat, nat_ty) = (p.nat, p.nat_ty());
     let ty = arrow(nat_ty.clone(), arrow(nat_ty.clone(), nat_ty));
     let id = declare(&mut p.g, "addRight", ty);
@@ -352,7 +359,9 @@ fn accepts_recursion_on_the_second_parameter() {
             ),
         ),
     );
-    assert!(stitchwort_core::check::define_def(&mut p.g, id, &body).is_ok());
+    let ok = stitchwort_core::check::define_def(&mut p.g, id, &body).is_ok();
+    p.g.machine.budget.restore(saved);
+    assert!(ok);
 }
 
 // Universes
