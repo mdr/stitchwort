@@ -36138,8 +36138,8 @@
     {
       "id": 4849,
       "title": "[Sonnet] Playground nesting: measure how deep nested applications check in Chrome, Firefox and Safari (the 320 KiB guard and the engine's own overflow), then lower nested_applications_under_the_playground_guard to fit, and pin native KiB per level (D3748)",
-      "status": "backlog",
-      "agent": "",
+      "status": "doing",
+      "agent": "Sonnet",
       "where": "",
       "labels": [],
       "epic": "test-infra",
