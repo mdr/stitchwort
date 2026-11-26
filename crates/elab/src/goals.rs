@@ -1755,8 +1755,8 @@ impl Elaborator {
         }
         let names = cx.shown_names(true);
         let (env, types) = match &view {
-            Some(v) => (&v.env, &v.types),
-            None => (&cx.env, &cx.types),
+            Some(v) => (&v.env[..], &v.types[..]),
+            None => (&cx.env[..], &cx.types[..]),
         };
         let ty = view.as_ref().and_then(|v| v.goal.as_ref()).unwrap_or(ty);
         let (mut context, mut hidden) = scope_entries(cx, &names, env, types);
