@@ -36583,8 +36583,8 @@
     {
       "id": 4873,
       "title": "[DeepSeek] The bench crate's tests (check_work, baseline counts_have_not_regressed) run in no tier or check: SW-4674's +543% step regression went unseen 23-26 Nov. Add them to Overmind's rolling check (or the quick tier), given the baseline test takes ~140 s (SW-4864)",
-      "status": "backlog",
-      "agent": "",
+      "status": "doing",
+      "agent": "DeepSeek",
       "where": "",
       "labels": [],
       "epic": "test-infra",
