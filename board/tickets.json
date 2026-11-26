@@ -36247,15 +36247,18 @@
     {
       "id": 4855,
       "title": "[DeepSeek] docs/testing.md: mention web/test.sh --no-build NAME for rerunning one browser test; wasm builds panic with only 'unreachable': install a panic hook in the wasm used by web/bundle-std-cache.mjs so the message shows (SW-4852 friction)",
-      "status": "doing",
+      "status": "done",
       "agent": "DeepSeek",
       "where": "scratch-sw-4855",
       "labels": [],
       "epic": "test-infra",
-      "body": "",
+      "body": "wasm-only #[wasm_bindgen(start)] panic hook writing message+location to console.error, no new dependency; shown with a deliberate panic in the cache build. Model result: deepseek, worked, about 20 min (est. 20).",
       "created": "2026-11-26",
       "updated": "2026-11-26",
-      "commits": []
+      "commits": [
+        "69d525181",
+        "c24d15d77"
+      ]
     }
   ]
 }
