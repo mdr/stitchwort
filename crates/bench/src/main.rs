@@ -110,10 +110,10 @@ fn main() -> ExitCode {
     if let Some(path) = &cli.parts
         && let Err(e) = std::fs::write(path, part_lines)
     {
-        eprintln!("error: can't write {}: {e}", path.display());
+        failures.push(format!("can't write {}: {e}", path.display()));
     }
     let results: Vec<(&str, &Record)> = records.iter().map(|(n, r)| (*n, r)).collect();
-    let comparison = baseline::compare(&old, &results, !cli.filters.is_empty());
+    let comparison = baseline::compare(&old, &results, cli.jobs, !cli.filters.is_empty());
     println!(
         "Compared with {} ({}{} run(s) each)\n",
         cli.baseline.display(),
@@ -137,6 +137,7 @@ fn main() -> ExitCode {
             }
             old.set(name, record);
         }
+        old.jobs = Some(cli.jobs);
         if let Err(e) = std::fs::write(&cli.baseline, old.to_toml()) {
             eprintln!("error: can't write {}: {e}", cli.baseline.display());
             return ExitCode::FAILURE;

@@ -32,7 +32,8 @@ fn counts_have_not_regressed() {
         }
     }
     let results: Vec<(&str, &Record)> = records.iter().map(|(n, r)| (*n, r)).collect();
-    let comparison = baseline::compare(&baseline, &results, false);
+    let jobs = programs::JOBS.load(std::sync::atomic::Ordering::Relaxed);
+    let comparison = baseline::compare(&baseline, &results, jobs, false);
     println!("{comparison}");
     assert!(
         failures.is_empty() && !comparison.failed(),

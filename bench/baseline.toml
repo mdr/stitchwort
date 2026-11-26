@@ -1,11 +1,14 @@
 # Benchmark baseline (docs/testing.md, "Benchmarks"). Written by
 #   cargo run --release -p stitchwort-bench -- --update
-# steps, visits, allocations and peak_bytes are deterministic: the same on
-# every run.
+# steps, visits, allocations and peak_bytes are the regression signal: they
+# don't depend on how busy the machine is, but the examples benchmark's
+# counts depend a little on `jobs`, so only compare runs with the same value.
 # time_ms is the median wall time on the machine that recorded it.
 # run-machine-* run the runtime's machine, not the checker: their steps and
 # visits are 0, and machine_instructions is the machine's bytecode
 # instructions. Frames entered aren't exposed by the machine yet.
+
+jobs = 8
 
 [examples]
 inputs = "1993 files, 03152abd1ab62a73"

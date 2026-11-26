@@ -21,13 +21,13 @@ thread_local! {
     /// without a destructor, so reading it inside the allocator never
     /// allocates.
     static MEASURING: Cell<bool> = const { Cell::new(false) };
-    /// Calls to `alloc`, `alloc_zeroed` and `realloc` that succeeded on this
-    /// thread while it was being measured.
     /// Whether this thread's allocations update the process-wide `LIVE` and
     /// `PEAK`. Off for the worker threads of a benchmark with parts, which
     /// measure per thread (below): eight threads hammering one atomic made
     /// them several times slower.
     static GLOBAL: Cell<bool> = const { Cell::new(true) };
+    /// Calls to `alloc`, `alloc_zeroed` and `realloc` that succeeded on this
+    /// thread while it was being measured.
     static ALLOCATIONS: Cell<u64> = const { Cell::new(0) };
     /// Bytes this thread has allocated and not freed (negative if it frees
     /// what another thread allocated), and the most that has been since
@@ -141,10 +141,16 @@ pub fn allocations() -> u64 {
 }
 
 /// Starts or stops counting allocations on this thread, for a worker thread
-/// of a benchmark; [`start`] does it for the benchmark's own thread.
+/// of a benchmark; [`start`] does it for the benchmark's own thread. A
+/// thread that has kept its own count stops updating `LIVE` and `PEAK` for
+/// the rest of its life: the thread-local buffers it grew while it wasn't
+/// updating them are freed as it exits, and subtracting those would make
+/// `LIVE` drift.
 pub fn measure_this_thread(on: bool) {
     MEASURING.with(|m| m.set(on));
-    GLOBAL.with(|g| g.set(!on));
+    if on {
+        GLOBAL.with(|g| g.set(false));
+    }
 }
 
 /// Where a part of a benchmark started on this thread ([`part_start`]).
