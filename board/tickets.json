@@ -36298,15 +36298,19 @@
     {
       "id": 4857,
       "title": "[Sonnet] Playground: Chrome's own stack overflows at about 268 KiB of wasm stack checking Aoc.Year2020.Day05.Proofs (check_tree recursion), under the 320 KiB guard, so the language server crashes instead of E-RESOURCE: measure the deepest real proofs' wasm-stack-to-engine ratio in Chrome and Firefox and propose per-engine guards (SW-4854)",
-      "status": "review",
+      "status": "done",
       "agent": "Sonnet",
       "where": "",
       "labels": [],
       "epic": "editor-playground",
-      "body": "",
+      "body": "docs/reviews/SW-4857-playground-stack.md. Chrome overflows at 268-331 KiB of wasm stack on real proofs (Day05 needs 314, Day22 604), below the 320 KiB guard; native peaks don't predict wasm peaks. Proposals: 192 KiB for Chrome too, or catch the engine's RangeError and report E-RESOURCE. D3750 asked. Model result: sonnet, worked, 31 min (est. 45).",
       "created": "2026-11-26",
       "updated": "2026-11-26",
-      "commits": []
+      "commits": [
+        "6c1c56cf6",
+        "8d6fec944",
+        "27b77d461"
+      ]
     },
     {
       "id": 4858,
