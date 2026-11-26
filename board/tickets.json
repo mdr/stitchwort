@@ -36626,10 +36626,13 @@
       "where": "scratch-sw-4876",
       "labels": [],
       "epic": "performance",
-      "body": "",
+      "body": "Cause: Unfolding::drop built a one-element Values (a heap allocation) for its kept value; how many unfoldings still keep one at drop depends on drop order. Fix: drop_nested directly. Model result: deepseek, worked, 45 min (est. 40). Baseline std to be recorded by the orchestrator.",
       "created": "2026-11-26",
       "updated": "2026-11-26",
-      "commits": []
+      "commits": [
+        "6788bd35f",
+        "131194fb3"
+      ]
     },
     {
       "id": 4877,
