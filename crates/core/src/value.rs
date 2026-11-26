@@ -374,7 +374,12 @@ impl Unfolding {
 impl Drop for Unfolding {
     fn drop(&mut self) {
         if let Some(Kept { value, .. }) = self.kept.get_mut().take() {
-            drop(Values::from([value]));
+            // Through the same bounded free as a `Values`, without making
+            // one: a one-element `Values` here is a heap allocation, and how
+            // many unfoldings still keep a value when they are dropped
+            // depends on the order they are dropped in, so that allocation
+            // made the benchmark's count differ between runs.
+            drop_nested(value, |value, pending| pending.push(value));
         }
         let mut base = self.base.take();
         while let Some(rc) = base {
