@@ -36823,12 +36823,12 @@
     {
       "id": 4887,
       "title": "[Opus] Fuzz batch 12, oracle 6: four checks held over 2 GB of heap without E-RESOURCE: 'theorem countBig: count 6000000 = 3000000 := byComputing' (count n = Succ (count n)), count 2^128, a decreasing innerN at 2^128, grow 2^128 (Leaf x) in a parameter type (cases 2606, 4655, 4662, 1604). Suspect SW-4865/SW-4878's heap-held segments (each counted to 2,000,000 frames); Overmind is checking c3f9c13d4 (before them)",
-      "status": "doing",
+      "status": "review",
       "agent": "Opus",
       "where": "",
       "labels": [],
       "epic": "elaborator-kernel",
-      "body": "Fable (from code, unmeasured): not pending frames; the heap is the value itself: each forced call keeps its unfolding holding the next call, the root keeps the chain alive (~300-350 B/link, 6M links ~2 GB). Path untouched by SW-4865/4878/4879/4881, so probably not new. Bound: charge kept unfoldings / values allocated to the operation, a new resource limit: design note for Matt.\n\nOvermind 26 Nov: same at c3f9c13d4 and 41bc5a7bc (not SW-4865). Fuzzer: all 4 over 2 GB at both. CLI: 2606 ends E-REFL at ~2.7 GB; 4655/4662/1604 abort 'memory allocation failed' at ~11 GB after 22-52 s, 250M-500M of 10G steps. So a few-line file exhausts memory before the step limit. Next: design note for a memory limit (Fable's suggestion: charge kept unfoldings / allocations to the operation).",
+      "body": "Fable (from code, unmeasured): not pending frames; the heap is the value itself: each forced call keeps its unfolding holding the next call, the root keeps the chain alive (~300-350 B/link, 6M links ~2 GB). Path untouched by SW-4865/4878/4879/4881, so probably not new. Bound: charge kept unfoldings / values allocated to the operation, a new resource limit: design note for Matt.\n\nOvermind 26 Nov: same at c3f9c13d4 and 41bc5a7bc (not SW-4865). Fuzzer: all 4 over 2 GB at both. CLI: 2606 ends E-REFL at ~2.7 GB; 4655/4662/1604 abort 'memory allocation failed' at ~11 GB after 22-52 s, 250M-500M of 10G steps. So a few-line file exhausts memory before the step limit. Next: design note for a memory limit (Fable's suggestion: charge kept unfoldings / allocations to the operation).\n\nOpus 26 Nov (design note docs/proposals/memory-limit.md): measured 290-315 B/link (true form), ~415 B/link (failing form), linear; the whole chain is forced whatever the right side. Recommends (c): per-operation live-bytes count in the allocator, polled at Budget::arm, refused as ResourceError::Memory (passed on, never \"no\"); 4 GB native, 2 GB browser; stage 1 report-only to measure the repo first. Matt: scope (refuses >4 GB operations that finish today on big machines) and a build-dependent limit (as for the stack).\n",
       "created": "2026-11-26",
       "updated": "2026-11-26",
       "commits": []
