@@ -528,3 +528,23 @@ fn a_read_counts_its_forcing_against_the_depth_limit_on_its_own() {
         assert_eq!(first_error(program(2_000, 0)), Some("E-RESOURCE"));
     });
 }
+
+/// A chain of stuck sums past `MAX_PENDING_READS` is refused for depth even
+/// where the frame limit allows it, instead of growing without bound.
+#[test]
+fn a_chain_of_sums_past_the_pending_read_cap_is_refused() {
+    const SMALL: usize = 4 << 20;
+    with_stack(SMALL, || {
+        let mut session = Session::for_stack(SMALL);
+        session.elab.options.limits.frames = 100_000_000;
+        let first = session
+            .load(
+                "chain.sw",
+                "def chain: Nat → Nat → Nat\n  | Zero, x => 0\n  | Succ k, x => x + chain k x\n\n\
+                 theorem long (x: Nat): chain 210000 x + 0 = chain 210000 x := byComputing\n",
+            )
+            .err()
+            .map(|ds| ds[0].code);
+        assert_eq!(first, Some("E-RESOURCE"));
+    });
+}

@@ -1883,8 +1883,18 @@ impl Stack {
     }
 }
 
+/// The most `ReadSecond` frames a run keeps pending. A chain of 2,000,000
+/// stuck sums held 2.6 GB (about 1.3 KB a link), enough to exhaust a
+/// browser's wasm memory before the frame limit refused it; no configured
+/// stack reached 200,000 nested machines before reads shared this stack.
+const MAX_PENDING_READS: usize = 200_000;
+
 fn push(g: &Ev, stack: &mut Stack, frame: Frame) -> Result<()> {
     let reading = matches!(frame, Frame::ReadSecond(_));
+    if reading && stack.reads.len() >= MAX_PENDING_READS {
+        note_deepest(g, stack.counted());
+        return Err(ResourceError::Depth);
+    }
     let pending = if reading {
         stack.reads.len() + 1
     } else {
