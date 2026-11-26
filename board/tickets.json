@@ -5827,16 +5827,16 @@
     {
       "id": 1928,
       "title": "[DeepSeek] Glue and timing guards (kernel::without_glue manual save/restore)",
-      "status": "backlog",
-      "agent": "",
-      "where": "",
+      "status": "doing",
+      "agent": "DeepSeek",
+      "where": "scratch-sw-1928",
       "labels": [
         "elab"
       ],
       "epic": "elaborator-kernel",
       "body": "From docs/reviews/code-review-elab-rest.md (ticket 4). F12, F23; with SW-1901 if not done. 30 min.\n\nAudit note (22 Nov): Audit 22 Nov: still open: crates/elab/src/kernel.rs:105 without_glue is still a manual helper.\n",
       "created": "2026-11-07",
-      "updated": "2026-11-22",
+      "updated": "2026-11-26",
       "commits": []
     },
     {
@@ -5917,16 +5917,16 @@
     {
       "id": 1934,
       "title": "[DeepSeek] Branch-equation lemma list: one list and a resolve test",
-      "status": "backlog",
-      "agent": "",
-      "where": "",
+      "status": "doing",
+      "agent": "DeepSeek",
+      "where": "scratch-sw-1928",
       "labels": [
         "elab"
       ],
       "epic": "elaborator-kernel",
       "body": "From docs/reviews/code-review-elab-rest.md (ticket 10). F22. 30 min.\n\nAudit note (22 Nov): Audit 22 Nov: still open; no commit names it.\n",
       "created": "2026-11-07",
-      "updated": "2026-11-22",
+      "updated": "2026-11-26",
       "commits": []
     },
     {
