@@ -1,5 +1,5 @@
 {
-  "next": 4854,
+  "next": 4856,
   "tickets": [
     {
       "id": 47,
@@ -36200,15 +36200,20 @@
     {
       "id": 4852,
       "title": "[Sonnet] Playground: a smaller stack guard in WebKit (Safari, and every iOS browser) chosen at run time, so a deep program gets E-RESOURCE there instead of crashing the worker (D3749; Safari overflows at about 297 KiB, SW-4849)",
-      "status": "review",
+      "status": "done",
       "agent": "Sonnet",
       "where": "",
       "labels": [],
       "epic": "editor-playground",
-      "body": "D3749 (Matt, 14:40 26 Nov): option B, a smaller limit only in Safari; Chrome and Firefox keep 320 KiB.\n\nDone: set_stack_guard (crates/web), web/stack-guard.js (AppleWebKit without Chrome/ -> 192 KiB), applied in all four workers and InPage; the guard is in the check-cache key (Options::cache_key), so web/build.sh writes std.cache.webkit.gz as well. Fixed std::time::Instant in rewrite/repeatedly.rs, which panicked in the wasm cache build. Headless Chrome with a Safari UA: deepest ok 58, first failure 59 (resource). test:browser: 90 ok, 12 fail, all pre-existing (book line numbers stale; a project test RangeError reproduced on main plus the Instant fix).",
+      "body": "D3749 (Matt, 14:40 26 Nov): option B, a smaller limit only in Safari; Chrome and Firefox keep 320 KiB.\n\nDone: set_stack_guard (crates/web), web/stack-guard.js (AppleWebKit without Chrome/ -> 192 KiB), applied in all four workers and InPage; the guard is in the check-cache key (Options::cache_key), so web/build.sh writes std.cache.webkit.gz as well. Fixed std::time::Instant in rewrite/repeatedly.rs, which panicked in the wasm cache build. Headless Chrome with a Safari UA: deepest ok 58, first failure 59 (resource). test:browser: 90 ok, 12 fail, all pre-existing (book line numbers stale; a project test RangeError reproduced on main plus the Instant fix).\n\nWebKit (AppleWebKit without Chrome/) gets 192 KiB via set_stack_guard + web/stack-guard.js; second std cache std.cache.webkit.gz (the guard is in the cache key). Headless Chrome with Safari UA: 58 ok, 59 resource. Also fixed std::time::Instant in rewrite/repeatedly.rs, which panicked on wasm and broke web/build.sh since 2641b6103 (16 Nov). Not yet run in real Safari. Model result: sonnet, worked, 35 min (est. 50).",
       "created": "2026-11-26",
       "updated": "2026-11-26",
-      "commits": []
+      "commits": [
+        "d67b0878f",
+        "d20fecb9e",
+        "60e87dd31",
+        "a260d32f1"
+      ]
     },
     {
       "id": 4853,
@@ -36218,6 +36223,32 @@
       "where": "scratch-sw-4853",
       "labels": [],
       "epic": "syntax-language",
+      "body": "",
+      "created": "2026-11-26",
+      "updated": "2026-11-26",
+      "commits": []
+    },
+    {
+      "id": 4854,
+      "title": "[Sonnet] Browser tests failing on main: the book tests expect book/src/02-cases.sw's old line numbers (167, noAndAnything); the after-a-jump-into-another-file project test overflows (RangeError) in headless Chrome 158, then F2 renames fails with recursive use of an object; find whether the RangeError is new since the 16 Nov wasm breakage (SW-4852 report)",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "epic": "editor-playground",
+      "body": "",
+      "created": "2026-11-26",
+      "updated": "2026-11-26",
+      "commits": []
+    },
+    {
+      "id": 4855,
+      "title": "[DeepSeek] docs/testing.md: mention web/test.sh --no-build NAME for rerunning one browser test; wasm builds panic with only 'unreachable': install a panic hook in the wasm used by web/bundle-std-cache.mjs so the message shows (SW-4852 friction)",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "epic": "test-infra",
       "body": "",
       "created": "2026-11-26",
       "updated": "2026-11-26",
