@@ -436,3 +436,28 @@ fn stuck_sums_are_printed_as_written() {
         );
     }
 }
+
+/// A sum whose second argument is a glued call computing another such sum,
+/// 100,000 deep, is read by R3 and R4 in constant stack: the machine forces
+/// each link on its own heap stack (`Frame::ReadSecond` in `value.rs`)
+/// rather than starting another machine per link, which took about 3 KiB
+/// of stack a link (SW-4865; 2021 day 11's proofs have a 100-link chain).
+/// `chain` reaches R3 and R4 where `add`'s case tree is stuck on `x`;
+/// `succChain`, through `add`'s native, which takes the `Succ` off `x + 1`
+/// first (`native::Outcome::AddStuck`).
+#[test]
+fn reading_a_long_chain_of_sums_takes_constant_stack() {
+    const SMALL: usize = 4 << 20;
+    with_stack(SMALL, || {
+        let mut session = Session::for_stack(SMALL);
+        let ok = session.load(
+            "chain.sw",
+            "def chain: Nat → Nat → Nat\n  | Zero, x => 0\n  | Succ k, x => x + chain k x\n\n\
+             theorem long (x: Nat): chain 100000 x + 0 = chain 100000 x := byComputing\n\n\
+             theorem longer (x: Nat): x + (chain 100000 x + 1) = Succ (x + chain 100000 x) := byComputing\n\n\
+             def succChain: Nat → Nat → Nat\n  | Zero, x => 0\n  | Succ k, x => (x + 1) + succChain k x\n\n\
+             theorem succLong (x: Nat): succChain 100000 x + 0 = succChain 100000 x := byComputing\n",
+        );
+        assert!(ok.is_ok(), "{ok:?}");
+    });
+}

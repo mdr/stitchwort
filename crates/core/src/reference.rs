@@ -544,6 +544,9 @@ fn unfold(g: &Ev, id: DefId, spine: Vec<Elim>) -> Result<Value> {
                 let (k2, base) = native::view_with(g, &rest, force)?;
                 return Ok(native::from_view(k + k2, base));
             }
+            Some(native::Outcome::AddStuck { k, m, n }) => {
+                return native::add_stuck(g, id, k, m, n, force);
+            }
             None => {}
         }
     }

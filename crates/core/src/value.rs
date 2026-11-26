@@ -1239,8 +1239,9 @@ pub fn unfold_once(g: &Ev, id: DefId, spine: Spine) -> Result<Value> {
             other => Ok(project(d, i, force(g, other)?)),
         };
     }
-    let start = unfold_now(g, id, spine, false)?;
-    run(g, start)
+    let mut stack = Vec::new();
+    let start = unfold_now(g, &mut stack, id, spine, false)?;
+    run_on(g, start, stack)
 }
 
 /// Whether glued call spine `spine` is a field of a call ([`project_call`]):
@@ -1518,6 +1519,37 @@ enum Frame {
     /// elimination of the field ([`unfold_field_for`]). (Boxed: it's large,
     /// and rare.)
     FieldOf(Box<FieldOf>),
+    /// Part of the second argument of a stuck `add m n`, forced, for R3 and
+    /// R4 to read on ([`read_second`]). (Boxed: it's large, and rare.)
+    ReadSecond(Box<ReadSecond>),
+}
+
+/// A stuck `outer + add m n` whose `n` R3 and R4 are reading
+/// ([`read_second`]): `k` is the `Succ`s found in `n` so far, and `stuck` the
+/// result if they find neither a number nor anything under `k > 0` `Succ`s.
+struct ReadSecond {
+    id: DefId,
+    m: Value,
+    stuck: Value,
+    outer: BigUint,
+    k: BigUint,
+}
+
+impl ReadSecond {
+    /// What R3 and R4 make of the sum once `n` has been read to `k` `Succ`s
+    /// around `base` (`None`: around nothing), as [`crate::nat_add::stuck`]
+    /// does: `m + k` is `k + m`, `m + (k + n')` with `k > 0` is
+    /// `k + add m n'`, and otherwise the sum stays stuck.
+    fn finish(self, k: BigUint, base: Option<Value>) -> Value {
+        match base {
+            None => native::from_view(self.outer + k, Some(self.m)),
+            Some(_) if num_traits::Zero::is_zero(&k) => self.stuck,
+            Some(base) => native::from_view(
+                self.outer + k,
+                Some(crate::nat_add::call(self.id, self.m, base)),
+            ),
+        }
+    }
 }
 
 /// What a [`Frame::CallField`] waits for: field call `id spine`, whose spine
@@ -1681,7 +1713,7 @@ fn force_call(
             }
             _ => {
                 push(g, stack, Frame::Unfolded(unfolding, id))?;
-                unfold_now(g, id, spine, false)?
+                unfold_now(g, stack, id, spine, false)?
             }
         },
     })
@@ -1724,11 +1756,11 @@ fn run_on(g: &Ev, mut control: Control, mut stack: Vec<Frame>) -> Result<Value> 
                     f => apply_step(f, arg, icit),
                 }
             }
-            Control::Unfold(id, spine) => unfold(g, id, spine)?,
+            Control::Unfold(id, spine) => unfold(g, &mut stack, id, spine)?,
             Control::NativeArg(id, spine, index) => native_arg(g, &mut stack, id, spine, index)?,
             Control::UnfoldAfterSuccs(k, id, spine) => {
                 push(g, &mut stack, Frame::AddNat(k))?;
-                unfold(g, id, spine)?
+                unfold(g, &mut stack, id, spine)?
             }
             Control::Tree(node, env, stuck) => {
                 if let Some((id, ..)) = &stuck {
@@ -1750,7 +1782,7 @@ fn run_on(g: &Ev, mut control: Control, mut stack: Vec<Frame>) -> Result<Value> 
                             )?;
                             Control::Force(scrutinee)
                         } else {
-                            branch(g, node, env, stuck, scrutinee)?
+                            branch(g, &mut stack, node, env, stuck, scrutinee)?
                         }
                     }
                     // A `Quot.lift` leaf counts as a case on its quotient
@@ -2202,11 +2234,12 @@ fn resume(g: &Ev, frame: Frame, value: Value, stack: &mut Vec<Frame>) -> Result<
             // Forcing an argument whose head is no number, `native::run`
             // stops there and forces no more (`run_partial` may).
             if native::number_head(g, &value) {
-                from_native(g, id, spine, next)?
+                from_native(g, stack, id, spine, next)?
             } else {
-                run_native(g, id, spine)?
+                run_native(g, stack, id, spine)?
             }
         }
+        Frame::ReadSecond(read) => read_second(g, stack, *read, value, true)?,
         Frame::AddNat(k) => {
             let (k2, base) = native::view_with(g, &value, force)?;
             Control::Return(native::from_view(&*k + k2, base))
@@ -2248,7 +2281,7 @@ fn resume(g: &Ev, frame: Frame, value: Value, stack: &mut Vec<Frame>) -> Result<
                 }
                 // Stuck: a leaf of a case tree leaves its definition folded;
                 // otherwise it's the lift applied to its arguments.
-                None if matches!(stuck, Some((_, _, true))) => stuck_tree(g, stuck)?,
+                None if matches!(stuck, Some((_, _, true))) => stuck_tree(g, stack, stuck)?,
                 None => quot_args(g, term, env, Vec::new(), Some(value), stack)?,
             }
         }
@@ -2273,6 +2306,59 @@ fn resume(g: &Ev, frame: Frame, value: Value, stack: &mut Vec<Frame>) -> Result<
                 *pm,
             ))
         }
+        // A field of a glued call waits for the call, as rule 2's do.
+        Frame::ProjOf(d, i) if matches!(value, Value::Call(..)) => {
+            Control::Return(project_call(d, i, value))
+        }
+        Frame::ProjOf(d, i) => {
+            push(g, stack, Frame::ProjForced(d, i))?;
+            Control::Force(value)
+        }
+        Frame::ProjForced(d, i) if folded_call(g, &value) => {
+            let next = if names_folded_fields(g) && is_eta_type(g, d) {
+                Frame::FoldedField(Box::new((d, i, project(d, i, value.clone()))))
+            } else {
+                Frame::ProjReady(d, i)
+            };
+            unfold_for(g, stack, value, next)?
+        }
+        Frame::FoldedField(field) => {
+            let (d, i, named) = *field;
+            Control::Return(match value {
+                Value::Neutral(head, _) if !matches!(head, Head::Meta(_)) => named,
+                other => project(d, i, other),
+            })
+        }
+        Frame::ProjForced(d, i) | Frame::ProjReady(d, i) => Control::Return(project(d, i, value)),
+        // A folded call is taken apart: it unfolds.
+        Frame::Scrutinee { tree, env, stuck } if folded_call(g, &value) => {
+            unfold_for(g, stack, value, Frame::ScrutineeReady { tree, env, stuck })?
+        }
+        Frame::Scrutinee { tree, env, stuck } | Frame::ScrutineeReady { tree, env, stuck } => {
+            branch(g, stack, tree, env, stuck, value)?
+        }
+        Frame::AppTo(arg, icit) => apply_step(value, arg, icit),
+        Frame::Unfolded(unfolding, id) => {
+            if needs_forcing(g, &value) {
+                push(g, stack, Frame::Unfolded(unfolding, id))?;
+                Control::Force(value)
+            } else {
+                unfolding.set(g, value.clone());
+                Control::Return(value)
+            }
+        }
+        // Off the hot path, so that their temporaries don't widen every
+        // frame of this function, which is on the Rust stack once a machine.
+        frame => resume_rare(g, frame, value, stack)?,
+    })
+}
+
+/// [`resume`] for the frames that are rare, or whose work needs large
+/// temporaries: equations, `J`, fields of calls, replaying a solved
+/// metavariable's spine and unfolding folded calls.
+#[inline(never)]
+fn resume_rare(g: &Ev, frame: Frame, value: Value, stack: &mut Vec<Frame>) -> Result<Control> {
+    Ok(match frame {
         Frame::EqParts {
             term,
             env,
@@ -2408,30 +2494,6 @@ fn resume(g: &Ev, frame: Frame, value: Value, stack: &mut Vec<Frame>) -> Result<
                 other => panic!("internal error: J applied to {}", describe(&other)),
             }
         }
-        // A field of a glued call waits for the call, as rule 2's do.
-        Frame::ProjOf(d, i) if matches!(value, Value::Call(..)) => {
-            Control::Return(project_call(d, i, value))
-        }
-        Frame::ProjOf(d, i) => {
-            push(g, stack, Frame::ProjForced(d, i))?;
-            Control::Force(value)
-        }
-        Frame::ProjForced(d, i) if folded_call(g, &value) => {
-            let next = if names_folded_fields(g) && is_eta_type(g, d) {
-                Frame::FoldedField(Box::new((d, i, project(d, i, value.clone()))))
-            } else {
-                Frame::ProjReady(d, i)
-            };
-            unfold_for(g, stack, value, next)?
-        }
-        Frame::FoldedField(field) => {
-            let (d, i, named) = *field;
-            Control::Return(match value {
-                Value::Neutral(head, _) if !matches!(head, Head::Meta(_)) => named,
-                other => project(d, i, other),
-            })
-        }
-        Frame::ProjForced(d, i) | Frame::ProjReady(d, i) => Control::Return(project(d, i, value)),
         Frame::CallField(field) if !field.unfolded && folded_call(g, &value) => {
             let CallField {
                 data: d,
@@ -2510,13 +2572,6 @@ fn resume(g: &Ev, frame: Frame, value: Value, stack: &mut Vec<Frame>) -> Result<
                 ends,
             });
             Control::Return(Value::Neutral(head, spine))
-        }
-        // A folded call is taken apart: it unfolds.
-        Frame::Scrutinee { tree, env, stuck } if folded_call(g, &value) => {
-            unfold_for(g, stack, value, Frame::ScrutineeReady { tree, env, stuck })?
-        }
-        Frame::Scrutinee { tree, env, stuck } | Frame::ScrutineeReady { tree, env, stuck } => {
-            branch(g, tree, env, stuck, value)?
         }
         Frame::Unfolding(unfolding) => {
             let (id, spine, next) = *unfolding;
@@ -2688,16 +2743,7 @@ fn resume(g: &Ev, frame: Frame, value: Value, stack: &mut Vec<Frame>) -> Result<
             )?;
             Control::Return(result)
         }
-        Frame::AppTo(arg, icit) => apply_step(value, arg, icit),
-        Frame::Unfolded(unfolding, id) => {
-            if needs_forcing(g, &value) {
-                push(g, stack, Frame::Unfolded(unfolding, id))?;
-                Control::Force(value)
-            } else {
-                unfolding.set(g, value.clone());
-                Control::Return(value)
-            }
-        }
+        _ => unreachable!("resume takes the other frames"),
     })
 }
 
@@ -2753,6 +2799,7 @@ fn count_stuck_one_shape(g: &Ev, d: DataId, stuck: &Stuck, value: &Value) {
 /// The branch of the case node `tree` for the (forced) scrutinee `value`.
 fn branch(
     g: &Ev,
+    stack: &mut Vec<Frame>,
     tree: Rc<Term>,
     mut env: Vec<Value>,
     stuck: Stuck,
@@ -2779,9 +2826,9 @@ fn branch(
                     _ => match reread_sum(g, &base, &mut Unread::default())? {
                         Some(base) => {
                             let value = native::from_view(k, Some(base));
-                            return branch(g, tree, env, stuck, value);
+                            return branch(g, stack, tree, env, stuck, value);
                         }
-                        None => return stuck_tree(g, stuck),
+                        None => return stuck_tree(g, stack, stuck),
                     },
                 },
             };
@@ -2803,18 +2850,18 @@ fn branch(
             if g.machine.erasure.program_running() {
                 panic!("internal error: a case on one type was given another type's constructor");
             }
-            return stuck_tree(g, stuck);
+            return stuck_tree(g, stack, stuck);
         }
         other @ (Value::Nat(_) | Value::NatAdd(..)) if Some(*d) == g.env.builtins().nat => {
             match native::split_value(&other) {
                 Some(split) => split,
-                None => return stuck_tree(g, stuck),
+                None => return stuck_tree(g, stack, stuck),
             }
         }
         // A compact list: what matching its expansion would find.
         Value::Chars(chars) => match &g.env.builtins().text {
             Some(text) if text.list == *d => chars::split(text, &chars),
-            _ => return stuck_tree(g, stuck),
+            _ => return stuck_tree(g, stack, stuck),
         },
         // An erased proof: matching it into data is allowed only for one
         // constructor with only proof fields (`E-PROP-ELIM`, `erase.rs`).
@@ -2857,12 +2904,12 @@ fn branch(
             (0, (0..k).map(|i| project(*d, i, n.clone())).collect())
         }
         other => match reread_sum(g, &other, &mut Unread::default())? {
-            Some(value) => return branch(g, tree, env, stuck, value),
+            Some(value) => return branch(g, stack, tree, env, stuck, value),
             None => {
                 if proof_counts::on() {
                     count_stuck_one_shape(g, *d, &stuck, &other);
                 }
-                return stuck_tree(g, stuck);
+                return stuck_tree(g, stack, stuck);
             }
         },
     };
@@ -2873,7 +2920,7 @@ fn branch(
         if g.machine.erasure.program_running() {
             panic!("internal error: unreachable: an impossible branch was reached");
         }
-        return stuck_tree(g, stuck);
+        return stuck_tree(g, stack, stuck);
     };
     env.extend(fields);
     Ok(Control::Tree(body, env, stuck))
@@ -3254,15 +3301,22 @@ pub fn apart_of(value: &Value) -> Apart {
 }
 
 /// A case tree that can't take a step: its definition stays folded, unless
-/// it's `Nat.add` and R3 or R4 applies (`nat_add.rs`).
-fn stuck_tree(g: &Ev, stuck: Stuck) -> Result<Control> {
+/// it's `Nat.add` and R3 or R4 applies (`nat_add.rs`, [`read_second`]).
+fn stuck_tree(g: &Ev, stack: &mut Vec<Frame>, stuck: Stuck) -> Result<Control> {
     match stuck {
         Some((id, spine, _)) => {
             if g.env.builtins().nat_add_rule == Some(id)
                 && let [Elim::App(m, _), Elim::App(n, _)] = &spine[..]
-                && let Some(value) = crate::nat_add::stuck_value(g, id, m, n, force)?
             {
-                return Ok(Control::Return(value));
+                let (m, n) = (m.clone(), n.clone());
+                let read = ReadSecond {
+                    id,
+                    m,
+                    stuck: Value::Neutral(Head::Def(id), spine),
+                    outer: BigUint::default(),
+                    k: BigUint::default(),
+                };
+                return read_second(g, stack, read, n, false);
             }
             Ok(Control::Return(Value::Neutral(Head::Def(id), spine)))
         }
@@ -3270,11 +3324,80 @@ fn stuck_tree(g: &Ev, stuck: Stuck) -> Result<Control> {
     }
 }
 
+/// R3 and R4 reading `next`, the rest of the second argument of the stuck
+/// sum `read` describes, as [`crate::nat_add::stuck`] reads it with
+/// [`native::view_with`]: each part is forced as [`force`] would, then
+/// `Succ`s and numbers are counted until something else is found.
+///
+/// The one difference is where a part is forced: `force` starts another
+/// machine on the Rust stack, and a part is often a glued call whose
+/// unfolding is another stuck sum, read the same way, so a chain of `n`
+/// such sums (2021 day 11's proofs: one a step of the puzzle) took `n`
+/// nested machines. Here a part that needs the machine is forced by this
+/// one, with a frame waiting for it ([`Frame::ReadSecond`]), so the chain
+/// is frames on the heap. The machine forcing it from this state takes the
+/// steps, and gives the value, that `force`'s own machine would: it starts
+/// from the same [`Control::Force`], and the frames below it are never
+/// looked at until it returns. `forced` says `next` is a value forcing
+/// gave, which isn't forced again (as `view_with` doesn't).
+#[inline(never)]
+fn read_second(
+    g: &Ev,
+    stack: &mut Vec<Frame>,
+    mut read: ReadSecond,
+    mut next: Value,
+    mut forced: bool,
+) -> Result<Control> {
+    let nat = g.env.builtins().nat;
+    loop {
+        if !forced && needs_forcing(g, &next) {
+            // `force_now`'s shortcut, which takes no step: a call's kept
+            // unfolding, if forcing has nothing more to do to it.
+            let kept = match &next {
+                Value::Call(_, _, unfolding) => unfolding
+                    .get(g)
+                    .filter(|unfolded| !needs_forcing(g, unfolded)),
+                _ => None,
+            };
+            match kept {
+                Some(unfolded) => next = unfolded,
+                None => {
+                    push(g, stack, Frame::ReadSecond(Box::new(read)))?;
+                    return Ok(Control::Force(next));
+                }
+            }
+        }
+        forced = false;
+        next = match next {
+            Value::Nat(n) => {
+                let k = std::mem::take(&mut read.k) + &*n;
+                return Ok(Control::Return(read.finish(k, None)));
+            }
+            Value::NatAdd(n, base) => {
+                read.k += &*n;
+                (*base).clone()
+            }
+            Value::Ctor(d, 0, _) if Some(d) == nat => {
+                let k = std::mem::take(&mut read.k);
+                return Ok(Control::Return(read.finish(k, None)));
+            }
+            Value::Ctor(d, 1, fields) if Some(d) == nat && fields.len() == 1 => {
+                read.k += 1u32;
+                fields[0].clone()
+            }
+            other => {
+                let k = std::mem::take(&mut read.k);
+                return Ok(Control::Return(read.finish(k, Some(other))));
+            }
+        };
+    }
+}
+
 /// A definition applied to `spine`: its native implementation, or its case
 /// tree if it has all its arguments (kept as the call instead while gluing,
 /// [`glues`]), or else it stays folded.
-fn unfold(g: &Ev, id: DefId, spine: Spine) -> Result<Control> {
-    unfold_now(g, id, spine, true)
+fn unfold(g: &Ev, stack: &mut Vec<Frame>, id: DefId, spine: Spine) -> Result<Control> {
+    unfold_now(g, stack, id, spine, true)
 }
 
 /// Whether definition `id`, about to run its case tree, is kept as a call
@@ -3289,7 +3412,13 @@ fn glues(g: &Ev, id: DefId) -> bool {
 
 /// [`unfold`], gluing only if `glue`: a call being forced unfolds now.
 #[inline(always)]
-fn unfold_now(g: &Ev, id: DefId, spine: Spine, glue: bool) -> Result<Control> {
+fn unfold_now(
+    g: &Ev,
+    stack: &mut Vec<Frame>,
+    id: DefId,
+    spine: Spine,
+    glue: bool,
+) -> Result<Control> {
     if (g.def(id).opaque && hidden(g, id)) || frozen(g, id) {
         return Ok(Control::Return(Value::Neutral(Head::Def(id), spine)));
     }
@@ -3307,7 +3436,7 @@ fn unfold_now(g: &Ev, id: DefId, spine: Spine, glue: bool) -> Result<Control> {
     if let Some(op) = g.env.builtins().native(id)
         && op.arity() == spine.len()
     {
-        return from_native(g, id, spine, 0);
+        return from_native(g, stack, id, spine, 0);
     }
     case_tree(g, id, spine, glue)
 }
@@ -3325,23 +3454,46 @@ fn unfold_now(g: &Ev, id: DefId, spine: Spine, glue: bool) -> Result<Control> {
 /// each nesting is frames on this machine's stack, and the native's own
 /// `force` finds every argument's kept unfolding at once.
 #[inline(always)]
-fn from_native(g: &Ev, id: DefId, spine: Spine, from: usize) -> Result<Control> {
+fn from_native(
+    g: &Ev,
+    stack: &mut Vec<Frame>,
+    id: DefId,
+    spine: Spine,
+    from: usize,
+) -> Result<Control> {
     let op = g.env.builtins().native(id).expect("a native");
     match unforced_number_arg(g, op, &spine, from) {
         Some(index) => Ok(Control::NativeArg(id, spine, index)),
-        None => run_native(g, id, spine),
+        None => run_native(g, stack, id, spine),
     }
 }
 
 /// Native definition `id` applied to all its arguments, `spine`: its
 /// native implementation, or else its case tree.
-fn run_native(g: &Ev, id: DefId, spine: Spine) -> Result<Control> {
+fn run_native(g: &Ev, stack: &mut Vec<Frame>, id: DefId, spine: Spine) -> Result<Control> {
     let op = g.env.builtins().native(id).expect("a native");
     match native::run(g, id, op, &spine, force)? {
         Some(native::Outcome::Done(value)) => return Ok(Control::Return(value)),
         Some(native::Outcome::Again(spine)) => return Ok(Control::Unfold(id, spine.into())),
         Some(native::Outcome::Succs(k, spine)) => {
             return Ok(Control::UnfoldAfterSuccs(Rc::new(k), id, spine.into()));
+        }
+        Some(native::Outcome::AddStuck { k, m, n }) => {
+            let stuck = native::from_view(
+                k.clone(),
+                Some(crate::nat_add::call(id, m.clone(), n.clone())),
+            );
+            if g.env.builtins().nat_add_rule != Some(id) {
+                return Ok(Control::Return(stuck));
+            }
+            let read = ReadSecond {
+                id,
+                m,
+                stuck,
+                outer: k,
+                k: BigUint::default(),
+            };
+            return read_second(g, stack, read, n, false);
         }
         None => {}
     }

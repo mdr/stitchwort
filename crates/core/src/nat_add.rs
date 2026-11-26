@@ -27,9 +27,13 @@
 //! `k + add m n'`; anything else leaves the call stuck. That is R4 taken `k`
 //! times and then R3 or nothing, in one step, as the natives take R2 `k`
 //! times in one step. Both evaluators (the machine, `value.rs`, and the
-//! reference, `reference.rs`) call [`stuck`] at the point where `add`'s case
-//! tree gets stuck, with natives on or off: the rule is not a native, and
-//! switching the natives off doesn't switch it off.
+//! reference, `reference.rs`) apply it at the point where `add`'s case tree
+//! gets stuck, with natives on or off: the rule is not a native, and
+//! switching the natives off doesn't switch it off. The reference calls
+//! [`stuck`]; the machine reads `n` the same way in its own loop
+//! (`value::read_second`), forcing each part of it with its own stack, so
+//! that a chain of sums whose second arguments compute to further sums
+//! costs heap frames rather than Rust stack (SW-4865).
 //!
 //! Looking at the second argument while evaluating forces it (a glued call
 //! is unfolded, a solved metavariable replaced), but does not unfold a call
