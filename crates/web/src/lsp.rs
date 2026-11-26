@@ -199,6 +199,7 @@ pub fn checking_namespace() -> String {
 /// The server's options in the worker, and the search worker's: the
 /// playground sessions' guard (`STITCHWORT_GUARD`, see `build.rs`).
 pub(crate) fn options() -> stitchwort_lsp::Options {
+    crate::GUARD_READ.with(|r| r.set(true));
     stitchwort_lsp::Options::new(stack_for_guard(crate::guard()))
 }
 

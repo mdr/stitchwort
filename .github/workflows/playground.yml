@@ -57,6 +57,8 @@ jobs:
           test -s result/dist/editor.bundle.js
           test -s result/lsp-worker.js
           test -s result/lsp-search-worker.js
+          test -s result/stack-guard.js
+          test -s result/pkg/std.cache.webkit.gz
           test -s result/coi-serviceworker.js
           cat result/pkg/version.json
       - uses: actions/configure-pages@v6

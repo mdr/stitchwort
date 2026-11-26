@@ -327,6 +327,7 @@
                 cp ${./web/playground-worker.js} $out/playground-worker.js
                 cp ${./web/lsp-worker.js} $out/lsp-worker.js
                 cp ${./web/lsp-search-worker.js} $out/lsp-search-worker.js
+                cp ${./web/stack-guard.js} $out/stack-guard.js
                 cp ${./web/coi-serviceworker.js} $out/coi-serviceworker.js
                 bash ${./web/bundle-std.sh} ${stdBundleRoot} $out/pkg
                 node ${./web/bundle-std-cache.mjs} $out/pkg

@@ -22,17 +22,23 @@ const WASM_STACK: usize = 8 * 1024 * 1024;
 /// 790-1050 KiB in the parser and elaborator. 320 KiB leaves a margin of
 /// about 1.6 below the printer's figure and 2 below the evaluator's. Safari's
 /// workers on macOS get the system's 512 KiB thread stack (WebKit's
-/// `Thread::create` sets none), so probably about Chrome's room or a little
-/// less (not measured); Firefox's have 2 MiB. 320 KiB checks the proofs of
+/// `Thread::create` sets none); Firefox's have 2 MiB. 320 KiB checks the proofs of
 /// all but two AoC days (256 KiB also failed 2021 days 6 and 11, and 2024
 /// day 16; 384 KiB passes no more). The two left then needed more than a
 /// safe guard allows: 2024 day 13 about 500 KiB, and day 22 about 2.3 MiB.
 /// Since, their deepest recursions take less stack (SW-3132, SW-3133,
 /// SW-3174): a native build, whose frames are larger, peaks at about 245
 /// KiB on day 13 and 155 KiB on day 22 (not yet measured in the browser).
-/// Nested applications checked against a known type (SW-4849, Chrome 158 and
-/// Firefox 160): 99 levels fit the guard; lifted, V8 overflowed at 160
-/// levels (about 510 KiB of stack) and Firefox at 486 (about 1.5 MiB).
+/// Nested applications checked against a known type (SW-4849, 26 Nov 2026):
+/// 99 levels fit the guard; lifted, Chrome 158's V8 overflowed at 160 levels
+/// (about 510 KiB of stack), Firefox 160 at 486 (about 1.5 MiB), and Safari
+/// 27.2 at 92 (about 297 KiB, below this guard). So Safari's engine, and
+/// every WebKit one, runs with a smaller guard, 192 KiB, which the page sets
+/// at start-up (`set_stack_guard`, chosen in `web/stack-guard.js`: a user
+/// agent with `AppleWebKit` and without `Chrome/`; Chromium browsers, Edge
+/// and Opera included, carry `Chrome/`, and every iOS browser is WebKit).
+/// The guard is part of the check cache's keys, so WebKit has a cache of its
+/// own (`std.cache.webkit.gz`, `web/bundle-std-cache.mjs`).
 /// Set `STITCHWORT_GUARD` (bytes) to experiment.
 /// The same bytes natively are less depth (larger frames): a native release
 /// build needs about 1.5 times this to check `Float.Theory`

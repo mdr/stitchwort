@@ -665,6 +665,22 @@ is. Brotli would save another 0.6 MB, but `DecompressionStream` does not
 reliably take it in browsers, and a decoder in the WebAssembly is a new
 dependency.
 
+**WebKit's cache (SW-4852, D3749).** The stack guard is part of every
+entry's key (`Options::cache_key` holds `limits.stack`), and the guard is
+320 KiB except in WebKit, whose workers overflow at about 297 KiB (Safari
+27.2; Chrome 158 about 510 KiB, Firefox 160 about 1.5 MiB; SW-4849). The page
+(`web/stack-guard.js`) picks 192 KiB for a user agent with `AppleWebKit` and
+without `Chrome/` and passes it to `set_stack_guard` before the first
+session, and those workers fetch `std.cache.webkit.gz`, made by the same
+build (`web/bundle-std-cache.mjs`, a second pass in a fresh instance with
+that guard) rather than `std.cache.gz`; with the other, every WebKit load
+would miss the library's cache and check it from source. The guard was left
+in the key: it could be argued that a limit only makes a check fail, but an
+entry's `left_out` files and its content depend on the limits it was made
+under, so a second file (about 2.5 MB more to host) is the safe choice.
+Files that need more than 192 KiB (the deepest AoC proofs) fail in Safari
+with `E-RESOURCE` where they pass elsewhere.
+
 **Next:**
 
 - The page's own Check, Tests, Evaluate and Run (`playground-worker.js`,

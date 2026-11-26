@@ -896,7 +896,7 @@ pub(super) fn rewrite_repeatedly(
         let errors = cx.e.attempt.branch_errors.borrow().len();
         let mut remaining = search_budget(cx);
         let mut stats = Stats::default();
-        let t0 = std::time::Instant::now();
+        let t0 = stitchwort_core::budget::Instant::now();
         let found = rewrite_once(
             cx,
             &listed.rule,
@@ -1807,7 +1807,7 @@ pub(super) fn unfold_equation(cx: &mut Ctx, rule: &RewriteRule) -> Result<Equati
 fn check_rule(cx: &mut Ctx, rule: &RewriteRule) -> Result<Shape> {
     let snapshot = Snapshot::take(cx);
     let errors = cx.e.attempt.branch_errors.borrow().len();
-    let t0 = std::time::Instant::now();
+    let t0 = stitchwort_core::budget::Instant::now();
     let outcome = check_rule_inner(cx, rule);
     if stitchwort_core::env_flag::env_flag("STITCHWORT_REWRITE_METRICS") {
         eprintln!(

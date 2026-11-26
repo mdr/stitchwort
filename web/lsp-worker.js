@@ -25,7 +25,8 @@
 // is then read from memory (`LanguageServer::add_project`), for documents
 // opened under its root, as file:///playground/aoc/src/…. {setFile: {root,
 // path, text}} gives one of its files other text (`set_project_file`).
-import init, { checking_namespace, load_std, stack_reached, std_source, LanguageServer } from "./pkg/stitchwort_web.js";
+import { applyStackGuard, libraryCacheFile } from "./stack-guard.js";
+import init, { checking_namespace, load_std, stack_reached, std_source, set_stack_guard, LanguageServer } from "./pkg/stitchwort_web.js";
 
 let server = null;
 let module = null;
@@ -42,7 +43,8 @@ const ready = (async () => {
   ({ module, load } = first);
   const t0 = performance.now();
   await init({ module_or_path: module });
-  const cache = fetch(new URL(`./pkg/std.cache.gz${load}`, import.meta.url))
+  applyStackGuard({ set_stack_guard });
+  const cache = fetch(new URL(`./pkg/${libraryCacheFile()}${load}`, import.meta.url))
     .then((r) => (r.ok ? new Response(r.body.pipeThrough(new DecompressionStream("gzip"))).arrayBuffer() : null))
     .catch(() => null);
   bundle = new Uint8Array(await fetch(new URL(`./pkg/std.bundle${load}`, import.meta.url)).then((r) => r.arrayBuffer()));

@@ -6,7 +6,8 @@
 // file again), so that a search doesn't check the library first. Each {job}
 // is a search the server handed out; the answer is {result}, the search's
 // result as JSON. A stale search is stopped by terminating this worker.
-import init, { load_std, SearchWorker } from "./pkg/stitchwort_web.js";
+import { applyStackGuard, libraryCacheFile } from "./stack-guard.js";
+import init, { load_std, set_stack_guard, SearchWorker } from "./pkg/stitchwort_web.js";
 
 const started = performance.now();
 let searcher = null;
@@ -30,9 +31,10 @@ function handle(data) {
   if (data.module !== undefined) {
     return init({ module_or_path: data.module }).then(async (instance) => {
       wasm = instance;
+      applyStackGuard({ set_stack_guard });
       load_std(data.bundle);
       searcher = new SearchWorker();
-      const cache = await fetch(new URL(`./pkg/std.cache.gz${data.load}`, import.meta.url))
+      const cache = await fetch(new URL(`./pkg/${libraryCacheFile()}${data.load}`, import.meta.url))
         .then((r) => (r.ok ? new Response(r.body.pipeThrough(new DecompressionStream("gzip"))).arrayBuffer() : null))
         .catch(() => null);
       if (cache) searcher.load_library_cache(new Uint8Array(cache));

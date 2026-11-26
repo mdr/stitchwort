@@ -3,7 +3,8 @@
 // WebAssembly instance in a broken state, and a runaway case can be stopped
 // by terminating the worker. See stress.html.
 
-import init, { check, evaluate, limits, load_library_cache, load_std, stack_reached, test } from "./pkg/stitchwort_web.js";
+import { applyStackGuard, libraryCacheFile } from "./stack-guard.js";
+import init, { check, evaluate, limits, load_library_cache, load_std, set_stack_guard, stack_reached, test } from "./pkg/stitchwort_web.js";
 
 let wasm;
 // Enough frames in a crash's trace to see which recursion overflowed.
@@ -19,9 +20,10 @@ self.onmessage = async ({ data }) => {
   try {
     if (!wasm) {
       wasm = await init();
+      applyStackGuard({ set_stack_guard });
       load_std(new Uint8Array(await (await fetch(new URL("./pkg/std.bundle", import.meta.url))).arrayBuffer()));
       // The library as the build checked it, as the playground's workers read it.
-      const cache = await fetch(new URL("./pkg/std.cache.gz", import.meta.url))
+      const cache = await fetch(new URL(`./pkg/${libraryCacheFile()}`, import.meta.url))
         .then((r) => (r.ok ? new Response(r.body.pipeThrough(new DecompressionStream("gzip"))).arrayBuffer() : null))
         .catch(() => null);
       if (cache) load_library_cache(new Uint8Array(cache));
