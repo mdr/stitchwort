@@ -2731,6 +2731,28 @@ test("an error is underlined, its message shows on hover, and the underline goes
   await page.until(`document.querySelectorAll("#editor .cm-lintRange-error").length === 0`, 30000, "the underline to go");
 });
 
+// SW-4884: the lint tooltip is hidden whenever diagnostics are set, and a still pointer doesn't ask for
+// it again (the editor's hover looks only after the pointer moves). The server publishes a file's
+// diagnostics again whenever it checks it again, so a message could vanish under a pointer that
+// hadn't moved. The test publishes the same diagnostics again while the message is up.
+test("an error's message comes back when its diagnostics are published again under a still pointer", async (page) => {
+  await page.open();
+  await page.untilChecked();
+  await page.setSource(NAV_SOURCE + `\ndef bad : Nat := "oops"\n`);
+  await page.until(`!!document.querySelector("#editor .cm-lintRange-error")`, 60000, "the error underlined");
+  await mouse(page, await whereIs(page, `"oops"`, 2));
+  await page.until(`!!document.querySelector(".cm-tooltip-lint")`, 10000, "the message");
+  await page.ev(`(() => {
+    const e = window.editor, uri = [...e.published.keys()].find((u) => u.endsWith("main.sw"));
+    const message = JSON.stringify({ jsonrpc: "2.0", method: "textDocument/publishDiagnostics", params: { uri, diagnostics: e.published.get(uri) } });
+    window.hiddenAfterPublish = null;
+    e.worker.onmessage({ data: { lsp: message } });
+    window.hiddenAfterPublish = !document.querySelector(".cm-tooltip-lint");
+  })()`);
+  assert.equal(await page.ev(`window.hiddenAfterPublish`), true, "publishing the diagnostics again hides the message (the test's premise)");
+  await page.until(`!!document.querySelector(".cm-tooltip-lint")`, 5000, "the message back, the pointer not having moved");
+}, { ms: 120000 });
+
 test("hovering a name shows its declaration and its documentation", async (page) => {
   await page.open();
   await page.untilChecked();

@@ -99,6 +99,24 @@ function serverMarks() {
   }));
 }
 
+/**
+ * Where the pointer last was over each view (gone once it left). The editor looks for a hover
+ * only after the pointer moves, so a tooltip hidden under a still pointer stays hidden;
+ * `replayPointer` repeats the last move to ask again.
+ */
+const pointerAt = new WeakMap();
+function trackPointer(view) {
+  view.dom.addEventListener("mousemove", (e) => pointerAt.set(view, { x: e.clientX, y: e.clientY }));
+  view.dom.addEventListener("mouseleave", () => pointerAt.delete(view));
+}
+function replayPointer(view) {
+  const at = pointerAt.get(view);
+  const target = at && document.elementFromPoint(at.x, at.y);
+  if (target && view.dom.contains(target)) {
+    target.dispatchEvent(new MouseEvent("mousemove", { bubbles: true, clientX: at.x, clientY: at.y }));
+  }
+}
+
 export class Editor {
   /**
    * @param {Element} parent where the editor goes
@@ -216,6 +234,8 @@ export class Editor {
           for (const [uri, version] of Object.entries(m.params.versions)) this.checkedVersions.set(uri, version);
         }
         for (const h of this.handlers) h(data.lsp);
+        // Setting diagnostics hides the message under the pointer, which isn't asked for again until it moves.
+        if (m.method === "textDocument/publishDiagnostics") { const view = this.views.get(m.params.uri); if (view) replayPointer(view); }
       } else if (data.tick !== undefined) {
         // `idle`: the server's background work (checking the rest of a project) is done, until the next message.
         stats.ticks++;
@@ -513,6 +533,7 @@ export class Editor {
   makeView(uri, text, options) {
     const view = new EditorView({ parent: this.parent, state: this.stateFor(uri, text, options) });
     view.dom.style.display = "none";
+    trackPointer(view);
     return view;
   }
 
