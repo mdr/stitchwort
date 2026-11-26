@@ -36769,8 +36769,8 @@
     {
       "id": 4884,
       "title": "[Sonnet] Browser test 'an error is underlined, its message shows on hover…' races the editor's redraw: the semantic-tokens answer landing after the mouse move swallows the hover (fails 3/3 on SW-4870's build, passes on main); make the test wait for the redraw, or fix the editor if a real user can lose a hover this way (SW-4870 finding)",
-      "status": "backlog",
-      "agent": "",
+      "status": "doing",
+      "agent": "Sonnet",
       "where": "",
       "labels": [],
       "epic": "editor-playground",
@@ -36782,8 +36782,8 @@
     {
       "id": 4885,
       "title": "[Opus] Checking nested applications f (f (… 0)) takes roughly quadratic time: 2 s at 2,000 levels, 21 s at 8,000, 63 s at 14,000 (SW-4870's probes, browser, under load); measure natively and find the quadratic pass; profile first",
-      "status": "backlog",
-      "agent": "",
+      "status": "doing",
+      "agent": "Opus",
       "where": "",
       "labels": [],
       "epic": "performance",
