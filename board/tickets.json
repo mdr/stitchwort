@@ -36845,12 +36845,12 @@
     {
       "id": 4889,
       "title": "[Opus] Design note (docs/proposals/): the elaborator's effects pre-pass makes checking nested applications quadratic (SW-4885: check_special → effects::may_perform_at → call_performs walks the whole argument chain at every level; ~98% of samples at 5,500 levels; 4,000 levels 2.4 s). Options: (a) pass a stamped 'doesn't perform' answer to the argument's check, (b) a per-declaration memo keyed by expression with a local-context change counter, (c) decide effects from elaborated types instead of the syntactic pre-pass (end state). Pick the end state, with the invariants a memo must keep (meta solutions can turn doesn't-perform into performs); pin with SW-4885's visits probe (scratchpad SW-4885/probe-test.patch)",
-      "status": "doing",
+      "status": "review",
       "agent": "Opus",
       "where": "",
       "labels": [],
       "epic": "effects-native",
-      "body": "",
+      "body": "Lane (Opus, 26 Nov): note docs/proposals/effects-prepass-cost.md. Recommends B: memo of may_perform_at's answers (yes and no) keyed by expression address + a Ctx context identity (fresh per push/wholesale change, restored by reset via Mark) + bare_rows_pure/abilities/recursion; each entry stamped with meta_epoch, meta count and trail length, valid while no older metavariable has been solved (monotonic-stack lookup, O(log n)). A alone stays n²/4 (one-shot slot); C (type-directed effects) is a redesign, Matt's, not justified by cost. Two lanes: Ctx refactor (~70 direct field mutations made private), then memo + shadow mode STITCHWORT_SHADOW_MEMO + linear-growth test from SW-4885's probe. Results unchanged: D3447, orchestrator's call.",
       "created": "2026-11-26",
       "updated": "2026-11-26",
       "commits": []
