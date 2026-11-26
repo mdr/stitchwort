@@ -1,5 +1,5 @@
 {
-  "next": 4888,
+  "next": 4889,
   "tickets": [
     {
       "id": 47,
@@ -36808,6 +36808,19 @@
     {
       "id": 4887,
       "title": "[Opus] Fuzz batch 12, oracle 6: four checks held over 2 GB of heap without E-RESOURCE: 'theorem countBig: count 6000000 = 3000000 := byComputing' (count n = Succ (count n)), count 2^128, a decreasing innerN at 2^128, grow 2^128 (Leaf x) in a parameter type (cases 2606, 4655, 4662, 1604). Suspect SW-4865/SW-4878's heap-held segments (each counted to 2,000,000 frames); Overmind is checking c3f9c13d4 (before them)",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "epic": "elaborator-kernel",
+      "body": "",
+      "created": "2026-11-26",
+      "updated": "2026-11-26",
+      "commits": []
+    },
+    {
+      "id": 4888,
+      "title": "[Opus] Fuzz batch 12 (elab, seed 0x2611260c, 41bc5a7bc), oracle 3: the kernel rejected an elaborated term (E-TYPE-MISMATCH) in case 3980 (rng 0x2996de14f7aad3c9, from accept/eqeq-deceq.sw, three mutations; likely 'def three: Vec Nat 2 := VCons 1 (VCons 2 True)'). Overmind is pinning a reproducer; file in Overmind's scratchpad fuzz/elab-0x2611260c.findings/2611260c-3980.sw",
       "status": "backlog",
       "agent": "",
       "where": "",
