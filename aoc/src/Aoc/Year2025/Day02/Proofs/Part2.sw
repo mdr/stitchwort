@@ -281,12 +281,11 @@ theorem periodWritten ∀ (ds: List Nat)
 
 -- (5) One id -----------------------------------------------------------------
 
-theorem digitCountNonZero ∀ (x: Nat): digitCount x ≠ 0 := Nat.nonzeroOfPos (digitCount x) (Nat.digitCountPos x)
-
 theorem digitListNonZero ∀ (x: Nat): x.digits.toList.length ≠ 0 := Nat.succNotZero x.digits.tail.length
 
 --| x's digits have period p.
-def periodOf (x p: Nat): Bool := isPeriod (digitAt (Nat.digits x).toList) (digitCount x) (digitCountNonZero x) p
+def periodOf (x p: Nat): Bool :=
+  isPeriod (digitAt (Nat.digits x).toList) (digitCount x) (Nat.nonzeroOfPos (digitCount x) (Nat.digitCountPos x)) p
 
 --| x's smallest positive period is `Succ (periodIndex x)`: the first p in
 --| 1, 2, ..., digitCount x that passes (the digit count always does).
@@ -300,12 +299,16 @@ def blockCount (x: Nat): Nat := digitCount x / smallestPeriod x
 test "smallest blocks" := List.map [7, 1212, 123123123, 1213] blockCount == [1, 2, 3, 1]
 
 theorem smallestIsPeriod ∀ (x: Nat):
-    Period (digitAt x.digits.toList) (digitCount x) (digitCountNonZero x) (smallestPeriod x) :=
+    Period
+      (digitAt x.digits.toList)
+      (digitCount x)
+      (Nat.nonzeroOfPos (digitCount x) (Nat.digitCountPos x))
+      (smallestPeriod x) :=
   let top: Succ (digitCount x - 1) = digitCount x := arithmetic [Nat.digitsNonEmpty x]
   periodOfTest
     (digitAt (Nat.digits x).toList)
     (digitCount x)
-    (digitCountNonZero x)
+    (Nat.nonzeroOfPos (digitCount x) (Nat.digitCountPos x))
     (smallestPeriod x)
     (Nat.firstFromFound
       (j => periodOf x (Succ j))
@@ -319,17 +322,20 @@ theorem smallestIsPeriod ∀ (x: Nat):
         (periodTest
           (digitAt (Nat.digits x).toList)
           (digitCount x)
-          (digitCountNonZero x)
+          (Nat.nonzeroOfPos (digitCount x) (Nat.digitCountPos x))
           (digitCount x)
-          (periodLen (digitAt (Nat.digits x).toList) (digitCount x) (digitCountNonZero x)))))
+          (periodLen
+            (digitAt (Nat.digits x).toList)
+            (digitCount x)
+            (Nat.nonzeroOfPos (digitCount x) (Nat.digitCountPos x))))))
 
 theorem smallestDivides ∀ (x p: Nat)
-    (hp: Period (digitAt x.digits.toList) (digitCount x) (digitCountNonZero x) p):
+    (hp: Period (digitAt x.digits.toList) (digitCount x) (Nat.nonzeroOfPos (digitCount x) (Nat.digitCountPos x)) p):
     p % smallestPeriod x = 0 :=
   periodDvd
     (digitAt (Nat.digits x).toList)
     (digitCount x)
-    (digitCountNonZero x)
+    (Nat.nonzeroOfPos (digitCount x) (Nat.digitCountPos x))
     (periodIndex x)
     (smallestIsPeriod x)
     (r hr => Nat.firstFromBefore (j => periodOf x (Succ j)) (digitCount x) 0 r arithmetic hr)
@@ -341,7 +347,12 @@ theorem countTimesPeriod ∀ (x: Nat): digitCount x = blockCount x * smallestPer
     Nat.divModEq (digitCount x) (smallestPeriod x)
   _ = blockCount x * smallestPeriod x :=
     arithmetic [
-      smallestDivides x (digitCount x) (periodLen (digitAt (Nat.digits x).toList) (digitCount x) (digitCountNonZero x))
+      smallestDivides x
+        (digitCount x)
+        (periodLen
+          (digitAt (Nat.digits x).toList)
+          (digitCount x)
+          (Nat.nonzeroOfPos (digitCount x) (Nat.digitCountPos x)))
     ]
 
 theorem blockCountPos ∀ (x: Nat): 1 ≤ blockCount x := match e: blockCount x with
@@ -365,7 +376,7 @@ theorem dividesOfWritten ∀ (x n: Nat)
       (List.length (Nat.digits x).toList)
       (digitCount x)
       (digitListNonZero x)
-      (digitCountNonZero x)
+      (Nat.nonzeroOfPos (digitCount x) (Nat.digitCountPos x))
       (Nat.digitCountLength x).flipped
       k
       (writtenPeriod
@@ -411,14 +422,14 @@ theorem writtenOfDivides ∀ (x n: Nat) (hn: 2 ≤ n) (t: Nat) (e: blockCount x 
           (digitAt (Nat.digits x).toList)
           (digitCount x)
           (List.length (Nat.digits x).toList)
-          (digitCountNonZero x)
+          (Nat.nonzeroOfPos (digitCount x) (Nat.digitCountPos x))
           (digitListNonZero x)
           (Nat.digitCountLength x)
           (Succ t * smallestPeriod x)
           (periodMul
             (digitAt (Nat.digits x).toList)
             (digitCount x)
-            (digitCountNonZero x)
+            (Nat.nonzeroOfPos (digitCount x) (Nat.digitCountPos x))
             (smallestPeriod x)
             (smallestIsPeriod x)
             (Succ t)))

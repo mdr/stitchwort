@@ -11,24 +11,20 @@ theorem betweenToNat ∀ (low high: Nat) (chars: List Char):
       = (chars ≠ [] ∧ chars.all Parse.isDigit ∧ low <= number chars <= high) :=
   rewrite Text.toNatDigits chars then cases
 
-theorem andShape [a b c d: Bool]: (a ∧ True ∧ b ∧ c ∧ d) = ((a ∧ b) ∧ c ∧ d) := cases
-
 theorem yearChars ∀ (low high: Nat) (chars: List Char):
     yearBetween low high (Text.fromList chars) = year low high (Text.fromList chars) :=
   match chars with
     | [] => byComputing
-    | [char, ..rest] => rewrite betweenToNat low high [char, ..rest] then andShape
+    | [char, ..rest] => rewrite betweenToNat low high [char, ..rest] then cases
 
 theorem yearSpec ∀ (low high: Nat) (value: Text): yearBetween low high value = year low high value := match value with
   | MkText chars => yearChars low high chars
-
-theorem andIsSome [a b: Bool] [x: Nat]: (a ∧ Option.isSome (if b then Some x else None)) = (a ∧ b) := cases
 
 theorem passportIdChars ∀ (chars: List Char):
     Key.valid PassportId (Text.fromList chars) = digits 9 (Text.fromList chars) :=
   match chars with
     | [] => byComputing
-    | [char, ..rest] => rewrite Text.toNatDigits [char, ..rest] then andIsSome
+    | [char, ..rest] => rewrite Text.toNatDigits [char, ..rest] then cases
 
 theorem passportIdSpec ∀ (value: Text): Key.valid PassportId value = digits 9 value := match value with
   | MkText chars => passportIdChars chars

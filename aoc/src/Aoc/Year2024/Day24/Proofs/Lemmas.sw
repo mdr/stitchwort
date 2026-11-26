@@ -98,10 +98,6 @@ theorem rangeBitsBeyond ∀ (f: Nat → Option Bool):
 def countFrom (bitOf: Wire → Option Nat) (start: Nat) (wires: List Wire): Nat :=
   wires.foldLeft start (count wire => bitOf wire |> .fold count (bit => Nat.max count (bit + 1)))
 
-theorem maxAtLeast ∀ (m n: Nat): m ≤ Nat.max m n ∧ n ≤ Nat.max m n := match below: Nat.leq m n with
-  | True => Both below (Nat.leRefl n)
-  | False => Both (Nat.leRefl m) (arithmetic)
-
 theorem countFromAtLeast ∀ (bitOf: Wire → Option Nat) (wires: List Wire) (start: Nat):
     start ≤ countFrom bitOf start wires :=
   match wires with
@@ -109,8 +105,7 @@ theorem countFromAtLeast ∀ (bitOf: Wire → Option Nat) (wires: List Wire) (st
     | [wire, ..rest] =>
       match found: bitOf wire with
         | None => countFromAtLeast bitOf rest start
-        | Some bit =>
-          arithmetic [(maxAtLeast start (bit + 1)).left, countFromAtLeast bitOf rest (Nat.max start (bit + 1))]
+        | Some bit => arithmetic [Nat.leMaxLeft start (bit + 1), countFromAtLeast bitOf rest (Nat.max start (bit + 1))]
 
 --| Every bit `bitOf` finds among the wires is below their count.
 theorem countFromAbove ∀ (bitOf: Wire → Option Nat) (wire: Wire) (bit: Nat)
@@ -122,5 +117,5 @@ theorem countFromAbove ∀ (bitOf: Wire → Option Nat) (wire: Wire) (bit: Nat)
     | [], member => member.impossible
     | [other, ..rest], Inl same =>
       rewrite same, isBit then
-        arithmetic [(maxAtLeast start (bit + 1)).right, countFromAtLeast bitOf rest (Nat.max start (bit + 1))]
+        arithmetic [Nat.leMaxRight start (bit + 1), countFromAtLeast bitOf rest (Nat.max start (bit + 1))]
     | [other, ..rest], Inr later => countFromAbove bitOf wire bit isBit rest _ later

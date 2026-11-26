@@ -175,7 +175,7 @@ theorem writtenIdTemplateListed ∀ (range: Range) (x: Nat)
     List.Mem ({ blockLength, copies }: RepetitionTemplate) (allTemplatesForRange range) :=
   -- An x in the range is at most the range's end,
   let notAfterEnd: x ≤ range.to := match List.memRangeFrom x range.size range.from inRange with
-    | Both afterStart beforeEnd => rangeEnd range.from range.to x afterStart beforeEnd
+    | Both afterStart beforeEnd => arithmetic
   -- so it has no more digits than the end does.
   let fewerDigits: x.digitCount ≤ range.to.digitCount := Nat.digitsLengthMono x range.to notAfterEnd
   -- The blocks fill the digits,

@@ -171,8 +171,6 @@ theorem betweenBound ∀ (a x b: Nat) (h: between a x b = True): a.absDiff x ≤
 theorem betweenFixed ∀ (a x b: Nat) (h: a = b) (inside: between a x b = True): a.absDiff x = 0 :=
   rewrite h at inside then cases
 
-theorem absDiffFixed ∀ (a b: Nat) (h: a = b): a.absDiff b = 0 := rewrite h then cases
-
 theorem absDiffPositive ∀ (a b: Nat) (h: a ≠ b): a.absDiff b ≠ 0 := zero => h (cases)
 
 theorem stepsFixedLeft ∀ (a b c i: Nat) (h: a = b) (hi: i ≤ Nat.max (a.absDiff b) c): i ≤ c :=
@@ -265,7 +263,7 @@ theorem coversLinear ∀ (x1 y1 x2 y2 x y: Nat)
           (Nat.absDiff x1 x2)
           (Nat.absDiff y1 y2)
           (betweenFixed x1 x x2 hv bx)
-          (absDiffFixed x1 x2 hv)
+          (rewrite hv, Nat.absDiffSelf x2)
       | False =>
         match horizontal: y1 == y2 with
           | True =>
@@ -276,7 +274,7 @@ theorem coversLinear ∀ (x1 y1 x2 y2 x y: Nat)
               (Nat.absDiff x1 x2)
               (Nat.absDiff y1 y2)
               (betweenFixed y1 y y2 hh by)
-              (absDiffFixed y1 y2 hh)
+              (rewrite hh, Nat.absDiffSelf y2)
           | False =>
             let same := diagonalSame x1 x2 y1 y2 shape
             rewrite <- same then Nat.mulRightCancelBool (absDiffPositive x1 x2 vertical.read))
