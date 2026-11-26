@@ -1,5 +1,5 @@
 {
-  "next": 4871,
+  "next": 4873,
   "tickets": [
     {
       "id": 47,
@@ -36397,15 +36397,19 @@
     {
       "id": 4862,
       "title": "[Sonnet] Playground: catch the engine's stack overflow (RangeError) in the language-server and playground workers, restart the worker, and report E-RESOURCE ('ran out of resources') on the namespace or file instead of crashing; keep the per-engine guards (D3750)",
-      "status": "review",
+      "status": "done",
       "agent": "Sonnet",
       "where": "",
       "labels": [],
       "epic": "editor-playground",
-      "body": "D3750 (Matt, 17:35 26 Nov): catch the overflow regardless and report out of resources.\n\nDone on lane/SW-4862 (6d1ad288f): workers catch the engine's stack overflow (isStackOverflow in web/stack-guard.js); the language server reports the namespace/file to the page, which starts a new worker told to leave it unchecked (Exhausted in crates/driver/src/live.rs, LanguageServer::mark_exhausted), publishing E-RESOURCE until its text changes. Browser test added; full web/test.sh 103/103 passed; F2 test passes (203 s, two real overflows: Day05.Proofs and 2024 Day22.Proofs, each re-checks the project in a new worker).",
+      "body": "D3750 (Matt, 17:35 26 Nov): catch the overflow regardless and report out of resources.\n\nDone on lane/SW-4862 (6d1ad288f): workers catch the engine's stack overflow (isStackOverflow in web/stack-guard.js); the language server reports the namespace/file to the page, which starts a new worker told to leave it unchecked (Exhausted in crates/driver/src/live.rs, LanguageServer::mark_exhausted), publishing E-RESOURCE until its text changes. Browser test added; full web/test.sh 103/103 passed; F2 test passes (203 s, two real overflows: Day05.Proofs and 2024 Day22.Proofs, each re-checks the project in a new worker).\n\nOverflow detected (isStackOverflow), worker restarted, namespace marked exhausted (E-RESOURCE on its first line) until its text changes. Browser suite 103/103; the Day05 jump test and F2 rename pass. Not done: in-page fallback compiler; dependents see a skipped namespace as missing; exhausted set not kept across reloads. Model result: sonnet, worked, 56 min (est. 40).",
       "created": "2026-11-26",
       "updated": "2026-11-26",
-      "commits": []
+      "commits": [
+        "6d1ad288f",
+        "a56dff6f0",
+        "e64d139b7"
+      ]
     },
     {
       "id": 4863,
@@ -36509,6 +36513,32 @@
       "where": "",
       "labels": [],
       "epic": "editor-playground",
+      "body": "",
+      "created": "2026-11-26",
+      "updated": "2026-11-26",
+      "commits": []
+    },
+    {
+      "id": 4871,
+      "title": "[Sonnet] Playground after an overflow: each one costs a full project re-check (~100 s on AoC); keep checked namespaces' results across the worker restart (or remember overflows per text hash); dependents of a skipped namespace report it missing rather than failed; the in-page fallback compiler doesn't flag overflows (SW-4862)",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "epic": "editor-playground",
+      "body": "",
+      "created": "2026-11-26",
+      "updated": "2026-11-26",
+      "commits": []
+    },
+    {
+      "id": 4872,
+      "title": "[DeepSeek] Taskfile says test:browser takes about 35 s (it takes ~13 min); docs/testing.md: how to force an overflow in the language server for a test (SW-4862's served-worker trick), and that the override must match at the start of a line (SW-4862 friction)",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "epic": "test-infra",
       "body": "",
       "created": "2026-11-26",
       "updated": "2026-11-26",
