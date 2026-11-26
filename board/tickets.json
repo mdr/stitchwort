@@ -1,5 +1,5 @@
 {
-  "next": 4853,
+  "next": 4854,
   "tickets": [
     {
       "id": 47,
@@ -36206,6 +36206,19 @@
       "labels": [],
       "epic": "editor-playground",
       "body": "D3749 (Matt, 14:40 26 Nov): option B, a smaller limit only in Safari; Chrome and Firefox keep 320 KiB.",
+      "created": "2026-11-26",
+      "updated": "2026-11-26",
+      "commits": []
+    },
+    {
+      "id": 4853,
+      "title": "[DeepSeek] Formatter bug (fmt fuzz batch 8, seed 0x26112608, case 769695): a record update whose base is a multi-line let block formats to text that does not parse (expected ; after the value of let); the formatter refuses with its internal error and leaves the file unchanged",
+      "status": "doing",
+      "agent": "DeepSeek",
+      "where": "scratch-sw-4853",
+      "labels": [],
+      "epic": "syntax-language",
+      "body": "",
       "created": "2026-11-26",
       "updated": "2026-11-26",
       "commits": []
