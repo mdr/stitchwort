@@ -1239,7 +1239,7 @@ pub fn unfold_once(g: &Ev, id: DefId, spine: Spine) -> Result<Value> {
             other => Ok(project(d, i, force(g, other)?)),
         };
     }
-    let mut stack = Vec::new();
+    let mut stack = Stack::default();
     let start = unfold_now(g, &mut stack, id, spine, false)?;
     run_on(g, start, stack)
 }
@@ -1643,7 +1643,7 @@ fn apply_later(f: Value, arg: Value, icit: Icit) -> Control {
 /// Applying call `f` to `arg`: its unfolding, once forced, is applied.
 #[cold]
 #[inline(never)]
-fn apply_call(g: &Ev, stack: &mut Vec<Frame>, f: Value, arg: Value, icit: Icit) -> Result<Control> {
+fn apply_call(g: &Ev, stack: &mut Stack, f: Value, arg: Value, icit: Icit) -> Result<Control> {
     push(g, stack, Frame::AppTo(arg, icit))?;
     Ok(Control::Force(f))
 }
@@ -1659,13 +1659,7 @@ fn apply_call(g: &Ev, stack: &mut Vec<Frame>, f: Value, arg: Value, icit: Icit) 
 /// Only while gluing ([`computes_field`]).
 #[cold]
 #[inline(never)]
-fn apply_field(
-    g: &Ev,
-    stack: &mut Vec<Frame>,
-    f: Value,
-    arg: Value,
-    icit: Icit,
-) -> Result<Control> {
+fn apply_field(g: &Ev, stack: &mut Stack, f: Value, arg: Value, icit: Icit) -> Result<Control> {
     if computes_field(g, &f) {
         return unfold_field_for(g, stack, f, FieldUse::App(arg, icit));
     }
@@ -1682,7 +1676,7 @@ fn apply_field(
 #[inline(never)]
 fn force_call(
     g: &Ev,
-    stack: &mut Vec<Frame>,
+    stack: &mut Stack,
     id: DefId,
     spine: Spine,
     unfolding: Rc<Unfolding>,
@@ -1735,11 +1729,11 @@ fn extend(env: &Env, value: Value) -> Env {
 }
 
 fn run(g: &Ev, control: Control) -> Result<Value> {
-    run_on(g, control, Vec::new())
+    run_on(g, control, Stack::default())
 }
 
 /// [`run`], with `stack`'s frames waiting for the result.
-fn run_on(g: &Ev, mut control: Control, mut stack: Vec<Frame>) -> Result<Value> {
+fn run_on(g: &Ev, mut control: Control, mut stack: Stack) -> Result<Value> {
     #[cfg(any(test, feature = "reference"))]
     RUNS.with(|r| r.set(r.get() + 1));
     loop {
@@ -1851,14 +1845,56 @@ fn eval_ends(g: &Ev, env: &Env, ty: &Term, x: &Term, y: &Term) -> Result<Ends> {
     ends
 }
 
-fn push(g: &Ev, stack: &mut Vec<Frame>, frame: Frame) -> Result<()> {
-    if let Err(e) = g.machine.budget.frames(stack.len() + 1) {
+/// The machine's pending work: its frames, and where each
+/// [`Frame::ReadSecond`] among them is.
+///
+/// The frame limit counts the frames above the topmost `ReadSecond`: the
+/// forcing that frame waits for was a machine of its own before R3 and R4
+/// were read on this stack (SW-4865), with its own allowance of frames, and
+/// a run is refused for depth exactly where it was then. The `ReadSecond`
+/// frames themselves are counted against the same limit, in place of the
+/// Rust stack those nested machines took, so a chain of stuck sums that
+/// never ends still stops (at a depth no configured stack reached before:
+/// each nested machine took over a kilobyte of it).
+#[derive(Default)]
+struct Stack {
+    frames: Vec<Frame>,
+    reads: Vec<usize>,
+}
+
+impl Stack {
+    /// The frames the limit counts: those above the topmost `ReadSecond`.
+    fn counted(&self) -> &[Frame] {
+        let base = self.reads.last().map_or(0, |&i| i + 1);
+        &self.frames[base..]
+    }
+
+    fn pop(&mut self) -> Option<Frame> {
+        let frame = self.frames.pop()?;
+        if matches!(frame, Frame::ReadSecond(_)) {
+            self.reads.pop();
+        }
+        Some(frame)
+    }
+}
+
+fn push(g: &Ev, stack: &mut Stack, frame: Frame) -> Result<()> {
+    let reading = matches!(frame, Frame::ReadSecond(_));
+    let pending = if reading {
+        stack.reads.len() + 1
+    } else {
+        stack.counted().len() + 1
+    };
+    if let Err(e) = g.machine.budget.frames(pending) {
         if e == ResourceError::Depth {
-            note_deepest(g, stack);
+            note_deepest(g, stack.counted());
         }
         return Err(e);
     }
-    stack.push(frame);
+    if reading {
+        stack.reads.push(stack.frames.len());
+    }
+    stack.frames.push(frame);
     Ok(())
 }
 
@@ -1930,7 +1966,7 @@ fn quick(g: &Ev, term: &Rc<Term>, env: &Env) -> Option<Value> {
 }
 
 /// The first step of evaluating `term`.
-fn eval_step(g: &Ev, term: Rc<Term>, env: Env, stack: &mut Vec<Frame>) -> Result<Control> {
+fn eval_step(g: &Ev, term: Rc<Term>, env: Env, stack: &mut Stack) -> Result<Control> {
     Ok(match &*term {
         Term::Var(ix) => Control::Return(env[env.len() - 1 - ix].clone()),
         Term::Def(id) => {
@@ -2142,7 +2178,7 @@ fn fields(
     term: Rc<Term>,
     env: Env,
     mut done: Vec<Value>,
-    stack: &mut Vec<Frame>,
+    stack: &mut Stack,
 ) -> Result<Control> {
     let (Term::Data(_, args) | Term::Ctor(_, _, args)) = &*term else {
         unreachable!("fields of a data type or constructor")
@@ -2192,7 +2228,7 @@ fn quot_args(
     env: Env,
     mut done: Vec<Value>,
     last: Option<Value>,
-    stack: &mut Vec<Frame>,
+    stack: &mut Stack,
 ) -> Result<Control> {
     let Term::Quot(form, args, _, mark) = &*term else {
         unreachable!("arguments of a quotient form")
@@ -2222,7 +2258,7 @@ fn quot_args(
 }
 
 /// Continues `frame` with the value it was waiting for.
-fn resume(g: &Ev, frame: Frame, value: Value, stack: &mut Vec<Frame>) -> Result<Control> {
+fn resume(g: &Ev, frame: Frame, value: Value, stack: &mut Stack) -> Result<Control> {
     Ok(match frame {
         Frame::AppArg(arg, env, icit) => {
             push(g, stack, Frame::AppFun(value, icit))?;
@@ -2357,7 +2393,7 @@ fn resume(g: &Ev, frame: Frame, value: Value, stack: &mut Vec<Frame>) -> Result<
 /// temporaries: equations, `J`, fields of calls, replaying a solved
 /// metavariable's spine and unfolding folded calls.
 #[inline(never)]
-fn resume_rare(g: &Ev, frame: Frame, value: Value, stack: &mut Vec<Frame>) -> Result<Control> {
+fn resume_rare(g: &Ev, frame: Frame, value: Value, stack: &mut Stack) -> Result<Control> {
     Ok(match frame {
         Frame::EqParts {
             term,
@@ -2743,7 +2779,27 @@ fn resume_rare(g: &Ev, frame: Frame, value: Value, stack: &mut Vec<Frame>) -> Re
             )?;
             Control::Return(result)
         }
-        _ => unreachable!("resume takes the other frames"),
+        Frame::AppArg(..)
+        | Frame::AppFun(..)
+        | Frame::AppErased(..)
+        | Frame::NativeArg { .. }
+        | Frame::ReadSecond(..)
+        | Frame::AddNat(..)
+        | Frame::Args { .. }
+        | Frame::QuotArgs { .. }
+        | Frame::LiftQuotient { .. }
+        | Frame::LiftForced { .. }
+        | Frame::LiftReady { .. }
+        | Frame::LetBody { .. }
+        | Frame::PiDomain { .. }
+        | Frame::ProjOf(..)
+        | Frame::ProjForced(..)
+        | Frame::ProjReady(..)
+        | Frame::FoldedField(..)
+        | Frame::Scrutinee { .. }
+        | Frame::ScrutineeReady { .. }
+        | Frame::AppTo(..)
+        | Frame::Unfolded(..) => unreachable!("`resume` takes these frames"),
     })
 }
 
@@ -2799,7 +2855,7 @@ fn count_stuck_one_shape(g: &Ev, d: DataId, stuck: &Stuck, value: &Value) {
 /// The branch of the case node `tree` for the (forced) scrutinee `value`.
 fn branch(
     g: &Ev,
-    stack: &mut Vec<Frame>,
+    stack: &mut Stack,
     tree: Rc<Term>,
     mut env: Vec<Value>,
     stuck: Stuck,
@@ -3302,7 +3358,7 @@ pub fn apart_of(value: &Value) -> Apart {
 
 /// A case tree that can't take a step: its definition stays folded, unless
 /// it's `Nat.add` and R3 or R4 applies (`nat_add.rs`, [`read_second`]).
-fn stuck_tree(g: &Ev, stack: &mut Vec<Frame>, stuck: Stuck) -> Result<Control> {
+fn stuck_tree(g: &Ev, stack: &mut Stack, stuck: Stuck) -> Result<Control> {
     match stuck {
         Some((id, spine, _)) => {
             if g.env.builtins().nat_add_rule == Some(id)
@@ -3338,12 +3394,13 @@ fn stuck_tree(g: &Ev, stack: &mut Vec<Frame>, stuck: Stuck) -> Result<Control> {
 /// is frames on the heap. The machine forcing it from this state takes the
 /// steps, and gives the value, that `force`'s own machine would: it starts
 /// from the same [`Control::Force`], and the frames below it are never
-/// looked at until it returns. `forced` says `next` is a value forcing
+/// looked at until it returns, except to count them for the depth limit
+/// and its message ([`Stack`], which counts as that machine did). `forced` says `next` is a value forcing
 /// gave, which isn't forced again (as `view_with` doesn't).
 #[inline(never)]
 fn read_second(
     g: &Ev,
-    stack: &mut Vec<Frame>,
+    stack: &mut Stack,
     mut read: ReadSecond,
     mut next: Value,
     mut forced: bool,
@@ -3396,7 +3453,7 @@ fn read_second(
 /// A definition applied to `spine`: its native implementation, or its case
 /// tree if it has all its arguments (kept as the call instead while gluing,
 /// [`glues`]), or else it stays folded.
-fn unfold(g: &Ev, stack: &mut Vec<Frame>, id: DefId, spine: Spine) -> Result<Control> {
+fn unfold(g: &Ev, stack: &mut Stack, id: DefId, spine: Spine) -> Result<Control> {
     unfold_now(g, stack, id, spine, true)
 }
 
@@ -3412,13 +3469,7 @@ fn glues(g: &Ev, id: DefId) -> bool {
 
 /// [`unfold`], gluing only if `glue`: a call being forced unfolds now.
 #[inline(always)]
-fn unfold_now(
-    g: &Ev,
-    stack: &mut Vec<Frame>,
-    id: DefId,
-    spine: Spine,
-    glue: bool,
-) -> Result<Control> {
+fn unfold_now(g: &Ev, stack: &mut Stack, id: DefId, spine: Spine, glue: bool) -> Result<Control> {
     if (g.def(id).opaque && hidden(g, id)) || frozen(g, id) {
         return Ok(Control::Return(Value::Neutral(Head::Def(id), spine)));
     }
@@ -3454,13 +3505,7 @@ fn unfold_now(
 /// each nesting is frames on this machine's stack, and the native's own
 /// `force` finds every argument's kept unfolding at once.
 #[inline(always)]
-fn from_native(
-    g: &Ev,
-    stack: &mut Vec<Frame>,
-    id: DefId,
-    spine: Spine,
-    from: usize,
-) -> Result<Control> {
+fn from_native(g: &Ev, stack: &mut Stack, id: DefId, spine: Spine, from: usize) -> Result<Control> {
     let op = g.env.builtins().native(id).expect("a native");
     match unforced_number_arg(g, op, &spine, from) {
         Some(index) => Ok(Control::NativeArg(id, spine, index)),
@@ -3470,7 +3515,7 @@ fn from_native(
 
 /// Native definition `id` applied to all its arguments, `spine`: its
 /// native implementation, or else its case tree.
-fn run_native(g: &Ev, stack: &mut Vec<Frame>, id: DefId, spine: Spine) -> Result<Control> {
+fn run_native(g: &Ev, stack: &mut Stack, id: DefId, spine: Spine) -> Result<Control> {
     let op = g.env.builtins().native(id).expect("a native");
     match native::run(g, id, op, &spine, force)? {
         Some(native::Outcome::Done(value)) => return Ok(Control::Return(value)),
@@ -3570,13 +3615,7 @@ fn case_tree(g: &Ev, id: DefId, spine: Spine, glue: bool) -> Result<Control> {
 /// ([`Control::NativeArg`]), with the native to run once it is forced.
 #[cold]
 #[inline(never)]
-fn native_arg(
-    g: &Ev,
-    stack: &mut Vec<Frame>,
-    id: DefId,
-    spine: Spine,
-    index: usize,
-) -> Result<Control> {
+fn native_arg(g: &Ev, stack: &mut Stack, id: DefId, spine: Spine, index: usize) -> Result<Control> {
     let Some(Elim::App(arg, _)) = spine.get(index) else {
         unreachable!("an explicit argument, by unforced_number_arg")
     };
@@ -3647,7 +3686,7 @@ pub fn body_seen<'a>(g: &Ev<'a>, id: DefId) -> Option<&'a Rc<Term>> {
 /// Folded call `value` ([`is_folded`]) is taken apart by the frame `next`:
 /// its case tree runs in this machine, and `next` gets the result
 /// ([`Frame::Unfolding`]).
-fn unfold_for(g: &Ev, stack: &mut Vec<Frame>, value: Value, next: Frame) -> Result<Control> {
+fn unfold_for(g: &Ev, stack: &mut Stack, value: Value, next: Frame) -> Result<Control> {
     let Value::Neutral(Head::Def(id), spine) = value else {
         unreachable!("checked by is_folded")
     };
@@ -3688,12 +3727,7 @@ fn computes_field(g: &Ev, value: &Value) -> bool {
 /// `then`: the call's case tree runs in this machine (as in
 /// [`unfold_folded`], which conversion uses), and `then` takes apart that
 /// field of what it computes to ([`Frame::FieldOf`]).
-fn unfold_field_for(
-    g: &Ev,
-    stack: &mut Vec<Frame>,
-    value: Value,
-    then: FieldUse,
-) -> Result<Control> {
+fn unfold_field_for(g: &Ev, stack: &mut Stack, value: Value, then: FieldUse) -> Result<Control> {
     let Value::Neutral(Head::Def(id), spine) = value else {
         unreachable!("checked by is_folded")
     };
@@ -3894,10 +3928,13 @@ pub fn unfold_folded_head(g: &Ev, value: &Value) -> Result<Option<Value>> {
     run_on(
         g,
         Control::Return(unfolded),
-        vec![Frame::Replay {
-            spine: rest,
-            next: 0,
-        }],
+        Stack {
+            frames: vec![Frame::Replay {
+                spine: rest,
+                next: 0,
+            }],
+            reads: Vec::new(),
+        },
     )
     .map(Some)
 }
