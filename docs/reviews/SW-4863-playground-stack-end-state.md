@@ -273,6 +273,8 @@ Engine stack needed, probe build, Node `--liftoff-only`: Day16 136 KB as rustc b
 | **g2. Catch the engine's overflow and report it** (SW-4862, in progress) | The truth about the engine's stack, whatever the tier | A restart and a re-check | | End state as the backstop under any design |
 | **g3. Lower Chrome's guard to 192 KiB** (SW-4857's proposal) | Nothing these proofs need once P is in | Refuses Day11, which Chrome has room for | | **Leads elsewhere**: it tunes the stand-in instead of fixing what it stands in for |
 
+**Correction to option c2 (26 Nov 2026).** c2's cost is not "one call in `Budget::nesting`'s slow path": a check can't move frames already on the engine's stack, and only a call can continue on a new one, so the switch wraps the rest of a recursion at each call site. [SW-4870](SW-4870-jspi-stack-chain.md) prototyped it and says so in its verdict and "What was built".
+
 ## 4. What I would not do
 
 - **Tune the guard to the printer.** Any number is wrong for some recursion by a factor of ten (2.4).

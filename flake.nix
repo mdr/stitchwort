@@ -320,7 +320,7 @@
                 mkdir -p $out/pkg
                 wasm-bindgen --target web --no-typescript --out-dir $out/pkg \
                   target/wasm32-unknown-unknown/release/stitchwort_web.wasm
-                wasm-opt -Oz --enable-bulk-memory --enable-nontrapping-float-to-int \
+                wasm-opt -Oz -ocimfs=30 --enable-bulk-memory --enable-nontrapping-float-to-int \
                   $out/pkg/stitchwort_web_bg.wasm -o $out/pkg/stitchwort_web_bg.wasm
                 cp ${./web/index.html} $out/index.html
                 cp -r --no-preserve=mode ${./web/guide} $out/guide
