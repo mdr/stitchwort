@@ -1,5 +1,5 @@
 {
-  "next": 4858,
+  "next": 4859,
   "tickets": [
     {
       "id": 47,
@@ -36303,6 +36303,19 @@
       "where": "",
       "labels": [],
       "epic": "editor-playground",
+      "body": "",
+      "created": "2026-11-26",
+      "updated": "2026-11-26",
+      "commits": []
+    },
+    {
+      "id": 4858,
+      "title": "[DeepSeek] SW-4856 follow-up: Elaborator::note_counterexample calls hash::type_hash outside an operation, so the new test-build assert fails three proofs::function_induct tests (a_nested_pattern_in_a_lifted_match, a_recursive_theorem_has_no_induct_and_no_skip_row, using_them_and_their_names)",
+      "status": "doing",
+      "agent": "DeepSeek",
+      "where": "scratch-sw-4858",
+      "labels": [],
+      "epic": "elaborator-kernel",
       "body": "",
       "created": "2026-11-26",
       "updated": "2026-11-26",
