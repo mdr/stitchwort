@@ -5973,16 +5973,16 @@
     {
       "id": 1939,
       "title": "[DeepSeek] Tactics: mechanical tidy-ups from the tactics code review (F13-F15, docs/reviews/code-review-elab-tactics.md)",
-      "status": "backlog",
-      "agent": "",
-      "where": "",
+      "status": "doing",
+      "agent": "DeepSeek",
+      "where": "scratch-sw-1939",
       "labels": [
         "tactics"
       ],
       "epic": "proof-automation",
       "body": "From docs/reviews/code-review-elab-tactics.md (F13-F15). 30-45 min.\n\nAudit note (22 Nov): Audit 22 Nov: from the tactics review (F13-F15); no commit mentions SW-1939.\n",
       "created": "2026-11-07",
-      "updated": "2026-11-22",
+      "updated": "2026-11-26",
       "commits": []
     },
     {
@@ -6033,16 +6033,16 @@
     {
       "id": 1944,
       "title": "[DeepSeek] JS generator panics turned into errors; stale comments",
-      "status": "backlog",
-      "agent": "",
-      "where": "",
+      "status": "doing",
+      "agent": "DeepSeek",
+      "where": "scratch-sw-1944",
       "labels": [
         "backends"
       ],
       "epic": "effects-native",
       "body": "From docs/reviews/code-review-js-native.md. 30 min.\n\nAudit note (22 Nov): Audit 22 Nov: still true: crates/js/src/lib.rs panics at 2954 (@[tailrec] not looped), 4503 (case outside a case tree), 4506 (unsolved metavariable), 2707 (no info for); fast.rs:10 still names MAX_WORK. Review N7 and N13.\n",
       "created": "2026-11-07",
-      "updated": "2026-11-22",
+      "updated": "2026-11-26",
       "commits": []
     },
     {
