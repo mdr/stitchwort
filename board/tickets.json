@@ -36331,15 +36331,18 @@
     {
       "id": 4859,
       "title": "[DeepSeek] clippy items_after_test_module in crates/elab/src/numbers.rs (~2156: an item after mod tests, from SW-4850): move it above the tests module",
-      "status": "doing",
+      "status": "done",
       "agent": "DeepSeek",
       "where": "scratch-sw-4859",
       "labels": [],
       "epic": "diagnostics",
-      "body": "",
+      "body": "Model result: deepseek, worked, 5 min (est. 10).",
       "created": "2026-11-26",
       "updated": "2026-11-26",
-      "commits": []
+      "commits": [
+        "3c0c782bd",
+        "0a7317682"
+      ]
     }
   ]
 }
