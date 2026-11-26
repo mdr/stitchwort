@@ -36456,7 +36456,7 @@
     {
       "id": 4866,
       "title": "[Sonnet] Drop for Value and Term recurses with no guard (120 levels in Day16.Proofs): make it a loop (SW-4863 step 5)",
-      "status": "doing",
+      "status": "review",
       "agent": "Sonnet",
       "where": "",
       "labels": [],
