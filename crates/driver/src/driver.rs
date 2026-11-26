@@ -102,7 +102,17 @@ pub fn with_session<T: Send>(
     make: fn(usize) -> Session,
     f: impl FnOnce(&mut Session) -> T + Send,
 ) -> T {
-    with_stack(stack, || f(&mut make(stack)))
+    with_stack(stack, || {
+        let mut session = make(stack);
+        // Tests call passes directly, which need an operation for their guards.
+        let _operation = session
+            .elab
+            .kernel
+            .machine
+            .budget
+            .start(session.elab.options.limits);
+        f(&mut session)
+    })
 }
 
 /// How many worker threads the tests' per-file loops use: the machine's

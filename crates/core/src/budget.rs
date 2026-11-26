@@ -650,6 +650,11 @@ pub struct Saved {
 }
 
 impl Budget {
+    /// Whether an operation is running: a guard outside one can't fire.
+    pub fn is_running(&self) -> bool {
+        self.limits.get().is_some()
+    }
+
     /// Starts an operation with fresh counters, measuring stack use from here.
     /// It ends when the guard is dropped.
     pub fn operation(&self, limits: Limits) -> Operation<'_> {
@@ -1149,7 +1154,7 @@ impl Budget {
         // passes: a pass that relies on it would never stop.
         #[cfg(any(test, feature = "test-bypass"))]
         assert!(
-            self.limits.get().is_some(),
+            self.is_running(),
             "Budget::nesting(\"{pass}\") ran with no operation: start a Budget::operation first"
         );
         self.visits.set(self.visits.get() + 1);

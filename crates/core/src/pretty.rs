@@ -11,7 +11,7 @@ use std::rc::Rc;
 
 use num_bigint::BigUint;
 
-use crate::budget::Result;
+use crate::budget::{Limits, Result};
 use crate::collections::HashMap;
 use crate::globals::{CallDefaults, DefaultCall, PlaceholderText};
 use crate::registry::Builtin;
@@ -19,6 +19,17 @@ use crate::term::{DataId, DefId, Icit, Name, QuotForm, Sort, Term};
 use crate::value::{
     Value, quote_as_written_shown, quote_shown_at_most, quote_unfolded_shown, same_term,
 };
+
+/// Runs `f` in an operation when none is running: a public printer can be
+/// called after the operation that checked its term has ended, and printing
+/// an update helper reaches `Term::shift`.
+fn with_operation<T>(g: &Ev, f: impl FnOnce() -> T) -> T {
+    if g.machine.budget.is_running() {
+        return f();
+    }
+    let _op = g.machine.budget.operation(Limits::default());
+    f()
+}
 
 /// A declaration a printed name stands for.
 #[derive(Clone, Copy, PartialEq, Eq, Hash)]
@@ -95,8 +106,10 @@ fn text_rest_name(names: &[Name], l: usize) -> Option<String> {
 
 /// Prints `term`, whose free variables are named by `names` (outermost first).
 pub fn term(g: &Ev, names: &[Name], term: &Term) -> String {
-    let mut names = names.to_vec();
-    Printer::new(g, None).print(&mut names, term, Prec::Arrow)
+    with_operation(g, || {
+        let mut names = names.to_vec();
+        Printer::new(g, None).print(&mut names, term, Prec::Arrow)
+    })
 }
 
 /// [`term`], writing decided equations as `a == b` and `a != b` as a goal
@@ -104,66 +117,78 @@ pub fn term(g: &Ev, names: &[Name], term: &Term) -> String {
 /// them by; names are written in full, as [`term`] does. For a statement
 /// shown outside a goal (`stitchwort doc`).
 pub fn term_deciding(g: &Ev, decider: &dyn NameScope, names: &[Name], term: &Term) -> String {
-    let mut names = names.to_vec();
-    let printer = Printer::new(g, None);
-    printer.equations.set(true);
-    *printer.decider.borrow_mut() = Some(decider);
-    printer.print(&mut names, term, Prec::Arrow)
+    with_operation(g, || {
+        let mut names = names.to_vec();
+        let printer = Printer::new(g, None);
+        printer.equations.set(true);
+        *printer.decider.borrow_mut() = Some(decider);
+        printer.print(&mut names, term, Prec::Arrow)
+    })
 }
 
 /// [`term`], with names as `scope` writes them.
 pub fn term_in(g: &Ev, scope: &dyn NameScope, names: &[Name], term: &Term) -> String {
-    let mut names = names.to_vec();
-    Printer::new(g, Some(scope)).print(&mut names, term, Prec::Arrow)
+    with_operation(g, || {
+        let mut names = names.to_vec();
+        Printer::new(g, Some(scope)).print(&mut names, term, Prec::Arrow)
+    })
 }
 
 /// [`term`], with every call written as a call: `List.append xs ys`, not
 /// `xs ++ ys`, and `List.length xs`, not `xs.length`. For telling apart
 /// terms that the sugar prints alike.
 pub fn term_calls(g: &Ev, names: &[Name], term: &Term) -> String {
-    let mut names = names.to_vec();
-    let printer = Printer::new(g, None);
-    printer.calls.set(true);
-    printer.print(&mut names, term, Prec::Arrow)
+    with_operation(g, || {
+        let mut names = names.to_vec();
+        let printer = Printer::new(g, None);
+        printer.calls.set(true);
+        printer.print(&mut names, term, Prec::Arrow)
+    })
 }
 
 /// Prints `term` with ASCII operators (`&&`, `!=`, `->`), for text inside
 /// exported JavaScript, where the reader writes `!=` and not `≠` (D1223).
 pub fn term_ascii(g: &Ev, names: &[Name], term: &Term) -> String {
-    let mut names = names.to_vec();
-    let printer = Printer::new(g, None);
-    printer.ascii.set(true);
-    printer.print(&mut names, term, Prec::Arrow)
+    with_operation(g, || {
+        let mut names = names.to_vec();
+        let printer = Printer::new(g, None);
+        printer.ascii.set(true);
+        printer.print(&mut names, term, Prec::Arrow)
+    })
 }
 
 /// Prints `term` with its outermost `p → Void` function type written as
 /// that arrow rather than `¬p`: what a hover says a `Not p` unfolds to.
 /// Anything inside it keeps the notation.
 pub fn term_not_unfolded(g: &Ev, names: &[Name], term: &Term) -> String {
-    let mut names = names.to_vec();
-    let printer = Printer::new(g, None);
-    printer.unfold_not.set(true);
-    printer.print(&mut names, term, Prec::Arrow)
+    with_operation(g, || {
+        let mut names = names.to_vec();
+        let printer = Printer::new(g, None);
+        printer.unfold_not.set(true);
+        printer.print(&mut names, term, Prec::Arrow)
+    })
 }
 
 /// [`term_ascii`] for a value.
 pub fn value_ascii(g: &Ev, names: &[Name], value: &Value) -> String {
-    match quote_unfolded_shown(g, names.len(), value) {
+    with_operation(g, || match quote_unfolded_shown(g, names.len(), value) {
         Ok(t) => term_ascii(g, names, &t),
         Err(_) => "…".into(),
-    }
+    })
 }
 
 /// Prints all of `term`, or fails if part of it is nested too deeply to
 /// print: for showing a result, where `…` would hide part of it.
 pub fn term_in_full(g: &Ev, names: &[Name], term: &Term) -> Result<String> {
-    let mut names = names.to_vec();
-    let printer = Printer::new(g, None);
-    let text = printer.print(&mut names, term, Prec::Arrow);
-    if printer.elided.get() {
-        return Err(g.machine.budget.too_deep(PASS));
-    }
-    Ok(text)
+    with_operation(g, || {
+        let mut names = names.to_vec();
+        let printer = Printer::new(g, None);
+        let text = printer.print(&mut names, term, Prec::Arrow);
+        if printer.elided.get() {
+            return Err(g.machine.budget.too_deep(PASS));
+        }
+        Ok(text)
+    })
 }
 
 /// The name the printer's depth guard reports.
@@ -172,10 +197,10 @@ const PASS: &str = "printer";
 /// Prints `value`, whose free variables are named by `names` (outermost first).
 /// If the value can't be quoted within the resource limits, it's shown as `…`.
 pub fn value(g: &Ev, names: &[Name], value: &Value) -> String {
-    match quote_unfolded_shown(g, names.len(), value) {
+    with_operation(g, || match quote_unfolded_shown(g, names.len(), value) {
         Ok(t) => term(g, names, &t),
         Err(_) => "…".into(),
-    }
+    })
 }
 
 /// How a definition's name reads in a message: the generated transparent
@@ -241,7 +266,9 @@ fn shown(g: &Ev, level: usize, value: &Value) -> Result<Term> {
 /// docs/proposals/folded-calls.md, stage 3). Setting
 /// `STITCHWORT_FULL_TERMS` shows everything.
 pub fn value_for_message(g: &Ev, names: &[Name], value: &Value) -> String {
-    value_within(g, None, names, value, MESSAGE_LIMIT, Prec::Arrow, None)
+    with_operation(g, || {
+        value_within(g, None, names, value, MESSAGE_LIMIT, Prec::Arrow, None)
+    })
 }
 
 /// [`value_for_message`], with names as `scope` writes them, and a decided
@@ -253,21 +280,23 @@ pub fn value_for_message_in(
     names: &[Name],
     value: &Value,
 ) -> String {
-    value_within(
-        g,
-        Some(scope),
-        names,
-        value,
-        MESSAGE_LIMIT,
-        Prec::Arrow,
-        Some(&[]),
-    )
+    with_operation(g, || {
+        value_within(
+            g,
+            Some(scope),
+            names,
+            value,
+            MESSAGE_LIMIT,
+            Prec::Arrow,
+            Some(&[]),
+        )
+    })
 }
 
 /// [`value_for_message`], showing the arguments the compiler fills in, for
 /// two types that print the same without them.
 pub fn value_for_message_hidden(g: &Ev, names: &[Name], value: &Value) -> String {
-    value_hidden(g, None, names, value)
+    with_operation(g, || value_hidden(g, None, names, value))
 }
 
 /// [`value_for_message_hidden`], with names as `scope` writes them.
@@ -277,7 +306,7 @@ pub fn value_for_message_hidden_in(
     names: &[Name],
     value: &Value,
 ) -> String {
-    value_hidden(g, Some(scope), names, value)
+    with_operation(g, || value_hidden(g, Some(scope), names, value))
 }
 
 fn value_hidden(g: &Ev, scope: Option<&dyn NameScope>, names: &[Name], value: &Value) -> String {
@@ -319,7 +348,7 @@ const DIFFERENCE_LIMIT: usize = 100;
 /// layer (which any printing shows), if they differ only in those
 /// arguments, or if they're too deeply nested to compare.
 pub fn first_difference(g: &Ev, names: &[Name], a: &Term, b: &Term) -> Option<Difference> {
-    difference(g, None, names, a, b)
+    with_operation(g, || difference(g, None, names, a, b))
 }
 
 /// [`first_difference`], with names as `scope` writes them.
@@ -330,7 +359,7 @@ pub fn first_difference_in(
     a: &Term,
     b: &Term,
 ) -> Option<Difference> {
-    difference(g, Some(scope), names, a, b)
+    with_operation(g, || difference(g, Some(scope), names, a, b))
 }
 
 fn difference(
@@ -513,20 +542,24 @@ pub fn elide_agreeing(a: &Term, b: &Term) -> (Term, Term) {
 
 /// [`value_for_message`], for a term.
 pub fn term_for_message(g: &Ev, names: &[Name], term_: &Term) -> String {
-    term_within(g, None, names, term_, MESSAGE_LIMIT, Prec::Arrow, None)
+    with_operation(g, || {
+        term_within(g, None, names, term_, MESSAGE_LIMIT, Prec::Arrow, None)
+    })
 }
 
 /// [`term_for_message`], with names as `scope` writes them.
 pub fn term_for_message_in(g: &Ev, scope: &dyn NameScope, names: &[Name], term_: &Term) -> String {
-    term_within(
-        g,
-        Some(scope),
-        names,
-        term_,
-        MESSAGE_LIMIT,
-        Prec::Arrow,
-        Some(&[]),
-    )
+    with_operation(g, || {
+        term_within(
+            g,
+            Some(scope),
+            names,
+            term_,
+            MESSAGE_LIMIT,
+            Prec::Arrow,
+            Some(&[]),
+        )
+    })
 }
 
 /// The longest a term may be in a goal (docs/proposals/lsp-goal-holes.md
@@ -545,15 +578,17 @@ pub fn value_for_goal(
     predicates: &[bool],
     value: &Value,
 ) -> String {
-    value_within(
-        g,
-        Some(scope),
-        names,
-        value,
-        GOAL_LIMIT,
-        Prec::Arrow,
-        Some(predicates),
-    )
+    with_operation(g, || {
+        value_within(
+            g,
+            Some(scope),
+            names,
+            value,
+            GOAL_LIMIT,
+            Prec::Arrow,
+            Some(predicates),
+        )
+    })
 }
 
 /// [`value_for_goal`], but as it was written: every call stays a call, so
@@ -566,16 +601,18 @@ pub fn value_for_goal_as_written(
     predicates: &[bool],
     value: &Value,
 ) -> Option<String> {
-    let t = quote_as_written_shown(g, names.len(), value).ok()?;
-    Some(term_within(
-        g,
-        Some(scope),
-        names,
-        &t,
-        GOAL_LIMIT,
-        Prec::Arrow,
-        Some(predicates),
-    ))
+    with_operation(g, || {
+        let t = quote_as_written_shown(g, names.len(), value).ok()?;
+        Some(term_within(
+            g,
+            Some(scope),
+            names,
+            &t,
+            GOAL_LIMIT,
+            Prec::Arrow,
+            Some(predicates),
+        ))
+    })
 }
 
 /// [`value_for_goal`], for a term already read back: a step's statement as
@@ -588,15 +625,17 @@ pub fn term_for_goal_in(
     predicates: &[bool],
     term_: &Term,
 ) -> String {
-    term_within(
-        g,
-        Some(scope),
-        names,
-        term_,
-        GOAL_LIMIT,
-        Prec::Arrow,
-        Some(predicates),
-    )
+    with_operation(g, || {
+        term_within(
+            g,
+            Some(scope),
+            names,
+            term_,
+            GOAL_LIMIT,
+            Prec::Arrow,
+            Some(predicates),
+        )
+    })
 }
 
 /// Whether the type `ty` (a value under `level` binders) is
@@ -619,15 +658,17 @@ pub fn is_predicate_type(g: &Ev, level: usize, ty: &Value) -> bool {
 /// in brackets if it's an operation that binds more loosely than `=`
 /// (`(n < n) = True`).
 pub fn side_for_message_in(g: &Ev, scope: &dyn NameScope, names: &[Name], value: &Value) -> String {
-    value_within(
-        g,
-        Some(scope),
-        names,
-        value,
-        MESSAGE_LIMIT,
-        Prec::Add,
-        Some(&[]),
-    )
+    with_operation(g, || {
+        value_within(
+            g,
+            Some(scope),
+            names,
+            value,
+            MESSAGE_LIMIT,
+            Prec::Add,
+            Some(&[]),
+        )
+    })
 }
 
 /// [`term_within`] for a value, with calls shown as written.

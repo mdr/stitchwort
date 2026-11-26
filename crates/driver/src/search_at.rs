@@ -774,6 +774,24 @@ impl Session {
         scope: &Scope,
         checker: Option<&mut Session>,
     ) -> Result<AtReport, Diagnostic> {
+        let budget = &self.elab.kernel.machine.budget;
+        if budget.is_running() {
+            return self.search_at_inner(found, file, options, scope, checker);
+        }
+        let saved = budget.start(self.elab.options.limits);
+        let result = self.search_at_inner(found, file, options, scope, checker);
+        self.elab.kernel.machine.budget.restore(saved);
+        result
+    }
+
+    fn search_at_inner(
+        &mut self,
+        found: &FoundGoal,
+        file: &str,
+        options: &AtOptions,
+        scope: &Scope,
+        checker: Option<&mut Session>,
+    ) -> Result<AtReport, Diagnostic> {
         let started = Instant::now();
         // The core's equations, put off until now (`equations.rs`).
         self.elab.generate_deferred_equations()?;

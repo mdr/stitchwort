@@ -575,6 +575,22 @@ impl Session {
         options: &Options,
         scope: &Scope,
     ) -> Result<Report, Diagnostic> {
+        let budget = &self.elab.kernel.machine.budget;
+        if budget.is_running() {
+            return self.search_inner(text, options, scope);
+        }
+        let saved = budget.start(self.elab.options.limits);
+        let result = self.search_inner(text, options, scope);
+        self.elab.kernel.machine.budget.restore(saved);
+        result
+    }
+
+    fn search_inner(
+        &mut self,
+        text: &str,
+        options: &Options,
+        scope: &Scope,
+    ) -> Result<Report, Diagnostic> {
         let query = parse(text).map_err(|m| Diagnostic::error("E-SEARCH-QUERY", m))?;
         // The core's equations, put off until now (`equations.rs`): search
         // lists them like any theorem.

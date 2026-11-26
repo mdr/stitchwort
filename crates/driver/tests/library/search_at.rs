@@ -98,6 +98,12 @@ fn at_with(text: &str, line: usize, options: &AtOptions) -> AtReport {
             .load_all_libraries()
             .expect("the library checks");
         let mut checking = Session::for_stack(STACK);
+        let _operation = checking
+            .elab
+            .kernel
+            .machine
+            .budget
+            .start(checking.elab.options.limits);
         load(&mut checking, text);
         session
             .search_at(
@@ -434,6 +440,12 @@ fn at_each(text: &str, lines: &[usize]) -> Vec<AtReport> {
             .load_all_libraries()
             .expect("the library checks");
         let mut checking = Session::for_stack(STACK);
+        let _operation = checking
+            .elab
+            .kernel
+            .machine
+            .budget
+            .start(checking.elab.options.limits);
         load(&mut checking, text);
         (lines.iter())
             .map(|line| {
