@@ -6108,17 +6108,20 @@
     {
       "id": 1951,
       "title": "[DeepSeek] CLI fixes: fmt DIR skips hidden folders (fmt . reformats every lane's checkout), doesn't follow symlinks, writes atomically; check and audit on several files drop each session when done",
-      "status": "doing",
+      "status": "done",
       "agent": "DeepSeek",
       "where": "scratch-sw-1951",
       "labels": [
         "cli"
       ],
       "epic": "diagnostics",
-      "body": "From docs/reviews/code-review-cli-lsp-web-fmt.md (lane D). D2731 [rec: yes]. 45 min.\n\nAudit note (22 Nov): Audit 22 Nov: no commit touches it; not re-run (fmt DIR walk).\n",
+      "body": "From docs/reviews/code-review-cli-lsp-web-fmt.md (lane D). D2731 [rec: yes]. 45 min.\n\nAudit note (22 Nov): Audit 22 Nov: no commit touches it; not re-run (fmt DIR walk).\n\nThree tools::fmt tests (hidden folder, symlink cycle, permissions+atomic), each failing before. F3: the two per-file loops drop instead of mem::forget. Symlinked .sw files met in a walk are skipped too; a named symlinked folder is still walked. Model result: deepseek, worked, about 20 min (est. 35).",
       "created": "2026-11-07",
       "updated": "2026-11-26",
-      "commits": []
+      "commits": [
+        "828e2948a",
+        "5ddc2f4ca"
+      ]
     },
     {
       "id": 1952,
