@@ -1944,8 +1944,11 @@ fn push(g: &Ev, stack: &mut Stack, frame: Frame) -> Result<()> {
 /// ([`Stack`]): the frames above it are a new segment.
 fn push_segment(g: &Ev, stack: &mut Stack, frame: Frame) -> Result<()> {
     if stack.segments.len() >= MAX_PENDING_SEGMENTS {
-        note_deepest(g, stack.counted());
-        return Err(ResourceError::Depth);
+        let e = g.machine.budget.too_much_pending();
+        if e == ResourceError::Depth {
+            note_deepest(g, stack.counted());
+        }
+        return Err(e);
     }
     frames_for(g, stack, stack.segments.len() + 1)?;
     stack.segments.push(stack.frames.len());
@@ -2968,6 +2971,7 @@ fn branch_asked(
             // A glued call inside the number is forced by this machine, and
             // then the number is read again, as a native's are
             // ([`run_native`]).
+            start_read();
             let viewed = native::view_with(g, &value, forcing_for(asked));
             if let Some(part) = ASKED.take() {
                 let waiting = Box::new(NumberScrutinee {
@@ -3646,10 +3650,12 @@ fn from_native(g: &Ev, stack: &mut Stack, id: DefId, spine: Spine, from: usize) 
 /// its last forcing (it charges for big numbers after) is done twice. So a
 /// chain of such calls (`Succ (f k x) + 1` with `f (k + 1) x` the same
 /// again) is frames on the heap, where `force` would start a machine per
-/// link on the Rust stack. Past [`ASKS`] times the native forces with
-/// `force` ([`forcing_for`]).
+/// link on the Rust stack. Past [`ASKS`] times, or once the run has forced
+/// something that took steps ([`FORCED`]), the native forces with `force`
+/// ([`forcing_for`], [`force_or_ask`]).
 fn run_native(g: &Ev, stack: &mut Stack, id: DefId, spine: Spine, asked: usize) -> Result<Control> {
     let op = g.env.builtins().native(id).expect("a native");
+    start_read();
     let outcome = native::run(g, id, op, &spine, forcing_for(asked));
     if let Some(part) = ASKED.take() {
         let asked = asked + 1;
@@ -3689,6 +3695,30 @@ thread_local! {
     /// from (`native::run` in [`run_native`], `native::view_with` in
     /// [`branch_asked`]) returning to its caller, which takes it.
     static ASKED: std::cell::Cell<Option<Value>> = const { std::cell::Cell::new(None) };
+    /// Whether the read in progress has forced something that took steps
+    /// (a solved metavariable replayed, a call's kept unfolding forced
+    /// again): [`force_or_ask`] then asks no more, as a rerun would take
+    /// those steps again, and build fresh values whose glued calls keep no
+    /// unfolding, so it would ask again too.
+    static FORCED: std::cell::Cell<bool> = const { std::cell::Cell::new(false) };
+}
+
+/// Starts a read with [`force_or_ask`]: nothing asked or forced yet. (A
+/// panic between an ask and its take leaves nothing for the next read.)
+fn start_read() {
+    ASKED.set(None);
+    FORCED.set(false);
+}
+
+/// Whether [`force`] takes no step on `value`: it leaves it as it is, or
+/// takes a call's kept unfolding (`force_now`'s shortcut).
+fn forces_free(g: &Ev, value: &Value) -> bool {
+    match value {
+        Value::Call(_, _, unfolding) => unfolding
+            .get(g)
+            .is_some_and(|unfolded| !needs_forcing(g, &unfolded)),
+        other => !needs_forcing(g, other),
+    }
 }
 
 /// How many times a native's run ([`run_native`]), or a number case's read
@@ -3706,7 +3736,25 @@ const ASKS: usize = 8;
 /// The forcing for a native run, or a number case's read, that has had
 /// this machine force a glued call `asked` times ([`ASKS`]).
 fn forcing_for(asked: usize) -> native::Force {
+    #[cfg(any(test, feature = "reference"))]
+    if NEVER_ASK.with(|n| n.get()) {
+        return force;
+    }
     if asked < ASKS { force_or_ask } else { force }
+}
+
+#[cfg(any(test, feature = "reference"))]
+thread_local! {
+    static NEVER_ASK: std::cell::Cell<bool> = const { std::cell::Cell::new(false) };
+}
+
+/// Makes natives and number cases on this thread force with [`force`]
+/// alone, never asking the machine ([`force_or_ask`]), if `never`; returns
+/// what it was. For tests comparing the two, which must take the same
+/// steps.
+#[cfg(any(test, feature = "reference"))]
+pub fn set_never_ask(never: bool) -> bool {
+    NEVER_ASK.with(|n| n.replace(never))
 }
 
 /// [`force`] for a native that [`run_native`] runs, or a number case's
@@ -3714,15 +3762,25 @@ fn forcing_for(asked: usize) -> native::Force {
 /// unfolding, for which `force` would start another machine, is handed
 /// back to the machine instead ([`ASKED`]), with an error that stops the
 /// read there (`native.rs`'s reads pass every error on, and never look at
-/// one). Anything else is forced as `force` does it.
+/// one). Anything else is forced as `force` does it. Once the read has
+/// forced anything that took steps ([`FORCED`]), it asks no more, so the
+/// runs before a rerun forced only what takes no step, and a rerun takes
+/// exactly the steps `force` would have.
 fn force_or_ask(g: &Ev, value: Value) -> Result<Value> {
-    if let Value::Call(_, _, unfolding) = &value
+    if !FORCED.get()
+        && let Value::Call(_, _, unfolding) = &value
         && unfolding.get(g).is_none()
     {
         ASKED.set(Some(value));
         return Err(ResourceError::Cancelled);
     }
-    force(g, value)
+    let free = forces_free(g, &value);
+    let forced = force(g, value);
+    // After `force`: a read nested in it starts its own, clearing the flag.
+    if !free {
+        FORCED.set(true);
+    }
+    forced
 }
 
 /// The index of the first number argument of native `op`, from `from` on,

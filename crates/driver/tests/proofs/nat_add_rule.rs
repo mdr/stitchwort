@@ -513,6 +513,55 @@ fn a_chain_of_sums_on_the_left_computes_as_the_reference_does() {
     });
 }
 
+/// A native whose argument is a solved metavariable, replayed to
+/// `Succ (slow x)` with `slow` glued, takes the steps it takes forcing with
+/// `force` alone: the machine doesn't force `slow x` for the native and run
+/// it again, which would replay the metavariable again and build a fresh
+/// `slow x` to force, up to the rerun cap (`value::force_or_ask`, SW-4878).
+/// The same for a number `case` on it.
+#[test]
+fn a_native_reading_a_solved_metavariable_takes_the_steps_force_does() {
+    use stitchwort_core::Icit;
+    use stitchwort_core::value::{Elim, Head};
+    with_stack(STACK, || {
+        let mut session = Session::for_stack(STACK);
+        let ok = session.load(
+            "meta.sw",
+            "def walk: Nat → Nat → Nat\n  | Zero, y => y\n  | Succ k, y => walk k y\n\n\
+             def slow (y: Nat): Nat := walk 30 y\n\n\
+             def succSlow (y: Nat): Nat := Succ (slow y)\n\n\
+             def isTwo (n: Nat): Nat :=\n  match n with\n    | 2 => 1\n    | _ => 0\n",
+        );
+        assert!(ok.is_ok(), "{ok:?}");
+        let g = &session.elab.ev();
+        let span =
+            stitchwort_syntax::Span::point(stitchwort_syntax::SourceMap::new().add("t", ""), 0);
+        let m = session.elab.metas().new_meta(span);
+        let solution = value::eval(g, &[], &Term::Def(find(g, "succSlow"))).expect("no limits");
+        session.elab.metas().solve_meta(m, solution);
+        // `?m x`, for a variable `x`.
+        let env = [Value::Neutral(
+            Head::Meta(m),
+            vec![Elim::App(Value::var(0), Icit::Explicit)].into(),
+        )];
+        let sum = Term::app(Term::app(Term::Def(add_id(g)), Term::Var(0)), num(1));
+        let case = Term::app(Term::Def(find(g, "isTwo")), Term::Var(0));
+        for term in [&sum, &case] {
+            let run = |never_ask: bool| {
+                let was = value::set_never_ask(never_ask);
+                let glued = g.machine.glue.replace(true);
+                let before = g.machine.budget.total_work();
+                let result = value::eval(g, &env, term).expect("no limits");
+                let steps = g.machine.budget.total_work() - before;
+                g.machine.glue.set(glued);
+                value::set_never_ask(was);
+                (shown(g, 1, &result), steps)
+            };
+            assert_eq!(run(false), run(true), "asking, and forcing alone");
+        }
+    });
+}
+
 /// The definition whose name ends in `name`.
 fn find(g: &stitchwort_core::Ev, name: &str) -> DefId {
     DefId(
