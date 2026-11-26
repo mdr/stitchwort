@@ -36908,15 +36908,20 @@
     {
       "id": 4893,
       "title": "[Sonnet] Research note: the JSPI chain of stacks (docs/research/), from docs/reviews/SW-4870-jspi-stack-chain.md and SW-4863's prior-art search; conclusion 'not yet' (D3753, Matt, 26 Nov 2026), with what would change the answer",
-      "status": "review",
+      "status": "done",
       "agent": "Sonnet",
       "where": "",
       "labels": [],
       "epic": "editor-playground",
-      "body": "Note written: docs/research/jspi-stack-chain.md; conclusion not yet (D3753). Model result: Sonnet, worked",
+      "body": "Note written: docs/research/jspi-stack-chain.md; conclusion not yet (D3753). Model result: Sonnet, worked\n\nModel result: sonnet, needed fixes (two citations pointed at the brief; orchestrator cited the sources), 25 min (est. 25).",
       "created": "2026-11-26",
       "updated": "2026-11-26",
-      "commits": []
+      "commits": [
+        "ef910ee17",
+        "b9383d04e",
+        "64e62c1b2",
+        "643a50a4f"
+      ]
     },
     {
       "id": 4894,
