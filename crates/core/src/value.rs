@@ -1492,11 +1492,10 @@ enum Frame {
         env: Vec<Value>,
         stuck: Stuck,
     },
-    /// The number case node `tree`, with its environment and its forced
-    /// scrutinee, waiting for a glued call inside the scrutinee to be
-    /// forced before [`branch`] reads it again. (Boxed: it's large, and
-    /// rare.)
-    NumberScrutinee(Box<(Rc<Term>, Vec<Value>, Stuck, Value)>),
+    /// A number case waiting for a glued call inside its scrutinee to be
+    /// forced before [`branch_asked`] reads it again. (Boxed: it's large,
+    /// and rare.)
+    NumberScrutinee(Box<NumberScrutinee>),
     /// The unfolding of a folded call ([`folded_call`])
     /// that the frame `next` takes apart: unfolded again if it's another
     /// folded call, directly or once a glued call it ends in is forced, and
@@ -1523,6 +1522,14 @@ enum Frame {
         spine: Spine,
         next: usize,
     },
+    /// Native definition `id` applied to `spine`, waiting for a glued call
+    /// inside one of its numbers to be forced before it runs again
+    /// ([`run_native`]), the last of `asked` times.
+    NativeAgain {
+        id: DefId,
+        spine: Spine,
+        asked: usize,
+    },
     /// The forced value of the call that field call `id spine` (spine
     /// ending in projection `d`, `i`; [`project_call`]) takes field `i`
     /// of ([`CallField`]). (Boxed: it's large, and rare.)
@@ -1535,6 +1542,17 @@ enum Frame {
     /// argument of a stuck `add m n`, for R3 and R4, or what a
     /// [`Frame::AddNat`] got. (Boxed: it's large, and rare.)
     ReadNumber(Box<ReadNumber>),
+}
+
+/// What a [`Frame::NumberScrutinee`] waits with: the case node `tree`, its
+/// environment, and its forced scrutinee, which has had this machine force
+/// a glued call inside it `asked` times.
+struct NumberScrutinee {
+    tree: Rc<Term>,
+    env: Vec<Value>,
+    stuck: Stuck,
+    scrutinee: Value,
+    asked: usize,
 }
 
 /// A number being read as `k + base` ([`read_number`]), and what to make
@@ -2310,7 +2328,7 @@ fn resume(g: &Ev, frame: Frame, value: Value, stack: &mut Stack) -> Result<Contr
             if native::number_head(g, &value) {
                 from_native(g, stack, id, spine, next)?
             } else {
-                run_native(g, stack, id, spine)?
+                run_native(g, stack, id, spine, 0)?
             }
         }
         Frame::ReadNumber(read) => read_number(g, stack, *read, value, true)?,
@@ -2681,9 +2699,16 @@ fn resume_rare(g: &Ev, frame: Frame, value: Value, stack: &mut Stack) -> Result<
         // The forced part has its unfolding kept, where reading the
         // scrutinee again finds it.
         Frame::NumberScrutinee(waiting) => {
-            let (tree, env, stuck, scrutinee) = *waiting;
-            branch(g, stack, tree, env, stuck, scrutinee)?
+            let NumberScrutinee {
+                tree,
+                env,
+                stuck,
+                scrutinee,
+                asked,
+            } = *waiting;
+            branch_asked(g, stack, tree, env, stuck, scrutinee, asked)?
         }
+        Frame::NativeAgain { id, spine, asked } => run_native(g, stack, id, spine, asked)?,
         Frame::FieldOf(field) => {
             let FieldOf {
                 id,
@@ -2902,13 +2927,28 @@ fn count_stuck_one_shape(g: &Ev, d: DataId, stuck: &Stuck, value: &Value) {
 }
 
 /// The branch of the case node `tree` for the (forced) scrutinee `value`.
+#[inline]
 fn branch(
+    g: &Ev,
+    stack: &mut Stack,
+    tree: Rc<Term>,
+    env: Vec<Value>,
+    stuck: Stuck,
+    value: Value,
+) -> Result<Control> {
+    branch_asked(g, stack, tree, env, stuck, value, 0)
+}
+
+/// [`branch`], for a number case that has had this machine force a glued
+/// call inside `value` `asked` times ([`Frame::NumberScrutinee`]).
+fn branch_asked(
     g: &Ev,
     stack: &mut Stack,
     tree: Rc<Term>,
     mut env: Vec<Value>,
     stuck: Stuck,
     value: Value,
+    asked: usize,
 ) -> Result<Control> {
     // A folded call was unfolded before this (`Frame::Scrutinee`).
     let (d, branches, scrutinee) = match &*tree {
@@ -2917,9 +2957,15 @@ fn branch(
             // A glued call inside the number is forced by this machine, and
             // then the number is read again, as a native's are
             // ([`run_native`]).
-            let viewed = native::view_with(g, &value, force_or_ask);
+            let viewed = native::view_with(g, &value, forcing_for(asked));
             if let Some(part) = ASKED.take() {
-                let waiting = Box::new((tree.clone(), env.clone(), stuck, value));
+                let waiting = Box::new(NumberScrutinee {
+                    tree: tree.clone(),
+                    env: env.clone(),
+                    stuck,
+                    scrutinee: value,
+                    asked: asked + 1,
+                });
                 push_segment(g, stack, Frame::NumberScrutinee(waiting))?;
                 return Ok(Control::Force(part));
             }
@@ -2940,7 +2986,7 @@ fn branch(
                     _ => match reread_sum(g, &base, &mut Unread::default())? {
                         Some(base) => {
                             let value = native::from_view(k, Some(base));
-                            return branch(g, stack, tree, env, stuck, value);
+                            return branch_asked(g, stack, tree, env, stuck, value, 0);
                         }
                         None => return stuck_tree(g, stack, stuck),
                     },
@@ -3018,7 +3064,7 @@ fn branch(
             (0, (0..k).map(|i| project(*d, i, n.clone())).collect())
         }
         other => match reread_sum(g, &other, &mut Unread::default())? {
-            Some(value) => return branch(g, stack, tree, env, stuck, value),
+            Some(value) => return branch_asked(g, stack, tree, env, stuck, value, 0),
             None => {
                 if proof_counts::on() {
                     count_stuck_one_shape(g, *d, &stuck, &other);
@@ -3570,31 +3616,33 @@ fn from_native(g: &Ev, stack: &mut Stack, id: DefId, spine: Spine, from: usize) 
     let op = g.env.builtins().native(id).expect("a native");
     match unforced_number_arg(g, op, &spine, from) {
         Some(index) => Ok(Control::NativeArg(id, spine, index)),
-        None => run_native(g, stack, id, spine),
+        None => run_native(g, stack, id, spine, 0),
     }
 }
 
 /// Native definition `id` applied to all its arguments, `spine`: its
-/// native implementation, or else its case tree.
+/// native implementation, or else its case tree. It has had this machine
+/// force a glued call inside one of its numbers `asked` times.
 ///
 /// The native forces with [`force_or_ask`]: where it comes to a glued call
 /// not yet unfolded (inside a number, as `Succ (f x)` or `k + f x`, where
 /// [`from_native`] doesn't look), this machine forces the call, with a
 /// frame waiting for it that runs the native again from the start
-/// ([`Frame::NativeArg`], as the start of a segment, [`Stack`]). The call
-/// then has its unfolding kept, so the native's `force` finds it at once,
-/// taking no step, and goes on to where it stopped, forcing the same parts
-/// in the same order as with [`force`]; nothing a native does before its
-/// last forcing (it charges for big numbers after) is done twice. So a
+/// ([`Frame::NativeAgain`], as the start of a segment, [`Stack`]). The
+/// call then has its unfolding kept, so the native's `force` finds it at
+/// once, taking no step, and goes on to where it stopped, forcing the same
+/// parts in the same order as with [`force`]; nothing a native does before
+/// its last forcing (it charges for big numbers after) is done twice. So a
 /// chain of such calls (`Succ (f k x) + 1` with `f (k + 1) x` the same
 /// again) is frames on the heap, where `force` would start a machine per
-/// link on the Rust stack.
-fn run_native(g: &Ev, stack: &mut Stack, id: DefId, spine: Spine) -> Result<Control> {
+/// link on the Rust stack. Past [`ASKS`] times the native forces with
+/// `force` ([`forcing_for`]).
+fn run_native(g: &Ev, stack: &mut Stack, id: DefId, spine: Spine, asked: usize) -> Result<Control> {
     let op = g.env.builtins().native(id).expect("a native");
-    let outcome = native::run(g, id, op, &spine, force_or_ask);
+    let outcome = native::run(g, id, op, &spine, forcing_for(asked));
     if let Some(part) = ASKED.take() {
-        let next = op.arity();
-        push_segment(g, stack, Frame::NativeArg { id, spine, next })?;
+        let asked = asked + 1;
+        push_segment(g, stack, Frame::NativeAgain { id, spine, asked })?;
         return Ok(Control::Force(part));
     }
     match outcome? {
@@ -3629,6 +3677,24 @@ thread_local! {
     /// Set only between `force_or_ask` returning and the `native::run` it
     /// was called from returning to `run_native`, which takes it.
     static ASKED: std::cell::Cell<Option<Value>> = const { std::cell::Cell::new(None) };
+}
+
+/// How many times a native's run ([`run_native`]), or a number case's read
+/// of its scrutinee ([`branch_asked`]), has this machine force a glued call
+/// and starts again, before it forces with [`force`] instead. Each time
+/// reads the numbers again up to where the last stopped, so a number with
+/// `n` such calls in it one inside the other (`Succ (f k)` with `f k`
+/// unfolding to `Succ (f (k - 1))`) would be read `n` times; `force`
+/// reads it once, starting a machine for each call that is done before
+/// the next starts, so Rust's stack only grows where a call's forcing
+/// comes to such a call in turn. Which of the two forces a call changes
+/// no value, step or limit, only Rust stack and time.
+const ASKS: usize = 8;
+
+/// The forcing for a native run, or a number case's read, that has had
+/// this machine force a glued call `asked` times ([`ASKS`]).
+fn forcing_for(asked: usize) -> native::Force {
+    if asked < ASKS { force_or_ask } else { force }
 }
 
 /// [`force`] for a native that [`run_native`] runs: a glued call with no
