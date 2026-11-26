@@ -966,7 +966,7 @@ fn negated(cx: &Ctx, lib: &Lib, value: &Value) -> Result<Option<Value>> {
         return Ok(Some(p.clone()));
     }
     if let Value::Pi(_, Icit::Explicit, dom, cod, _) = &value {
-        let result = cod.apply(&cx.g(), Value::var(cx.level()))?;
+        let result = cod.apply(&cx.g(), cx.fresh_var(dom))?;
         if is_data(cx, &result, lib.void)? {
             return Ok(Some((**dom).clone()));
         }
@@ -4322,13 +4322,13 @@ fn lemma_result(cx: &Ctx, which: DefId, args: &[Term], rest: usize) -> Result<Va
     // The certificates and proofs: the result doesn't depend on them.
     let mut remaining = rest;
     while remaining > 0 {
-        let Value::Pi(_, _, _, cod, _) = force(&g, ty)? else {
+        let Value::Pi(_, _, dom, cod, _) = force(&g, ty)? else {
             return Err(internal(
                 cx.span,
                 "`Std.Omega.prove` has fewer parameters than expected".into(),
             ));
         };
-        ty = cod.apply(&g, Value::var(cx.level()))?;
+        ty = cod.apply(&g, cx.fresh_var(&dom))?;
         remaining -= 1;
     }
     Ok(ty)

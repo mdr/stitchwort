@@ -555,10 +555,10 @@ impl Search<'_> {
         else {
             return Ok(());
         };
-        let Value::Pi(_, Icit::Explicit, _, cod, _) = force(&g, rest)? else {
+        let Value::Pi(_, Icit::Explicit, dom, cod, _) = force(&g, rest)? else {
             return Ok(());
         };
-        let result = cod.apply(&g, Value::var(cx.level()))?;
+        let result = cod.apply(&g, cx.fresh_var(&dom))?;
         if !crate::undo::unify(cx, &result, goal)? {
             return Ok(());
         }
@@ -1005,7 +1005,7 @@ impl Search<'_> {
                     return Ok(Some((at(fact.level), fact.text.clone())));
                 }
                 Value::Pi(_, Icit::Explicit, dom, cod, _) => {
-                    let result = force(&g, cod.apply(&g, Value::var(cx.level()))?)?;
+                    let result = force(&g, cod.apply(&g, cx.fresh_var(&dom))?)?;
                     if !matches!(result, Value::Data(d, _) if d == void) {
                         continue;
                     }

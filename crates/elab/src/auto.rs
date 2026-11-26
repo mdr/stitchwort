@@ -974,7 +974,7 @@ fn size_from_member(cx: &mut Ctx, goal: &Value) -> Result<Option<Term>> {
                         return Ok(None);
                     };
                     if !matches!(
-                        force(&g, cod.apply(&g, Value::var(cx.level()))?)?,
+                        force(&g, cod.apply(&g, cx.fresh_var(&dom))?)?,
                         Value::Pi(..)
                     ) {
                         if !cx.unify(&dom, &ty)? {
@@ -1033,12 +1033,12 @@ fn membership_facts(cx: &mut Ctx, mems: &[DefId]) -> Result<Vec<(Term, Value)>> 
             let mut ty = g.def(*projection).ty_value().clone();
             let mut params = params.iter();
             loop {
-                let Value::Pi(_, icit, _, cod, _) = force(&g, ty.clone())? else {
+                let Value::Pi(_, icit, dom, cod, _) = force(&g, ty.clone())? else {
                     break;
                 };
                 if icit == Icit::Explicit {
                     term = Term::app(term, here.clone());
-                    ty = cod.apply(&g, Value::var(level))?;
+                    ty = cod.apply(&g, Value::var_marked(level, cx.mark_of_type(&dom)))?;
                     break;
                 }
                 let Some(p) = params.next() else {
