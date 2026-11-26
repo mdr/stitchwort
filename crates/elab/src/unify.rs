@@ -5128,13 +5128,29 @@ mod tests {
     use stitchwort_core::{Icit, Sort};
     use stitchwort_syntax::{SourceMap, Span};
 
-    /// A fresh unifier's state.
-    #[derive(Default)]
+    /// A fresh unifier's state, with an operation open: the kernel's stack
+    /// guards need one.
     struct Fresh {
         g: stitchwort_core::Kernel,
         store: crate::state::MetaStore,
         attempt: Attempt,
         stats: Stats,
+    }
+
+    impl Default for Fresh {
+        fn default() -> Fresh {
+            let g = stitchwort_core::Kernel::default();
+            let _operation = g
+                .machine
+                .budget
+                .start(stitchwort_core::budget::Limits::default());
+            Fresh {
+                g,
+                store: crate::state::MetaStore::default(),
+                attempt: Attempt::default(),
+                stats: Stats::default(),
+            }
+        }
     }
 
     impl Fresh {
@@ -6421,7 +6437,7 @@ mod tests {
                 let file = sources.add("<prelude>", crate::prelude());
                 let module = stitchwort_syntax::parse_module(file, crate::prelude())
                     .expect("the core parses");
-                let mut e = Elaborator::new();
+                let mut e = crate::Elaborator::test_elaborator();
                 e.unit.loading_prelude = true;
                 let errors = |ds: Vec<stitchwort_syntax::Diagnostic>| {
                     ds.into_iter()

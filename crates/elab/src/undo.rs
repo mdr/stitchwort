@@ -221,7 +221,6 @@ mod tests {
     use stitchwort_syntax::SourceMap;
 
     use super::*;
-    use crate::Elaborator;
 
     fn span() -> Span {
         let mut sources = SourceMap::new();
@@ -268,7 +267,7 @@ mod tests {
 
     #[test]
     fn a_comparison_that_fails_part_way_solves_nothing() {
-        let e = Elaborator::new();
+        let e = crate::Elaborator::test_elaborator();
         let mut cx = Ctx::new(&e, span());
         // `?a = Type1` against `Type0 = Type0`: `?a := Type0`, then `Type1`
         // against `Type0` fails.
@@ -293,7 +292,7 @@ mod tests {
     /// transaction takes it back.
     #[test]
     fn a_proof_solved_before_a_failure_is_undone() {
-        let mut e = Elaborator::new();
+        let mut e = crate::Elaborator::test_elaborator();
         let p = crate::unify::proof_fixture::build(&mut e.kernel);
         let mut cx = Ctx::new(&e, span());
         let n = |k: usize| {
@@ -318,7 +317,7 @@ mod tests {
 
     #[test]
     fn metavariables_made_by_pruning_are_dropped() {
-        let e = Elaborator::new();
+        let e = crate::Elaborator::test_elaborator();
         let mut cx = Ctx::new(&e, span());
         cx.bind_hidden("x".into(), ty(0));
         // `?a = Type1` against `(?b x0 = Type0) = Type0`, with `?a` unable to
@@ -342,7 +341,7 @@ mod tests {
 
     #[test]
     fn obligations_and_context_are_restored_but_work_is_not_refunded() {
-        let e = Elaborator::new();
+        let e = crate::Elaborator::test_elaborator();
         let mut cx = Ctx::new(&e, span());
         let _op = cx.g().machine.budget.operation(Limits::default());
         let level = cx.level();
@@ -373,7 +372,7 @@ mod tests {
         // asks `Elaborator::group` to check a failed body once more with the
         // signature's divergence total, so a meeting in an attempt that was
         // undone can cost a second check but never changes the answer.
-        let e = Elaborator::new();
+        let e = crate::Elaborator::test_elaborator();
         let mut cx = Ctx::new(&e, span());
         let found: Option<()> = transaction(&mut cx, |cx| {
             cx.e.attempt.note_rigid_divergence();
@@ -388,7 +387,7 @@ mod tests {
 
     #[test]
     fn running_out_of_resources_is_passed_on_without_undoing() {
-        let e = Elaborator::new();
+        let e = crate::Elaborator::test_elaborator();
         let mut cx = Ctx::new(&e, span());
         let limits = Limits {
             work: 3,
@@ -419,7 +418,7 @@ mod tests {
     /// attempt is undone, even an older one.
     #[test]
     fn an_undone_attempt_thaws_what_it_froze() {
-        let e = Elaborator::new();
+        let e = crate::Elaborator::test_elaborator();
         let mut cx = Ctx::new(&e, span());
         let (older, _) = meta(&cx, &[]);
         let before = Snapshot::take(&cx);

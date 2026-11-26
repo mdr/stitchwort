@@ -513,6 +513,7 @@ mod tests {
     #[test]
     fn admission_refuses_a_solved_metavariable() {
         let mut e = Elaborator::new();
+        let _operation = e.kernel.machine.budget.start(Limits::default());
         let span = Span::point(SourceMap::new().add("t", ""), 0);
         let m = e.attempt.store.new_meta(span);
         e.attempt.store.solve_meta(m, Value::Sort(Sort::Type(0)));

@@ -1314,6 +1314,15 @@ impl Elaborator {
         e
     }
 
+    /// An elaborator for a unit test, with an operation open: the kernel's
+    /// stack guards need one.
+    #[cfg(test)]
+    pub(crate) fn test_elaborator() -> Elaborator {
+        let e = Elaborator::new();
+        let _operation = e.kernel.machine.budget.start(e.options.limits);
+        e
+    }
+
     /// Whether the body being checked is one of the library's definitions
     /// by cases on a divergence index (`Effect.doneD`, `bindDv`, `liftD`,
     /// `delayD`; docs/proposals/partial-stage-3.md §2.1). Each case is

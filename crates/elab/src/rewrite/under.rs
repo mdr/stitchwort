@@ -743,7 +743,7 @@ mod tests {
                 let file = sources.add("<prelude>", crate::prelude());
                 let core = stitchwort_syntax::parse_module(file, crate::prelude())
                     .expect("the core parses");
-                let mut e = Elaborator::new();
+                let mut e = crate::Elaborator::test_elaborator();
                 e.unit.loading_prelude = true;
                 let diagnostics = e.elaborate_module(&core);
                 assert!(diagnostics.iter().all(|d| d.severity != Severity::Error));

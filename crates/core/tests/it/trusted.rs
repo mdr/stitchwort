@@ -7,7 +7,7 @@ use crate::common::*;
 use stitchwort_core::check::{self, DataDecl};
 use stitchwort_core::globals::{Ctor, Kernel, State};
 use stitchwort_core::hash::{data_hash, def_hash};
-use stitchwort_core::{DefId, ProofMark, Sort, Term};
+use stitchwort_core::{DefId, Limits, ProofMark, Sort, Term};
 
 fn code<T>(result: Result<T, stitchwort_syntax::Diagnostic>) -> &'static str {
     result.err().map_or("ok", |d| d.code)
@@ -18,6 +18,7 @@ fn code<T>(result: Result<T, stitchwort_syntax::Diagnostic>) -> &'static str {
 /// whose groups each have one member, defined right after being declared.
 fn trusted_copy(a: &Kernel) -> Kernel {
     let mut b = Kernel::default();
+    let _operation = b.machine.budget.start(Limits::default());
     let (mut i, mut j) = (0, 0);
     while i < a.env.defs().len() || j < a.env.datas().len() {
         if j < a.env.datas().len() && a.env.datas()[j].defs_before() == i {

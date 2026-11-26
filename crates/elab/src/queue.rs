@@ -2089,7 +2089,7 @@ mod tests {
     /// fill: the item is waiting again, and its placeholder unsolved.
     #[test]
     fn restoring_takes_back_items_resumptions_and_fills() {
-        let e = Elaborator::new();
+        let e = crate::Elaborator::test_elaborator();
         let mut cx = Ctx::new(&e, span());
         let log = Log::default();
         let before = Snapshot::take(&cx);
@@ -2141,7 +2141,7 @@ mod tests {
     /// has none.
     #[test]
     fn clearing_and_rewinding_empty_the_queue() {
-        let mut e = Elaborator::new();
+        let mut e = crate::Elaborator::test_elaborator();
         let mark = e.mark();
         let log = Log::default();
         {
@@ -2167,7 +2167,7 @@ mod tests {
     /// is what the stuck report goes by meanwhile.
     #[test]
     fn an_item_that_meets_another_unknown_waits_again() {
-        let e = Elaborator::new();
+        let e = crate::Elaborator::test_elaborator();
         let cx = Ctx::new(&e, span());
         let log = Log::default();
         let (first, needs) = unknown(&cx);
@@ -2190,7 +2190,7 @@ mod tests {
     /// it, which the running item wasn't.
     #[test]
     fn an_item_whose_check_has_an_application_is_resumed_once() {
-        let e = Elaborator::new();
+        let e = crate::Elaborator::test_elaborator();
         let cx = Ctx::new(&e, span());
         let log = Log::default();
         let (blocker, needs) = unknown(&cx);
@@ -2210,7 +2210,7 @@ mod tests {
     #[test]
     #[cfg_attr(debug_assertions, should_panic(expected = "running item"))]
     fn a_running_item_is_never_selected_again() {
-        let e = Elaborator::new();
+        let e = crate::Elaborator::test_elaborator();
         let cx = Ctx::new(&e, span());
         let log = Log::default();
         let (blocker, needs) = unknown(&cx);
@@ -2228,7 +2228,7 @@ mod tests {
     /// that one's blocker is solved by then.
     #[test]
     fn the_end_of_an_application_resumes_only_its_own_items() {
-        let e = Elaborator::new();
+        let e = crate::Elaborator::test_elaborator();
         let mut cx = Ctx::new(&e, span());
         let log = Log::default();
         let (outer_blocker, needs) = unknown(&cx);
@@ -2278,7 +2278,7 @@ mod tests {
     /// resuming; W1 and resuming alone apply none.
     #[test]
     fn defaults_apply_one_at_a_time_field_names_before_nat() {
-        let e = Elaborator::new();
+        let e = crate::Elaborator::test_elaborator();
         let cx = Ctx::new(&e, span());
         let log = Log::default();
         two_with_defaults(&cx, &log);
@@ -2294,7 +2294,7 @@ mod tests {
     /// its type known; W4 then has nothing left.
     #[test]
     fn defaults_apply_before_lifting() {
-        let e = Elaborator::new();
+        let e = crate::Elaborator::test_elaborator();
         let cx = Ctx::new(&e, span());
         let log = Log::default();
         two_with_defaults(&cx, &log);
@@ -2311,7 +2311,7 @@ mod tests {
     /// defaulted there (invariant 3), though its blocker is solved too.
     #[test]
     fn a_rules_own_items_are_settled_and_only_those() {
-        let e = Elaborator::new();
+        let e = crate::Elaborator::test_elaborator();
         let cx = Ctx::new(&e, span());
         let log = Log::default();
         let (outer_blocker, needs) = unknown(&cx);
@@ -2347,7 +2347,7 @@ mod tests {
     #[cfg(debug_assertions)]
     #[should_panic(expected = "from outside it (invariant 7)")]
     fn a_rules_default_on_an_outside_unknown_is_caught() {
-        let e = Elaborator::new();
+        let e = crate::Elaborator::test_elaborator();
         let cx = Ctx::new(&e, span());
         let log = Log::default();
         let (outside, needs) = unknown(&cx);
@@ -2365,7 +2365,7 @@ mod tests {
     /// independent, and only `d` and `e` fit.
     #[test]
     fn stuck_items_are_reported_by_root_at_most_three() {
-        let e = Elaborator::new();
+        let e = crate::Elaborator::test_elaborator();
         let cx = Ctx::new(&e, span());
         let log = Log::default();
         let (_, needs) = unknown(&cx);
@@ -2437,7 +2437,7 @@ mod tests {
         let mut sources = SourceMap::new();
         let file = sources.add("test", NUMBERS);
         let module = stitchwort_syntax::parse_module(file, NUMBERS).expect("parses");
-        let mut e = Elaborator::new();
+        let mut e = crate::Elaborator::test_elaborator();
         // As the prelude, which needn't have every built-in.
         e.unit.loading_prelude = true;
         let errors: Vec<_> = (e.elaborate_module(&module).into_iter())
@@ -2709,7 +2709,7 @@ mod tests {
         let mut sources = SourceMap::new();
         let file = sources.add("test", source);
         let module = stitchwort_syntax::parse_module(file, source).expect("parses");
-        let mut e = Elaborator::new();
+        let mut e = crate::Elaborator::test_elaborator();
         e.unit.loading_prelude = true;
         let errors: Vec<_> = (e.elaborate_module(&module).into_iter())
             .filter(|d| d.severity == stitchwort_syntax::Severity::Error)
@@ -2878,7 +2878,7 @@ mod tests {
     #[test]
     #[cfg_attr(debug_assertions, should_panic(expected = "invariant 6"))]
     fn a_kept_receiver_that_chose_from_an_unknown_is_caught() {
-        let e = Elaborator::new();
+        let e = crate::Elaborator::test_elaborator();
         let cx = Ctx::new(&e, span());
         let before = Snapshot::take(&cx);
         let (m, _) = unknown(&cx);
@@ -3017,7 +3017,7 @@ mod tests {
     /// first when constructs nest.
     #[test]
     fn an_item_failing_after_its_construct_returned_goes_through_its_frames() {
-        let e = Elaborator::new();
+        let e = crate::Elaborator::test_elaborator();
         let mut cx = Ctx::new(&e, span());
         // Inline: the mapping, once.
         let inline = framed(
@@ -3052,7 +3052,7 @@ mod tests {
     /// which maps the error as it passes: applied once, not twice.
     #[test]
     fn a_frame_still_running_maps_its_items_error_once() {
-        let e = Elaborator::new();
+        let e = crate::Elaborator::test_elaborator();
         let mut cx = Ctx::new(&e, span());
         let (blocker, needs) = unknown(&cx);
         let result = framed(
@@ -3079,7 +3079,7 @@ mod tests {
     /// An item still waiting at the end is reported through its frames too.
     #[test]
     fn a_stuck_item_is_reported_through_its_frames() {
-        let e = Elaborator::new();
+        let e = crate::Elaborator::test_elaborator();
         let mut cx = Ctx::new(&e, span());
         let (_, needs) = unknown(&cx);
         let queued = |cx: &mut Ctx| {
@@ -3100,7 +3100,7 @@ mod tests {
     #[test]
     fn an_item_queued_by_a_resumed_item_keeps_its_frames() {
         for during in [false, true] {
-            let e = Elaborator::new();
+            let e = crate::Elaborator::test_elaborator();
             let mut cx = Ctx::new(&e, span());
             let (first, needs) = unknown(&cx);
             let (second, next) = unknown(&cx);
@@ -3158,7 +3158,7 @@ mod tests {
     /// the mirrors are as they were. Returns them before, inside the
     /// attempt and after.
     fn mirrors_over_an_undone_attempt(make: impl Fn(&mut Probe)) -> [[Vec<usize>; 3]; 3] {
-        let e = Elaborator::new();
+        let e = crate::Elaborator::test_elaborator();
         let mut cx = Ctx::new(&e, span());
         let log = Log::default();
         let (blocker, needs) = unknown(&cx);

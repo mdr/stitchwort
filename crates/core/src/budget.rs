@@ -1145,6 +1145,13 @@ impl Budget {
     /// else. Not an evaluation step, so it doesn't count as work.
     #[inline]
     pub fn nesting(&self, pass: &'static str) -> Result<()> {
+        // Outside an operation the floor is 0, so the check below always
+        // passes: a pass that relies on it would never stop.
+        #[cfg(any(test, feature = "test-bypass"))]
+        assert!(
+            self.limits.get().is_some(),
+            "Budget::nesting(\"{pass}\") ran with no operation: start a Budget::operation first"
+        );
         self.visits.set(self.visits.get() + 1);
         if stack_position() < self.stack_floor.get() {
             if self.exhausted.get().is_none() {

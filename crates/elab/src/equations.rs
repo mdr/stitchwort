@@ -8078,6 +8078,10 @@ mod tests {
     #[test]
     fn zeta_size_counts_what_zeta_builds() {
         let k = Kernel::default();
+        let _operation = k
+            .machine
+            .budget
+            .start(stitchwort_core::budget::Limits::default());
         let g = k.ev();
         let span = Span::point(SourceMap::new().add("t", ""), 0);
         let loc = |t: Term| Term::Loc(span, rc(t));
