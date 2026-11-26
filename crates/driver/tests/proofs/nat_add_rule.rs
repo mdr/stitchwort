@@ -462,6 +462,57 @@ fn reading_a_long_chain_of_sums_takes_constant_stack() {
     });
 }
 
+/// A sum whose first argument is a number with a glued call inside, which
+/// computes another such sum, 100,000 deep, takes constant stack: `+`'s
+/// native comes to the call `leftChain k x` inside `Succ (leftChain k x)`, and the
+/// machine forces it on its own heap stack and runs the native again
+/// (`value::run_native`), as a number `case` does with its scrutinee
+/// (`viaCase`), rather than starting another machine per link on the Rust
+/// stack (SW-4878; both ran out of it about 16,000 deep on the CLI's 64
+/// MiB).
+#[test]
+fn a_long_chain_of_sums_on_the_left_takes_constant_stack() {
+    const SMALL: usize = 4 << 20;
+    with_stack(SMALL, || {
+        let mut session = Session::for_stack(SMALL);
+        let ok = session.load(
+            "left.sw",
+            "def leftChain: Nat → Nat → Nat\n  | Zero, x => x\n  | Succ k, x => Succ (leftChain k x) + 1\n\n\
+             theorem long (x: Nat): leftChain 100000 x = x + 200000 := byComputing\n\n\
+             def viaCase: Nat → Nat → Nat\n  | Zero, x => x\n  | Succ k, x =>\n    match Succ (viaCase k x) with\n      | 0 => 0\n      | n => n + 0\n\n\
+             theorem viaCaseLong (x: Nat): viaCase 100000 x = x + 100000 := byComputing\n",
+        );
+        assert!(ok.is_ok(), "{ok:?}");
+    });
+}
+
+/// The chains of the test above, 40 deep: the machine, glued and not,
+/// computes what the reference evaluator does.
+#[test]
+fn a_chain_of_sums_on_the_left_computes_as_the_reference_does() {
+    with_stack(STACK, || {
+        let mut session = Session::for_stack(STACK);
+        let ok = session.load(
+            "left.sw",
+            "def leftChain: Nat → Nat → Nat\n  | Zero, x => x\n  | Succ k, x => Succ (leftChain k x) + 1\n\n\
+             def viaCase: Nat → Nat → Nat\n  | Zero, x => x\n  | Succ k, x =>\n    match Succ (viaCase k x) with\n      | 0 => 0\n      | n => n + 0\n",
+        );
+        assert!(ok.is_ok(), "{ok:?}");
+        let g = &session.elab.ev();
+        let env = [Value::var(0)];
+        for name in ["leftChain", "viaCase"] {
+            let body = Term::app(Term::app(Term::Def(find(g, name)), num(40)), Term::Var(0));
+            let expected = shown(g, 1, &reference::eval(g, &env, &body).expect("no limits"));
+            for glue in [true, false] {
+                let was = g.machine.glue.replace(glue);
+                let value = value::eval(g, &env, &body).expect("no limits");
+                g.machine.glue.set(was);
+                assert_eq!(shown(g, 1, &value), expected, "`{name}`, glued {glue}");
+            }
+        }
+    });
+}
+
 /// The definition whose name ends in `name`.
 fn find(g: &stitchwort_core::Ev, name: &str) -> DefId {
     DefId(

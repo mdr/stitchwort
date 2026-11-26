@@ -31,7 +31,7 @@
 //! gets stuck, with natives on or off: the rule is not a native, and
 //! switching the natives off doesn't switch it off. The reference calls
 //! [`stuck`]; the machine reads `n` the same way in its own loop
-//! (`value::read_second`), forcing each part of it with its own stack, so
+//! (`value::read_number`), forcing each part of it with its own stack, so
 //! that a chain of sums whose second arguments compute to further sums
 //! costs heap frames rather than Rust stack (SW-4865).
 //!
