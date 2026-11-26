@@ -11,6 +11,8 @@ use crate::common;
 
 const STACK: usize = 256 * 1024 * 1024;
 
+type CollectedEntries = Arc<std::sync::Mutex<Vec<(String, String, [u8; 32], Vec<u8>)>>>;
+
 #[test]
 fn a_project_in_memory_is_checked_as_a_project() {
     std::thread::Builder::new()
@@ -719,6 +721,15 @@ impl Playground {
         bundle: &[u8],
         log: Option<stitchwort_driver::check_cache::StoreLog>,
     ) -> Playground {
+        Self::open_with(files, bundle, log, |_| {})
+    }
+
+    fn open_with(
+        files: &[(&str, &str)],
+        bundle: &[u8],
+        log: Option<stitchwort_driver::check_cache::StoreLog>,
+        configure: impl FnOnce(&mut Options),
+    ) -> Playground {
         let memory = Arc::new(stitchwort_lsp::Memory::default());
         memory.add(MemoryProject {
             root: "/memory/proj".into(),
@@ -733,6 +744,7 @@ impl Playground {
         options.namespace_log = log;
         let bundle = stitchwort_driver::check_cache::LibraryBundle::decode(bundle).unwrap();
         options.library.set(Arc::new(bundle)).ok().unwrap();
+        configure(&mut options);
         let mut p = Playground {
             server: Inline::new(options, memory).unwrap(),
             published: Default::default(),
@@ -932,4 +944,88 @@ fn reload_body() {
     // What the reload publishes is a fresh server's.
     let fresh = Playground::open(&files, &bundle, None);
     assert_eq!(p.published, fresh.published);
+}
+
+/// SW-4871: the entries a playground server's sink collects are restored into
+/// a new server's project cache, so its first check replays every namespace
+/// instead of elaborating it, and publishes what the first server did.
+#[test]
+fn a_new_playground_server_replays_the_entries_the_old_one_collected() {
+    std::thread::Builder::new()
+        .stack_size(STACK)
+        .spawn(restored_body)
+        .unwrap()
+        .join()
+        .unwrap();
+}
+
+fn restored_body() {
+    use stitchwort_driver::check_cache::StoreEvent::{Found, Missing, Wrote};
+
+    let files = [
+        ("src/A.sw", "namespace A\n\ndef a: Nat := 1\n"),
+        (
+            "src/B.sw",
+            "namespace B\nimport A (a)\n\ndef b: Nat := a + 1\n",
+        ),
+        ("src/C.sw", "namespace C\n\ndef c: Nat := 3\n"),
+        (
+            "src/D.sw",
+            "namespace D\nimport B (b)\n\ndef d: Nat := b + 1\n",
+        ),
+    ];
+    let bundle = common::cached_bundle(&Options::new(STACK), STACK);
+    let collected: CollectedEntries = Arc::default();
+    let log: stitchwort_driver::check_cache::StoreLog = Default::default();
+    let first = Playground::open_with(&files, &bundle, Some(log.clone()), |options| {
+        let collected = collected.clone();
+        options.entry_sink = Some(stitchwort_driver::check_cache::EntrySink(Arc::new(
+            move |root: &str, unit: &str, key: &[u8; 32], entry: &[u8]| {
+                collected.lock().unwrap().push((
+                    root.to_string(),
+                    unit.to_string(),
+                    *key,
+                    entry.to_vec(),
+                ));
+            },
+        )));
+    });
+    let first_log = std::mem::take(&mut *log.lock().unwrap());
+    for name in ["A", "B", "C", "D"] {
+        assert!(
+            first_log
+                .iter()
+                .any(|(u, e)| u.starts_with(&format!("ns.{name}+")) && *e == Wrote),
+            "{name}: {first_log:?}"
+        );
+    }
+    let collected = collected.lock().unwrap().clone();
+    assert_eq!(collected.len(), 4, "{collected:?}");
+
+    // A new server is given the entries by the host, as its page would.
+    let mut restored = stitchwort_lsp::RestoredEntries::default();
+    for (root, unit, key, entry) in &collected {
+        restored
+            .entry(std::path::PathBuf::from(root))
+            .or_default()
+            .push((unit.clone(), *key, entry.clone()));
+    }
+    let log: stitchwort_driver::check_cache::StoreLog = Default::default();
+    let second = Playground::open_with(&files, &bundle, Some(log.clone()), |options| {
+        *options.restored.lock().unwrap() = restored;
+    });
+    let second_log = std::mem::take(&mut *log.lock().unwrap());
+    for name in ["A", "B", "C", "D"] {
+        let events: Vec<_> = (second_log.iter())
+            .filter(|(u, _)| u.starts_with(&format!("ns.{name}+")))
+            .map(|(_, e)| *e)
+            .collect();
+        assert!(!events.is_empty(), "{name}: {second_log:?}");
+        assert!(events.iter().all(|e| *e == Found), "{name}: {second_log:?}");
+    }
+    assert!(
+        !second_log.iter().any(|(_, e)| *e == Missing || *e == Wrote),
+        "a restored entry was elaborated again: {second_log:?}"
+    );
+    assert_eq!(second.published, first.published);
 }
