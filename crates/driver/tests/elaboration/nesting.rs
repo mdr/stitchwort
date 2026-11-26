@@ -132,23 +132,81 @@ fn nested_applications() {
     });
 }
 
+/// The program `def x : Nat := f (f (… 0))`, `n` levels deep, where each
+/// application is checked against a known type.
+fn nested_applications_program(n: usize) -> String {
+    format!(
+        "def f (n : Nat) : Nat := n\n\ndef x : Nat := {}\n",
+        nested(n, "f (", "0")
+    )
+}
+
+/// Whether `n` nested applications check with a stack guard of `bytes`.
+fn checks_within(n: usize, bytes: usize) -> bool {
+    let mut session = Session::new();
+    session.elab.options.limits = Limits {
+        stack: bytes,
+        ..Limits::default()
+    };
+    first_error(&mut session, "x.sw", &nested_applications_program(n)).is_none()
+}
+
 /// Nested applications checked against a known type (`f (f (… 0))` where a
-/// `Nat` is expected) take about 5 KiB of stack a level natively (SW-3172;
-/// they took 12): 40 of them check under the playground's guard of 320 KiB
-/// (`crates/web/build.rs`), where about 25 did before.
+/// `Nat` is expected) take about 7.8 KiB of stack a level natively (SW-4849;
+/// 5.1 at SW-3172, which the test was written for): 30 of them check under
+/// the playground's guard of 320 KiB (`crates/web/build.rs`), where the
+/// limit is 38 natively. In the playground's WebAssembly, whose frames are
+/// smaller (about 2.2 KiB a level), the guard allows 99 levels, in Chrome 158
+/// and Firefox 160 alike (SW-4849); 30 is well inside both limits.
 #[test]
 fn nested_applications_under_the_playground_guard() {
     isolated("nested_applications_under_the_playground_guard", || {
-        let mut session = Session::new();
-        session.elab.options.limits = Limits {
-            stack: guard(320),
-            ..Limits::default()
-        };
-        let program = format!(
-            "def f (n : Nat) : Nat := n\n\ndef x : Nat := {}\n",
-            nested(40, "f (", "0")
+        assert!(
+            checks_within(30, guard(320)),
+            "30 nested applications no longer check under the playground's guard \
+             (SW-4849: 38 did)"
         );
-        assert_eq!(first_error(&mut session, "x.sw", &program), None);
+    });
+}
+
+/// The native stack a nested application takes, as the difference between
+/// the smallest guards that let 30 and 10 levels check, per level. Frames
+/// grew from 5.1 KiB a level (SW-3172) to 7.8 (SW-4849) over many small
+/// changes, none of which a test noticed until the playground's limit
+/// slipped; this pins the figure. If it fails, a recent change made the
+/// elaborator's recursion over arguments (`check_arg`, `check_value` and
+/// what they inline) use more stack: look at the frame sizes with `task
+/// stack:peak` and put the rarer arms out of line, or, if the growth is
+/// wanted, raise this limit and `nested_applications_under_the_playground_guard`
+/// together with the browser figures remeasured (SW-4849).
+#[test]
+fn nested_applications_stack_per_level() {
+    isolated("nested_applications_stack_per_level", || {
+        // Smallest guard in KiB under which `n` levels check.
+        let smallest = |n: usize| {
+            let (mut lo, mut hi) = (0, guard(1024) / 1024);
+            assert!(checks_within(n, hi * 1024), "{n} levels need over 1 MiB");
+            while hi - lo > 1 {
+                let mid = (lo + hi) / 2;
+                if checks_within(n, mid * 1024) {
+                    hi = mid;
+                } else {
+                    lo = mid;
+                }
+            }
+            hi
+        };
+        let (few, many) = (smallest(10), smallest(30));
+        let debug_factor = guard(1) / 1024;
+        let per_level = (many - few) as f64 / 20.0 / debug_factor as f64;
+        println!("stack per level {per_level:.2} KiB ({few} KiB for 10, {many} for 30)");
+        assert!(
+            per_level < 9.0,
+            "nested applications take {per_level:.1} KiB of stack a level (7.8 when SW-4849 \
+             measured it; the limit is 9): the playground's 320 KiB guard now allows fewer \
+             levels. Find which change made the elaborator's frames bigger (`task stack:peak`), \
+             or, if wanted, raise this limit and remeasure the browsers (SW-4849)"
+        );
     });
 }
 

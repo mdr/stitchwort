@@ -30,6 +30,9 @@ const WASM_STACK: usize = 8 * 1024 * 1024;
 /// Since, their deepest recursions take less stack (SW-3132, SW-3133,
 /// SW-3174): a native build, whose frames are larger, peaks at about 245
 /// KiB on day 13 and 155 KiB on day 22 (not yet measured in the browser).
+/// Nested applications checked against a known type (SW-4849, Chrome 158 and
+/// Firefox 160): 99 levels fit the guard; lifted, V8 overflowed at 160
+/// levels (about 510 KiB of stack) and Firefox at 486 (about 1.5 MiB).
 /// Set `STITCHWORT_GUARD` (bytes) to experiment.
 /// The same bytes natively are less depth (larger frames): a native release
 /// build needs about 1.5 times this to check `Float.Theory`
