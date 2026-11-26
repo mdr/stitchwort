@@ -36448,12 +36448,12 @@
     {
       "id": 4865,
       "title": "[Opus] Kernel: nat_add::stuck forces a sum of sums by re-entering the machine once per link (9 calls, 3.4 KiB wasm a link; Day11's 100-link chain): an iterative loop, same rule, plus resume's 1,280-byte frame; Fable soundness review (SW-4863 step 4; waits for Matt's D)",
-      "status": "backlog",
-      "agent": "",
+      "status": "doing",
+      "agent": "Opus",
       "where": "",
       "labels": [],
       "epic": "elaborator-kernel",
-      "body": "",
+      "body": "D3751 (Matt, 26 Nov 2026): yes — Opus builds the loop for the stuck-sum chain (and trims resume's frame), Fable soundness review.",
       "created": "2026-11-26",
       "updated": "2026-11-26",
       "commits": []
