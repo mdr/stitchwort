@@ -4098,7 +4098,7 @@ fn quote_as_until(
         _ => None,
     };
     let limit = g.machine.budget.size_limit();
-    let cap = cap.filter(|&cap| cap < limit);
+    let cap = cap.filter(|&cap| cap <= limit);
     let rc = |t: Term| Rc::new(t);
     while let Some(task) = tasks.pop() {
         match task {
