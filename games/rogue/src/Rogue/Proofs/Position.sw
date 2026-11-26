@@ -5,12 +5,6 @@ namespace Rogue.Proofs
 import Rogue (..)
 import Std (DecEq, Eq, Nat, Void)
 
-theorem natEqSelf ∀ (n: Nat): (n == n) = True := rewrite Nat.eqIsEqual n n, Nat.equalRefl n
-
-theorem natSound ∀ (m n: Nat) (same: (m == n) = True): m = n := same.read
-
-theorem zeroPlus ∀ (n: Nat): 0 + n = n := arithmetic
-
 --| A cell is its row and column (the checker doesn't use this by itself).
 theorem positionEta ∀ (p: Position): p = { row = p.row, column = p.column } := match p with
   | { row = r, column = c } => byComputing
@@ -25,6 +19,5 @@ theorem columnDiffers ∀ (p q: Position)
     (p.column == q.column) = False :=
   let notSame := differ.read
   match sameColumn: p.column == q.column with
-    | True =>
-      Void.impossible (notSame (positionExt p q (natSound p.row q.row sameRow) (natSound p.column q.column sameColumn)))
+    | True => Void.impossible (notSame (positionExt p q sameRow.read sameColumn.read))
     | False => byComputing

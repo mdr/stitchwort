@@ -24,20 +24,6 @@ import Aoc.Year2025.Day07 (..)
 import Aoc.Year2025.Day07.Spec (..)
 import Std (Bool, DecEq, Decidable, Eq, Fin, List, Nat, Option, Vec, Void)
 
--- Bool and number facts ------------------------------------------------------
-
-theorem andOr ∀ (a: Bool) [x y: Bool]: ((a ∧ x) ∨ (a ∧ y)) = (a ∧ (x ∨ y)) := match a with | True | False => byComputing
-
-theorem natEqSelf ∀ (n: Nat): (n == n) = True := (DecEq.decide n n).complete byComputing
-
-theorem natEqBelow ∀ (m n: Nat) (h: m < n): (m == n) = False :=
-  Decidable.toBoolOfNot (DecEq.decide m n) (e => arithmetic)
-
-theorem natEqAbove ∀ (m n: Nat) (h: n < m): (m == n) = False :=
-  Decidable.toBoolOfNot (DecEq.decide m n) (e => arithmetic)
-
-theorem ltSucc ∀ (m n: Nat) (h: m < n): m < n + 1 := arithmetic
-
 --| Past the right edge there is no splitter.
 theorem splitterPast ∀ (row: Vec Bool w) (c: Nat) (h: w ≤ c): splitterAt row c = False := Vec.getOrPast row c False h
 
@@ -99,22 +85,18 @@ theorem noHitsAbove ∀ (x d r c: Nat) (ls: List (Vec Bool w))
       let miss: ∀ (turn: Turn) => (({ row = r, column = c, turn }: Hit).row == x
         ∧ ({ row = r, column = c, turn }: Hit).column == d)
         = False :=
-        turn => rewrite natEqAbove r x h
+        turn => rewrite Nat.equalOfLess x r h
       match e: splitterAt row c with
         | True =>
           rewrite List.anyAppend _ _ (hitIn x d),
               anyConsMiss x d { row = r, column = c, turn = Right } (miss Right) _,
-              noHitsAbove x d (r + 1) (c + 1) rest (ltSucc x r h) then
+              noHitsAbove x d (r + 1) (c + 1) rest arithmetic then
             match c with
               | Zero => rewrite miss Left
               | Succ b =>
                 rewrite anyConsMiss x d { row = r, column = Succ b, turn = Left } (miss Left) _,
-                    noHitsAbove x d (r + 1) b rest (ltSucc x r h)
-        | False => noHitsAbove x d (r + 1) c rest (ltSucc x r h)
-
-theorem ltSelfSucc ∀ (r: Nat): r < r + 1 := arithmetic
-
-theorem shift ∀ (k r: Nat): k + (r + 1) = Succ (k + r) := arithmetic
+                    noHitsAbove x d (r + 1) b rest arithmetic
+        | False => noHitsAbove x d (r + 1) c rest arithmetic
 
 --| A timeline reaches the splitter in row k (counted from r), column d,
 --| exactly when there is a splitter there and the particle can fall into it.
@@ -132,30 +114,32 @@ theorem hitsAt ∀ (ls: List (Vec Bool w)) (r c k d: Nat):
                   List.anyAppend _ _ (hitIn r c),
                   anyConsHit r c
                     ({ row = r, column = c, turn = Right }: Hit)
-                    (rewrite natEqSelf r, natEqSelf c)
+                    (rewrite DecEq.refl r, DecEq.refl c)
                     (timelinesFrom (r + 1) (c + 1) rest)
                     (timelinesSome (r + 1) (c + 1) rest) then
                 Bool.orTrue _
             | False =>
               rewrite Bool.andFalse (splitterAt row d),
                   List.anyAppend _ _ (hitIn r d),
-                  anyConsMiss r d ({ row = r, column = c, turn = Right }: Hit) (rewrite natEqSelf r, f) _,
-                  noHitsAbove r d (r + 1) (c + 1) rest (ltSelfSucc r) then
+                  anyConsMiss r d ({ row = r, column = c, turn = Right }: Hit) (rewrite DecEq.refl r, f) _,
+                  noHitsAbove r d (r + 1) (c + 1) rest arithmetic then
                 match c with
-                  | Zero => rewrite natEqSelf r, f
+                  | Zero => rewrite DecEq.refl r, f
                   | Succ b =>
-                    rewrite anyConsMiss r d ({ row = r, column = Succ b, turn = Left }: Hit) (rewrite natEqSelf r, f) _,
-                        noHitsAbove r d (r + 1) b rest (ltSelfSucc r)
+                    rewrite anyConsMiss r d
+                          ({ row = r, column = Succ b, turn = Left }: Hit)
+                          (rewrite DecEq.refl r, f) _,
+                        noHitsAbove r d (r + 1) b rest arithmetic
         | False =>
-          rewrite noHitsAbove r d (r + 1) c rest (ltSelfSucc r) then
+          rewrite noHitsAbove r d (r + 1) c rest arithmetic then
             match f: c == d with
               | True => rewrite <- f.read, e
               | False => rewrite Bool.andFalse (splitterAt row d)
     | [row, ..rest], Succ k =>
       let ih: ∀ (c2: Nat) => List.any (timelinesFrom (r + 1) c2 rest) (hitIn (Succ (k + r)) d)
         = (splitterIn rest k d ∧ reach rest c2 k d) :=
-        c2 => rewrite <- shift k r then hitsAt rest (r + 1) c2 k d
-      let above: (r == Succ (k + r)) = False := natEqBelow r (Succ (k + r)) arithmetic
+        c2 => rewrite <- (arithmetic: k + (r + 1) = Succ (k + r)) then hitsAt rest (r + 1) c2 k d
+      let above: (r == Succ (k + r)) = False := arithmetic
       match e: splitterAt row c with
         | True =>
           rewrite List.anyAppend _ _ (hitIn (Succ (k + r)) d),
@@ -166,13 +150,13 @@ theorem hitsAt ∀ (ls: List (Vec Bool w)) (r c k d: Nat):
               | Succ b =>
                 rewrite anyConsMiss (Succ (k + r)) d ({ row = r, column = Succ b, turn = Left }: Hit) (rewrite above) _,
                     ih b then
-                  andOr _
+                  cases
         | False => ih c
 
 --| Past the right edge there are no splitters: a particle there stays there.
 theorem reachPast ∀ (w: Nat) (ls: List (Vec Bool w)) (c k d: Nat) (hc: w ≤ c) (hd: d < w): reach ls c k d = False :=
   match ls, k with
-    | ls, Zero => natEqAbove c d arithmetic
+    | ls, Zero => Nat.equalOfLess d c arithmetic
     | [], Succ k => byComputing
     | [row, ..rest], Succ k => rewrite splitterPast row c hc then reachPast w rest c k d hc hd
 
@@ -238,7 +222,7 @@ theorem beamReachZero ∀ (beams: Vec Bool w) (ls: List (Vec Bool w)) (d: Nat)
       List.anyRangeElim (c => beams.getOr c False ∧ reach ls c 0 d) (beams.getOr d False = True) w 0 h (c lo hi (Both
           beam reached) =>
         rewrite <- reached.read then beam))
-    (h => List.anyRangeIntro (c => beams.getOr c False ∧ reach ls c 0 d) w 0 d arithmetic hd (Both h (natEqSelf d)))
+    (h => List.anyRangeIntro (c => beams.getOr c False ∧ reach ls c 0 d) w 0 d arithmetic hd (Both h (DecEq.refl d)))
 
 -- One row of `fall` carries the beams down (`fallKeeps`). A beam comes out
 -- of a row in three ways, and each is a way the particle goes on falling:
