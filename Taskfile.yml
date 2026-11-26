@@ -106,6 +106,9 @@ vars:
   # test:selected runs the selector's choice, which may include tests the quick
   # tier leaves out (SW-1760); it takes the broad cap, as test:one does.
   MEM_CAP_SELECTED: 16
+  # dev/memguard lowers a cap above three quarters of the machine's memory to
+  # that share (MACHINE_SHARE; docs/testing.md, "Memory"), so 16 GB is about
+  # 11.6 GB on a 15 GiB laptop rather than a cap that could never fire.
   MEM_CAP_BROAD: 16
   MEM_CAP_ALL: 16
   # The broad and all tiers' nextest runs on a machine under 24 GiB: 4 tests

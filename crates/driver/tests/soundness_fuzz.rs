@@ -44,6 +44,12 @@
 //! number>[-expensive].sw`; the mutant number counts the theorem's mutants
 //! in order, so it is stable for a `SOUND_ONLY` run with the same corpus.
 //!
+//! A mutated `examples/soundness` attempt that is accepted (it loads with no
+//! errors) is printed even when it has no finding, since there are few: its
+//! index, source file, the edits made, its text, and every non-Std
+//! declaration with its audit verdict. `SOUND_SAVE_DIR` also writes its text
+//! to `<dir>/void-<seed>-<index>.sw`.
+//!
 //! A mutant whose check holds more than `MEM_CAP` of heap (`SOUND_MEM_CAP_MB`)
 //! or runs longer than `MUTANT_TIME` (`SOUND_MUTANT_SECS`) is stopped, counted
 //! as "too expensive to check" with its text saved to `target/soundness-fuzz/`,
@@ -989,6 +995,41 @@ fn save_finding(tag: &str, text: &str) -> PathBuf {
     path
 }
 
+/// Prints an accepted mutated `examples/soundness` attempt: its source, the
+/// edits, its text, and each non-Std declaration with the audit's verdict.
+fn print_accepted(index: usize, a: &Attempt, r: &VoidReport, seed: u64) {
+    println!(
+        "--- accepted mutated soundness attempt {index} (seed {seed:#x}), from {}",
+        a.source.as_deref().unwrap_or("<unknown>")
+    );
+    println!("edits:");
+    if a.edits.is_empty() {
+        println!("  (none)");
+    } else {
+        for edit in &a.edits {
+            println!("  - {edit}");
+        }
+    }
+    println!("mutated text:");
+    print!("{}", a.text);
+    if !a.text.ends_with('\n') {
+        println!();
+    }
+    println!("declarations:");
+    for decl in &r.decls {
+        println!("  {decl}");
+    }
+}
+
+/// Writes an accepted mutated attempt to `SOUND_SAVE_DIR/void-<seed>-<index>.sw`.
+fn save_accepted(dir: &Path, seed: u64, index: usize, text: &str) -> PathBuf {
+    std::fs::create_dir_all(dir)
+        .unwrap_or_else(|e| panic!("can't create SOUND_SAVE_DIR {}: {e}", dir.display()));
+    let path = dir.join(format!("void-{seed:x}-{index}.sw"));
+    std::fs::write(&path, text).unwrap_or_else(|e| panic!("can't write {}: {e}", path.display()));
+    path
+}
+
 /// Runs `work` over `items` on up to four threads of `STACK`, each with a
 /// check cache of its own.
 fn run_parallel<T: Sync, R: Send>(items: &[T], work: impl Fn(&T, &Path) -> R + Sync) -> Vec<R> {
@@ -1394,12 +1435,19 @@ const PREAMBLE: &str = "import Std (Float, Nat, Int, List, byDecision, Finite, D
 struct Attempt {
     family: &'static str,
     text: String,
+    /// The `examples/soundness` file it was mutated from; `None` for a
+    /// generated attempt.
+    source: Option<String>,
+    /// What the mutation changed, in order; empty for a generated attempt.
+    edits: Vec<String>,
 }
 
 fn attempt(family: &'static str, body: String) -> Attempt {
     Attempt {
         family,
         text: format!("{PREAMBLE}{body}\n"),
+        source: None,
+        edits: Vec::new(),
     }
 }
 
@@ -1984,6 +2032,9 @@ struct VoidReport {
     /// The codes of its errors.
     codes: Vec<&'static str>,
     findings: Vec<String>,
+    /// Every non-Std declaration it made, with the audit's verdict, in one
+    /// line each (printed for an accepted mutated attempt).
+    decls: Vec<String>,
 }
 
 /// Checks `text`, then looks for an accepted `boom`, an accepted closed
@@ -2012,10 +2063,17 @@ fn check_attempt(text: &str, cache: &Path) -> VoidReport {
     let g = &session.elab.ev();
     let mut findings = Vec::new();
     let mut theorems = Vec::new();
+    let mut decl_ids = Vec::new();
     for id in (first..g.env.defs().len()).map(DefId) {
         let def = g.def(id);
         let path = def.path().to_string();
-        if path.starts_with("Std.") || path.contains('%') || session.elab.is_unfinished(id) {
+        if path.starts_with("Std.") {
+            continue;
+        }
+        let generated = path.contains('%');
+        let unfinished = session.elab.is_unfinished(id);
+        decl_ids.push((id, path.clone(), generated, unfinished));
+        if generated || unfinished {
             continue;
         }
         let name = def.name().to_string();
@@ -2032,7 +2090,8 @@ fn check_attempt(text: &str, cache: &Path) -> VoidReport {
         allowed: ["Quot.sound".to_string()].into_iter().collect(),
         search: Some(SEARCH),
     };
-    for audit in session.audit(&theorems, &options) {
+    let audits = session.audit(&theorems, &options);
+    for audit in &audits {
         if let Some(search) = &audit.search
             && search.verdict == Verdict::False
         {
@@ -2042,18 +2101,74 @@ fn check_attempt(text: &str, cache: &Path) -> VoidReport {
             ));
         }
     }
+    let g = &session.elab.ev();
+    let verdicts: BTreeMap<&str, &TheoremAudit> =
+        audits.iter().map(|a| (a.name.as_str(), a)).collect();
+    let decls = decl_ids
+        .into_iter()
+        .map(|(id, path, generated, unfinished)| {
+            let def = g.def(id);
+            let kind = if def.theorem() {
+                "theorem"
+            } else {
+                "definition"
+            };
+            let generated_note = if generated { ", generated" } else { "" };
+            let state = format!("{:?}", def.state());
+            match verdicts.get(path.as_str()) {
+                Some(audit) => format!(
+                    "{path}: {kind}{generated_note}, {state}, {}",
+                    audit_verdict(audit)
+                ),
+                None if def.theorem() => {
+                    let why = if generated {
+                        "generated"
+                    } else if unfinished {
+                        "unfinished"
+                    } else {
+                        "not selected"
+                    };
+                    format!("{path}: {kind}{generated_note}, {state}, not audited ({why})")
+                }
+                None => {
+                    format!("{path}: {kind}{generated_note}, {state}, not audited (not a theorem)")
+                }
+            }
+        })
+        .collect();
     VoidReport {
         accepted,
         codes,
         findings,
+        decls,
     }
+}
+
+/// One line of a theorem's audit, for an accepted attempt's report.
+fn audit_verdict(a: &TheoremAudit) -> String {
+    let mut out = format!("audit {:?}", a.status);
+    if let Some(search) = &a.search {
+        out.push_str(&format!(", search {:?}", search.verdict));
+    }
+    if !a.findings.is_empty() {
+        let findings: Vec<String> = a
+            .findings
+            .iter()
+            .map(|f| format!("{:?} {:?}: {}", f.severity, f.check, f.message))
+            .collect();
+        out.push_str(&format!(", findings [{}]", findings.join("; ")));
+    }
+    out
 }
 
 /// The token-level edits of the elaborator fuzzer, simplified: a name
 /// replaced by another of the file, a numeral changed, a line deleted or
-/// duplicated, a token deleted.
-fn mutate_program(rng: &mut Rng, text: &str) -> String {
+/// duplicated, a token deleted. Returns the mutated text and a description of
+/// each edit (the RNG calls are the same as before the descriptions were
+/// added, so a seed still gives the same attempts).
+fn mutate_program(rng: &mut Rng, text: &str) -> (String, Vec<String>) {
     let mut tokens = tokenize(text);
+    let mut edits = Vec::new();
     for _ in 0..=rng.below(2) {
         let names: Vec<usize> = (0..tokens.len())
             .filter(|&i| tokens[i].0 == Kind::Ident)
@@ -2062,6 +2177,10 @@ fn mutate_program(rng: &mut Rng, text: &str) -> String {
             0 | 1 if names.len() > 1 => {
                 let at = names[rng.below(names.len())];
                 let from = names[rng.below(names.len())];
+                edits.push(format!(
+                    "replaced the name `{}` with `{}`",
+                    tokens[at].1, tokens[from].1
+                ));
                 tokens[at].1 = tokens[from].1.clone();
             }
             2 => {
@@ -2071,6 +2190,11 @@ fn mutate_program(rng: &mut Rng, text: &str) -> String {
                 if !numbers.is_empty() {
                     let at = numbers[rng.below(numbers.len())];
                     let n: u128 = tokens[at].1.replace('_', "").parse().unwrap_or(0);
+                    edits.push(format!(
+                        "changed the numeral `{}` to `{}`",
+                        tokens[at].1,
+                        n + 1
+                    ));
                     tokens[at].1 = (n + 1).to_string();
                 }
             }
@@ -2081,9 +2205,13 @@ fn mutate_program(rng: &mut Rng, text: &str) -> String {
                 if lines.len() > 2 {
                     let k = rng.below(lines.len() - 1);
                     let range = lines[k] + 1..lines[k + 1] + 1;
+                    let line = join(&tokens[range.clone()]);
+                    let line = line.strip_suffix('\n').unwrap_or(&line);
                     if rng.below(2) == 0 {
+                        edits.push(format!("deleted the line `{line}`"));
                         tokens.drain(range);
                     } else {
+                        edits.push(format!("duplicated the line `{line}`"));
                         let copy: Vec<Tok> = tokens[range.clone()].to_vec();
                         tokens.splice(range.end..range.end, copy);
                     }
@@ -2094,12 +2222,14 @@ fn mutate_program(rng: &mut Rng, text: &str) -> String {
                     .filter(|&i| !matches!(tokens[i].0, Kind::Space | Kind::Comment))
                     .collect();
                 if !solid.is_empty() {
-                    tokens.remove(solid[rng.below(solid.len())]);
+                    let at = solid[rng.below(solid.len())];
+                    edits.push(format!("deleted the token `{}`", tokens[at].1));
+                    tokens.remove(at);
                 }
             }
         }
     }
-    join(&tokens)
+    (join(&tokens), edits)
 }
 
 #[test]
@@ -2119,16 +2249,29 @@ fn void_attempts_are_rejected() {
     };
     let generated = attempts.len();
     // The soundness examples, mutated.
-    let soundness: Vec<String> = read_dir_sorted(&root().join("examples/soundness"))
+    let soundness: Vec<(PathBuf, String)> = read_dir_sorted(&root().join("examples/soundness"))
         .into_iter()
-        .map(|p| std::fs::read_to_string(&p).unwrap())
+        .map(|p| {
+            let text = std::fs::read_to_string(&p).unwrap();
+            (p, text)
+        })
         .collect();
     let mut rng = Rng(seed ^ 0x766f_6964);
     for _ in 0..mutants {
-        let text = &soundness[rng.below(soundness.len())];
+        let at = rng.below(soundness.len());
+        let (source, text) = &soundness[at];
+        let (text, edits) = mutate_program(&mut rng, text);
         attempts.push(Attempt {
             family: "mutated soundness example",
-            text: mutate_program(&mut rng, text),
+            text,
+            source: Some(
+                source
+                    .strip_prefix(root())
+                    .unwrap_or(source)
+                    .display()
+                    .to_string(),
+            ),
+            edits,
         });
     }
     let reports: Vec<Result<VoidReport, String>> = run_parallel(&attempts, |a, cache| {
@@ -2168,6 +2311,13 @@ fn void_attempts_are_rejected() {
                 }
                 if verbose && i < generated {
                     println!("--- {} attempt {i}: {:?}\n{}", a.family, r.codes, a.text);
+                }
+                if r.accepted && a.source.is_some() {
+                    print_accepted(i, a, r, seed);
+                    if let Some(dir) = env_text("SOUND_SAVE_DIR") {
+                        let saved = save_accepted(Path::new(&dir), seed, i, &a.text);
+                        println!("saved to {}", saved.display());
+                    }
                 }
             }
         }

@@ -918,11 +918,15 @@ verified batch (see "The test tiers").
 First soak report (7 Nov 2026): whole-AoC `check --no-cache` 134 s against
 65 s on Speedwell (about 2x slower; std's cold check about 4x); an
 incremental CLI build 2 min 10 s; 100k syntax fuzz cases 4 s; 2,000 elab
-fuzz cases 40 min. Quirks: no `/usr/bin/time` (use Nix's `time`); the
-binary is at `target/x86_64-unknown-linux-musl/release/stitchwort`; it has
-a desktop session and an existing checkout, so it isn't a clean machine;
-its Claude Code moves commands into the background after 10 min; the 16 GB
-fuzz memory cap is more than its RAM.
+fuzz cases 40 min. The elab fuzzer got faster after SW-3705 and SW-3707 (the
+shared standard-library check cache and the watchdog): on 26 Nov 2026, 1,000
+cases took 170 s and 5,000 about 15 min on an Overmind-class machine. Quirks:
+no `/usr/bin/time` (use Nix's `time`); the binary is at
+`target/x86_64-unknown-linux-musl/release/stitchwort`; it has a desktop
+session and an existing checkout, so it isn't a clean machine; its Claude
+Code moves commands into the background after 10 min; the 16 GB fuzz memory
+cap is more than its RAM, but `dev/memguard` lowers it to three quarters of
+the machine's memory (about 11.6 GB here; SW-2413).
 
 ### How a proof lane finishes
 
