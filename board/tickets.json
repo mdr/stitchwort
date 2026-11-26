@@ -6273,16 +6273,16 @@
     {
       "id": 1966,
       "title": "[DeepSeek] Lint: self-recursive functions with no guard and no // Depth: comment; a test-build panic when a stack guard is reached outside an operation (today it silently does nothing, budget.rs:178, :652)",
-      "status": "backlog",
-      "agent": "",
-      "where": "",
+      "status": "doing",
+      "agent": "DeepSeek",
+      "where": "scratch-sw-1966",
       "labels": [
         "robustness"
       ],
       "epic": "test-infra",
       "body": "From docs/proposals/deep-input.md. Stage 2. 45 min.\n\nAudit note (22 Nov): 22 Nov 2026 audit: No commit or ticket addresses it.\n",
       "created": "2026-11-07",
-      "updated": "2026-11-22",
+      "updated": "2026-11-26",
       "commits": []
     },
     {
