@@ -6033,17 +6033,20 @@
     {
       "id": 1944,
       "title": "[DeepSeek] JS generator panics turned into errors; stale comments",
-      "status": "doing",
+      "status": "done",
       "agent": "DeepSeek",
       "where": "scratch-sw-1944",
       "labels": [
         "backends"
       ],
       "epic": "effects-native",
-      "body": "From docs/reviews/code-review-js-native.md. 30 min.\n\nAudit note (22 Nov): Audit 22 Nov: still true: crates/js/src/lib.rs panics at 2954 (@[tailrec] not looped), 4503 (case outside a case tree), 4506 (unsolved metavariable), 2707 (no info for); fast.rs:10 still names MAX_WORK. Review N7 and N13.\n",
+      "body": "From docs/reviews/code-review-js-native.md. 30 min.\n\nAudit note (22 Nov): Audit 22 Nov: still true: crates/js/src/lib.rs panics at 2954 (@[tailrec] not looped), 4503 (case outside a case tree), 4506 (unsolved metavariable), 2707 (no info for); fast.rs:10 still names MAX_WORK. Review N7 and N13.\n\nFour panics in crates/js now E-INTERNAL diagnostics; existing test now expects Err. N13 comments fixed (n1.rs is in crates/native). Model result: deepseek, worked, about 20 min (est. 35).",
       "created": "2026-11-07",
       "updated": "2026-11-26",
-      "commits": []
+      "commits": [
+        "cf79f40a1",
+        "4c0597751"
+      ]
     },
     {
       "id": 1945,
