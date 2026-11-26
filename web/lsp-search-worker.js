@@ -6,7 +6,7 @@
 // file again), so that a search doesn't check the library first. Each {job}
 // is a search the server handed out; the answer is {result}, the search's
 // result as JSON. A stale search is stopped by terminating this worker.
-import { applyStackGuard, libraryCacheFile } from "./stack-guard.js";
+import { applyStackGuard, isStackOverflow, libraryCacheFile } from "./stack-guard.js";
 import init, { load_std, set_stack_guard, SearchWorker } from "./pkg/stitchwort_web.js";
 
 const started = performance.now();
@@ -59,5 +59,7 @@ function handle(data) {
 
 let chain = Promise.resolve();
 onmessage = ({ data }) => {
-  chain = chain.then(() => handle(data)).catch((e) => postMessage({ crashed: String(e) }));
+  // The engine's stack running out is reported as a crash of this worker,
+  // which is replaced (the search is answered with nothing): the instance can't be used again.
+  chain = chain.then(() => handle(data)).catch((e) => postMessage({ crashed: String(e), overflow: isStackOverflow(e) }));
 };

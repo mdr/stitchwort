@@ -39,3 +39,29 @@ export function applyStackGuard(wasm, userAgent) {
     throw new Error("the stack guard was set after the first session");
   }
 }
+
+// ---- When the engine's own stack runs out (SW-4862, D3750) ------------------
+//
+// The guard above counts the WebAssembly's stack, but the engine has a native
+// stack of its own, with less room in some tiers and engines than the guard
+// assumes (Chrome overflowed checking Aoc.Year2020.Day05.Proofs at 268 KiB of
+// wasm stack, under a 320 KiB guard). The error the engine throws then is a
+// RangeError ("Maximum call stack size exceeded" in Chrome and Safari), or in
+// Firefox's older releases an InternalError ("too much recursion"). The
+// instance can't be used afterwards (its Rust state was left borrowed: later
+// calls fail with "recursive use of an object"), so each worker catches
+// this, reports a resource error instead of a crash, and is replaced by a
+// fresh one.
+
+// Whether `e`, thrown from a call into the WebAssembly, is the engine's stack
+// running out. Matched by name and by the words of each engine's message, since
+// none of these is standardised.
+export function isStackOverflow(e) {
+  if (!e || (e.name !== "RangeError" && e.name !== "InternalError")) return false;
+  return /call stack|too much recursion|stack (size|overflow)|recursion/i.test(String(e.message ?? ""));
+}
+
+// The message shown where a check overflowed, worded as the checker's own
+// `E-RESOURCE` errors are (crates/core/src/budget.rs).
+export const OVERFLOW_MESSAGE =
+  "ran out of resources: the browser's stack ran out while checking this (E-RESOURCE)";

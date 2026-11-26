@@ -3,7 +3,7 @@
 // WebAssembly instance in a broken state, and a runaway case can be stopped
 // by terminating the worker. See stress.html.
 
-import { applyStackGuard, libraryCacheFile } from "./stack-guard.js";
+import { applyStackGuard, isStackOverflow, libraryCacheFile } from "./stack-guard.js";
 import init, { check, evaluate, limits, load_library_cache, load_std, set_stack_guard, stack_reached, test } from "./pkg/stitchwort_web.js";
 
 let wasm;
@@ -40,6 +40,7 @@ self.onmessage = async ({ data }) => {
   } catch (e) {
     self.postMessage({
       crashed: true,
+      overflow: isStackOverflow(e),
       error: `${e?.name ?? "Error"}: ${e?.message ?? e}`,
       ms: performance.now() - started,
       memory: memory(),

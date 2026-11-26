@@ -1042,6 +1042,12 @@ export def area: Shape -> Nat
     if (result.timedOut) {
       return `The compiler took longer than ${result.seconds} s, so it was stopped.`;
     }
+    if (result.overflow) {
+      // The engine's own stack ran out before the checker's guard (stack-guard.js, D3750).
+      return "E-RESOURCE: ran out of resources: the browser's stack ran out. This isn't a type error " +
+        "or a failed test: there's no answer within the limits of this browser. It has been restarted; " +
+        `change the program to try again. (${result.error})`;
+    }
     return `The compiler crashed (${result.error}). This can happen with very deeply nested ` +
       "programs or values. It has been restarted; change the program to try again.";
   }
@@ -1071,7 +1077,7 @@ export def area: Shape -> Nat
       return result.out;
     }
     if (!result.cancelled) {
-      setStatus(result.noCompiler ? "The compiler didn’t load" : result.timedOut ? "Took too long" : "The compiler crashed", "bad");
+      setStatus(result.noCompiler ? "The compiler didn’t load" : result.timedOut ? "Took too long" : result.overflow ? "Ran out of resources" : "The compiler crashed", "bad");
       output.replaceChildren(el("p", {}, trouble(result)));
     }
     return null;

@@ -134,7 +134,13 @@ export class Editor {
     this.stdWaiting = new Map();
     this.silent = 0;
     this.goalAsked = 0;
-    this.stats = { ready: null, crashed: null, restarts: 0, published: [], publishedTotal: 0, isolated: false, firstDiagnostics: null, ticks: 0, idle: false };
+    /**
+     * Namespaces (and files) the engine's stack ran out on, with the text
+     * they had; each new worker is told them, so it reports E-RESOURCE for
+     * them instead of overflowing again (stack-guard.js, SW-4862).
+     */
+    this.exhausted = new Set();
+    this.stats = { overflows: [], ready: null, crashed: null, restarts: 0, published: [], publishedTotal: 0, isolated: false, firstDiagnostics: null, ticks: 0, idle: false };
     this.projects = [];
     /** The diagnostics the server last published for each document, by uri. */
     this.published = new Map();
@@ -174,6 +180,7 @@ export class Editor {
       stats.stopped = true;
     };
     worker.postMessage({ init: { module: options.module, load: options.load } });
+    for (const name of this.exhausted) worker.postMessage({ exhausted: name });
     worker.onmessage = ({ data }) => {
       const now = performance.now() - this.t0;
       const handling = performance.now();
@@ -222,6 +229,8 @@ export class Editor {
       } else if (data.crashed !== undefined) {
         stats.crashedAtStack = [data.stack, data.checking];
         this.restart(data.crashed);
+      } else if (data.overflow !== undefined) {
+        this.overflowed(data.overflow);
       } else if (data.searchCrashed !== undefined) {
         console.error("A proof search crashed:", data.searchCrashed);
       }
@@ -250,6 +259,34 @@ export class Editor {
       options.onNotice?.(`The language server crashed: ${reason}`);
       return;
     }
+    this.respawn();
+    options.onNotice?.("The language server crashed and was restarted");
+  }
+
+  /**
+   * The worker's server ran the engine's stack out (D3750, SW-4862). Its
+   * instance is unusable, so, as after a crash, a new worker takes over; but
+   * it is told which namespace was being checked, so that it reports
+   * E-RESOURCE for it without checking it, until its text changes. That is
+   * no crash and is not counted against the restart limit, unless the
+   * overflow was in no check (a request, say), where nothing stops a loop.
+   */
+  overflowed({ checking, during, error }) {
+    const { stats, options } = this;
+    stats.overflows.push({ checking, during, error });
+    console.warn("The language server ran out of stack:", error, checking ? `checking ${checking}` : `(${during})`);
+    if (checking) {
+      this.exhausted.add(checking);
+      this.respawn();
+    } else {
+      this.restart(`the browser's stack ran out (${error})`);
+      return;
+    }
+    options.onNotice?.(`The browser's stack ran out checking ${checking}: it is reported as E-RESOURCE`);
+  }
+
+  /** Replaces the worker with a new one, which the client opens its documents in. */
+  respawn() {
     this.worker.onmessage = null;
     this.worker.terminate?.();
     this.checkedVersions.clear();
@@ -258,7 +295,6 @@ export class Editor {
     for (const project of this.projects) this.worker.postMessage({ project });
     this.client.connect(this.transport());
     if (this.focused.length) this.checkFirst(this.focused);
-    options.onNotice?.("The language server crashed and was restarted");
   }
 
   /** Zeroes `stats.phases` (SW-3113), so a test can measure from an edit. */

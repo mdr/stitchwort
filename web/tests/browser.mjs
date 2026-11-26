@@ -1653,8 +1653,9 @@ test("after a crash, the next request starts a fresh compiler", async (page) => 
   await page.untilChecked();
   await page.setSource("def x : Nat := 1\n" + CRASH + "\n");
   await page.tab("tests");
-  await page.untilStatus("The compiler crashed");
-  assert.match(await page.output(), /The compiler crashed \(RangeError: Maximum call stack size exceeded\)/);
+  await page.untilStatus("Ran out of resources");
+  assert.match(await page.output(), /E-RESOURCE: ran out of resources: the browser's stack ran out/);
+  assert.match(await page.output(), /RangeError: Maximum call stack size exceeded/);
   assert.match(await page.output(), /It has been restarted/);
   await page.setSource("def x : Nat := 1\n");
   await page.untilChecked();
@@ -1662,6 +1663,51 @@ test("after a crash, the next request starts a fresh compiler", async (page) => 
   await page.run();
   assert.equal(await page.printed(), MAIN_OUTPUT);
 }, { ms: 120000 });
+
+// D3750, SW-4862: the engine's stack running out inside the language server's check is reported as
+// E-RESOURCE on what was being checked, not as a crash; the new worker doesn't check it again, and a
+// later edit is checked normally. The served worker overflows the engine's stack from inside the check
+// (the checker polls `stitchwortEditsWaiting` every few thousand steps, which then recurses until
+// the stack runs out) while a document with CRASH is checked, until the new worker has been told that the file
+// overflowed.
+test("the engine's stack running out in the language server is reported as E-RESOURCE, and an edit is checked again", async (page) => {
+  const hook = "globalThis.stitchwortEditsWaiting = () => editsSent !== null && Atomics.load(editsSent, 0) !== editsRead;";
+  // At the line's start: the search worker's `searcher.onmessage` has the same text.
+  const message = "\nonmessage = ({ data }) => {";
+  const worker = readFileSync(join(root, "lsp-worker.js"), "utf8");
+  assert.ok(worker.includes(hook) && worker.includes(message), "the worker's hook and message handler");
+  overrides.set("/lsp-worker.js", worker
+    .replace(hook, `globalThis.stitchwortEditsWaiting = () => {
+  if (crashing && !told && checking_namespace() !== "") { const eat = () => eat(); eat(); }
+  return editsSent !== null && Atomics.load(editsSent, 0) !== editsRead;
+};`)
+    .replace(message, `
+let crashing = false;
+let told = false;
+${message}
+  if (typeof data === "string" && data.includes("textDocument/did")) crashing = data.includes(${JSON.stringify(CRASH)});
+  if (data.exhausted !== undefined) told = true;`));
+  await page.open();
+  await page.untilChecked();
+  const diagnostics = `(() => { const e = window.editor; const uri = [...e.published.keys()].find((u) => u.endsWith("main.sw")); return uri ? e.published.get(uri).map((d) => d.message) : null; })()`;
+  // Long enough that the check reads the time (it does so every few thousand steps).
+  const many = Array.from({ length: 400 }, (_, i) => `def a${i} : Nat := ${i} + 1`).join("\n");
+  await page.setSource("def x : Nat := 1\n" + CRASH + "\n" + many + "\n");
+  await page.until(`window.editor.stats.overflows.length > 0`, 60000, "the overflow");
+  const first = await page.ev(`window.editor.stats.overflows[0]`);
+  assert.ok(first.checking.endsWith("main.sw"), `the file being checked: ${JSON.stringify(first)}`);
+  await page.until(`(${diagnostics})?.some((m) => m.includes("ran out of resources"))`, 60000, "E-RESOURCE on the file");
+  assert.ok((await page.ev(diagnostics)).some((m) => m.includes("browser's stack ran out")), JSON.stringify(await page.ev(diagnostics)));
+  // Not checked again in a loop, and not counted as a crash.
+  await sleep(3000);
+  assert.equal(await page.ev(`window.editor.stats.overflows.length`), 1, "it overflowed once");
+  assert.equal(await page.ev(`window.editor.stats.restarts`), 0, "the server didn't crash");
+  // A change of the text is checked again.
+  await page.setSource("def x : Nat := 1\ndef broken : Nat := byComputing\n");
+  await page.until(`(${diagnostics})?.length > 0 && !(${diagnostics}).some((m) => m.includes("ran out of resources"))`, 60000, "the edit's own errors");
+  assert.equal(await page.ev(`window.editor.stats.overflows.length`), 1);
+  assert.equal(await page.ev(`window.editor.stats.restarts`), 0);
+}, { ms: 150000 });
 
 for (const [how, patch] of [
   ["the Worker constructor throws", `window.Worker = function () { throw new Error("workers are blocked"); };`],
@@ -2215,9 +2261,11 @@ test("F2 renames a function in every file of a project, including files that are
   const text = await sourceText(page);
   // The caret on the definition of `parseRanges`, which two other files of the day use.
   await page.ev(`(() => { const e = window.editor; e.focus(); const i = e.value.indexOf("def parseRanges") + 6; e.setSelectionRange(i, i); })()`);
-  // The server answers only once the whole project is checked: F2 is tried until it does.
+  // The server answers only once the whole project is checked: F2 is tried until it does. In Chrome the
+  // engine's stack runs out on two of the project's proofs, and each time a new server checks the project
+  // again (D3750, SW-4862), so this takes several minutes.
   let prompt = false;
-  for (let i = 0; i < 240 && !prompt; i++) {
+  for (let i = 0; i < 600 && !prompt; i++) {
     await page.key("F2", "F2", 113);
     prompt = await page.ev(`!!document.querySelector(".rename-panel input")`).catch(() => false);
     if (!prompt) await sleep(1000);
@@ -2776,6 +2824,11 @@ test("in a project, after a jump into another file and the whole project's check
   // A crash of the server's worker: what it was checking, and how deep the stack got (SW-3128).
   console.log(`    (crashed: ${JSON.stringify(await page.ev(`[window.editor.stats.crashed, window.editor.stats.crashedAtStack]`))})`);
   assert.equal(await page.ev(`window.editor.stats.restarts`), 0, "the server didn't crash");
+  // Where the engine's stack ran out first (Aoc.Year2020.Day05.Proofs in Chrome, SW-4862), the namespace is
+  // reported as E-RESOURCE, not a crash (D3750): each overflow named what it was checking.
+  const overflows = await page.ev(`window.editor.stats.overflows`);
+  console.log(`    (the engine's stack ran out ${overflows.length} times: ${overflows.map((o) => o.checking)})`);
+  assert.ok(overflows.every((o) => o.checking), JSON.stringify(overflows));
 }, { ms: 480000 });
 
 test("in a project, an error in the day's program is underlined", async (page) => {

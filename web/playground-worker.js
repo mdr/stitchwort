@@ -17,7 +17,7 @@
 // come from the same page load as the worker (see index.html). They're
 // imported in the handler: `onmessage` must be set before the first message
 // arrives, which a top-level `await` would delay.
-import { applyStackGuard, libraryCacheFile } from "./stack-guard.js";
+import { applyStackGuard, isStackOverflow, libraryCacheFile } from "./stack-guard.js";
 
 let bindings = null;
 let ready = null;
@@ -154,6 +154,8 @@ self.onmessage = async ({ data }) => {
     }
     self.postMessage({ id: data.id, out });
   } catch (e) {
-    self.postMessage({ id: data.id, crashed: true, error: `${e?.name ?? "Error"}: ${e?.message ?? e}` });
+    // `overflow`: the engine's stack ran out (stack-guard.js); the page
+    // reports it as running out of resources, and starts a fresh worker.
+    self.postMessage({ id: data.id, crashed: true, overflow: isStackOverflow(e), error: `${e?.name ?? "Error"}: ${e?.message ?? e}` });
   }
 };
