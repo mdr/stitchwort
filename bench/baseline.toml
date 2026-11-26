@@ -288,3 +288,10 @@ visits = 265575
 allocations = 1675138
 peak_bytes = 4382860
 time_ms = 189.9
+
+[std]
+steps = 338927415
+visits = 36589575
+allocations = 344727290
+peak_bytes = 310185308
+time_ms = 32398.4
