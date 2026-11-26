@@ -36137,13 +36137,13 @@
     },
     {
       "id": 4849,
-      "title": "[Sonnet] nesting::nested_applications_under_the_playground_guard fails on main on macOS (40 nested applications no longer check under the playground's 320 KiB stack guard; E-RESOURCE at nesting.rs:151); Overmind's Linux quick tier passes it. Find what raised the stack per level (was about 5 KiB, SW-3172) and fix or re-measure (SW-1970 finding)",
+      "title": "[Sonnet] Playground nesting: measure how deep nested applications check in Chrome, Firefox and Safari (the 320 KiB guard and the engine's own overflow), then lower nested_applications_under_the_playground_guard to fit, and pin native KiB per level (D3748)",
       "status": "backlog",
       "agent": "",
       "where": "",
       "labels": [],
       "epic": "test-infra",
-      "body": "Confirmed on main at 21b9e455b, 12:52 26 Nov, Speedwell (macOS): fails; the other 17 nesting tests pass.\n\nCorrection: Overmind's loop doesn't run this test, so there is no Linux result; it may fail everywhere.\n\nLane result (Sonnet, 47 min, est. 35): 38 levels check under 320 KiB, 39 don't; about 7.8 KiB a level now against 5.1 at SW-3172 (58 levels then). Spread over many merges: SW-2153's check_value split (2 levels), SW-4449's check_arg statement save/restore (about 0.5 KiB a level), the rest in small steps. Two out-of-line trials gained about 0.3 KiB a level; reverted. Waiting on D3748 (Matt).",
+      "body": "Confirmed on main at 21b9e455b, 12:52 26 Nov, Speedwell (macOS): fails; the other 17 nesting tests pass.\n\nCorrection: Overmind's loop doesn't run this test, so there is no Linux result; it may fail everywhere.\n\nLane result (Sonnet, 47 min, est. 35): 38 levels check under 320 KiB, 39 don't; about 7.8 KiB a level now against 5.1 at SW-3172 (58 levels then). Spread over many merges: SW-2153's check_value split (2 levels), SW-4449's check_arg statement save/restore (about 0.5 KiB a level), the rest in small steps. Two out-of-line trials gained about 0.3 KiB a level; reverted. Waiting on D3748 (Matt).\n\nD3748 (Matt, 26 Nov ~13:50): remeasure the limit in Chrome, Firefox and Safari, then lower the test to an appropriate amount; no frame-size optimisation yet.",
       "created": "2026-11-26",
       "updated": "2026-11-26",
       "commits": []
