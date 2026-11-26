@@ -36489,12 +36489,12 @@
     {
       "id": 4868,
       "title": "[Sonnet] Playground stack steps 1-2 (SW-4863): bound the term printer by what it shows (pretty::term_within prints in full before measuring, then reprints 10 deep; nav::not_unfolded has no limit; a type nested past the limit shows … inside), and keep the inline(never) frame splits in the shipped wasm (wasm-opt -ocimfs=30 in web/build.sh); measure Day05/Day22 in Chrome after",
-      "status": "doing",
+      "status": "review",
       "agent": "Sonnet",
       "where": "",
       "labels": [],
       "epic": "editor-playground",
-      "body": "",
+      "body": "Lane: term_within depth-bounded, not_unfolded limited, -ocimfs=30; Chrome peaks Day05 315->73 KiB, Day22 604->96; browser tests pass.",
       "created": "2026-11-26",
       "updated": "2026-11-26",
       "commits": []
