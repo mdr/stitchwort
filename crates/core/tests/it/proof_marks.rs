@@ -6,8 +6,8 @@
 use std::rc::Rc;
 
 use crate::common::*;
-use stitchwort_core::check::infer_closed;
-use stitchwort_core::value::{eval, is_proof};
+use stitchwort_core::check::{define_ctors, infer_closed};
+use stitchwort_core::value::{Elim, Spine, eval, is_proof, project_call};
 use stitchwort_core::{Icit, ProofMark, Sort, Term, Value};
 
 fn rc(t: Term) -> Rc<Term> {
@@ -151,6 +151,44 @@ fn a_given_mark_that_differs_is_malformed() {
     };
     assert_eq!(infer_code(&p, &quot(ProofMark::Proof)), "E-MALFORMED");
     assert_eq!(infer_code(&p, &quot(ProofMark::NotProof)), "ok");
+}
+
+#[test]
+fn a_field_of_a_call_is_marked_from_its_declared_type() {
+    let mut p = Prelude::new();
+    // `type Spec = { holds: Prop }`, `def spec (n : Nat) : Spec :=
+    // { holds := n = n }`. The type `(spec n).holds` is the call `spec n`
+    // eliminated by a projection, which rule I must read as a proof without
+    // computing the call's field.
+    let spec = data(&mut p.g, "Spec", vec![], Sort::Type(0));
+    define_ctors(
+        &mut p.g,
+        spec,
+        vec![ctor("MkSpec", vec![("holds", prop())])],
+    )
+    .expect("Spec");
+    let nat_ty = p.nat_ty();
+    let body = lam(
+        "n",
+        Term::Ctor(spec, 0, vec![rc(eq(Some(nat_ty.clone()), v(0), v(0)))]),
+    );
+    let spec_def = define(
+        &mut p.g,
+        "spec",
+        arrow(nat_ty, Term::Data(spec, vec![])),
+        body,
+    )
+    .expect("spec checks");
+    let g = p.g.ev();
+    // The elaborator's value for `(spec n).holds`: the call `spec n` with a
+    // projection after its argument. It is not forced yet, so the mark must
+    // not be read by forcing it either.
+    let mut spine = Spine::default();
+    spine.push(Elim::App(Value::var(0), Icit::Explicit));
+    let call = Value::Call(spec_def, spine, Rc::default());
+    let ty = project_call(spec, 0, call);
+    let mark = stitchwort_core::value::mark_of_type(&g, &ty, &|_| None, 1).expect("within budget");
+    assert_eq!(mark, ProofMark::Proof);
 }
 
 #[test]

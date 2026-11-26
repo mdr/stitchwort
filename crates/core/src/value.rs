@@ -1017,7 +1017,9 @@ pub fn is_proof(g: &Ev, v: &Value) -> ProofMark {
 /// Whether values of type `ty` are proofs, read off `ty` without a
 /// checker: an equation, a data type's sort, a function type's codomain
 /// (under a variable at `fresh` and above), or a stuck type's head type
-/// applied to its arguments until it is a sort. `types` gives a context
+/// applied to its arguments until it is a sort. A call is read from its
+/// definition's declared type without unfolding it; when that doesn't
+/// decide, the call is unfolded as before. `types` gives a context
 /// variable's type, when known. [`ProofMark::Unknown`] for anything else
 /// (an unknown, a projection or cast in the type, a type's sort still to
 /// be solved): the elaborator marks its variables with this, and an
@@ -1033,8 +1035,11 @@ pub fn mark_of_type(
         // Read a call's result sort off its definition's type, without
         // forcing the call: forcing a type such as `cost < 5` would compute
         // `cost`, which nothing here needs (SW-4864).
-        if let Value::Neutral(Head::Def(id), spine) | Value::Call(id, spine, _) = &ty {
-            return mark_of_head(g, g.def(*id).ty_value.clone(), spine);
+        if let Value::Neutral(Head::Def(id), spine) | Value::Call(id, spine, _) = &ty
+            && let Ok(mark @ (ProofMark::Proof | ProofMark::NotProof)) =
+                mark_of_head(g, g.def(*id).ty_value.clone(), spine)
+        {
+            return Ok(mark);
         }
         let (head_ty, spine) = match force(g, ty)? {
             Value::Eq(..) => return Ok(ProofMark::Proof),
