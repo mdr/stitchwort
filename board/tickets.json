@@ -36143,7 +36143,7 @@
       "where": "",
       "labels": [],
       "epic": "test-infra",
-      "body": "Confirmed on main at 21b9e455b, 12:52 26 Nov, Speedwell (macOS): fails; the other 17 nesting tests pass.\n\nCorrection: Overmind's loop doesn't run this test, so there is no Linux result; it may fail everywhere.",
+      "body": "Confirmed on main at 21b9e455b, 12:52 26 Nov, Speedwell (macOS): fails; the other 17 nesting tests pass.\n\nCorrection: Overmind's loop doesn't run this test, so there is no Linux result; it may fail everywhere.\n\nLane result (Sonnet, 47 min, est. 35): 38 levels check under 320 KiB, 39 don't; about 7.8 KiB a level now against 5.1 at SW-3172 (58 levels then). Spread over many merges: SW-2153's check_value split (2 levels), SW-4449's check_arg statement save/restore (about 0.5 KiB a level), the rest in small steps. Two out-of-line trials gained about 0.3 KiB a level; reverted. Waiting on D3748 (Matt).",
       "created": "2026-11-26",
       "updated": "2026-11-26",
       "commits": []
