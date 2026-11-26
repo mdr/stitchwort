@@ -44,6 +44,32 @@ in [../proposals/README.md](../proposals/README.md).
 
 ---
 
+## 26 Nov 2026
+
+### SW-4892: the effects pre-pass remembers its answers for the declaration
+
+- **Problem.** Checking `f (f (… 0))` took time that grew as the square of the depth: every
+  check of an argument asked the effects pre-pass (`effects::may_perform_at`) again about the
+  whole argument (SW-4885; docs/proposals/effects-prepass-cost.md).
+- **Change.** Option B of that note: `performs_memo.rs` keeps the pre-pass's answer for each
+  expression it walks, keyed by the expression's address, the context's identity (SW-4891),
+  the abilities declared, the recursion flag and `bare_rows_pure`; a literal asked against an
+  expected type isn't kept. An answer is used while the store's `meta_epoch` is unchanged and
+  no metavariable older than the answer's walk has been solved since (a stack of the trail's
+  suffix minima, binary-searched). To keep a freed temporary's address from finding another
+  expression's answer, answers are recorded only for expressions still borrowed: those `check`,
+  `infer` and computation mode were given (each opens a scope around its expression), and the
+  parts walks reach from them; a scope's records go when it closes. `STITCHWORT_SHADOW_MEMO=1`
+  works every remembered answer out again and panics on a difference. Results, messages and
+  hashes are unchanged.
+- **Measured (visits, `Budget::total_visits`, depths 200 / 400).** `f`: 22,499 / 84,999 before,
+  2,599 / 5,199 after. `same : a -> a`: 23,299 / 86,599 before, 3,399 / 6,799 after. An
+  effectful chain `g (g (… ask()))`: 102,000 / 364,000 before, 21,800 / 43,600 after. Pinned by
+  `resources` `nested_calls_check_in_visits_linear_in_their_depth`.
+- **Measured (release CLI, `check --no-cache --timings`, elaboration ms, one run each, load 6 to
+  10).** `f` at 1,000 / 2,000 / 4,000 levels: 136 / 550 / 2,212 before, 5.8 / 21.7 / 97 after.
+  What remains still grows faster than linearly, though the visits don't: not the pre-pass.
+
 ## 24 Nov 2026
 
 ### SW-4719: `check --jobs N`, a parallel fill of the check cache (stage 1 of parallel checking)
