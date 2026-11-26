@@ -7657,16 +7657,16 @@
     {
       "id": 2099,
       "title": "[DeepSeek] Fuzzer housekeeping from the first soak run: fuzz_elab.rs's timing comment (2,000 cases took 40 min on the laptop); explain or fix 54% parsed vs 77% reached the elaborator; the fuzz tasks' 16 GB memory cap exceeds a 15 GiB machine (scale it to RAM); the syntax fuzzer prints no case count",
-      "status": "backlog",
-      "agent": "",
-      "where": "",
+      "status": "doing",
+      "agent": "DeepSeek",
+      "where": "scratch-sw-4851",
       "labels": [
         "fuzz"
       ],
       "epic": "audit-fuzzing",
       "body": "From Overmind soak report 1 (Matt's laptop, NixOS i7-6700HQ 8 threads, 15 GiB; 7 Nov, commit a3c652a63). 45 min.\n\nAudit note (22 Nov): 22 Nov 2026 audit: Partly stale: fuzz_elab changed for speed (SW-3705, SW-3707); the 16 GB cap (Taskfile MEM_CAP_*) and the missing syntax-fuzzer case count were not rechecked.\n",
       "created": "2026-11-07",
-      "updated": "2026-11-22",
+      "updated": "2026-11-26",
       "commits": []
     },
     {
@@ -7717,16 +7717,16 @@
     {
       "id": 2107,
       "title": "[DeepSeek] Pin follow-ups: an on/off switch for the pin-check log (it grows forever in dev language servers); messages that don't read 'Nat.add is bound to Nat.add'; debug_asserts at the two primitive-binding sites (elab/src/lib.rs:2543, 2559)",
-      "status": "backlog",
-      "agent": "",
-      "where": "",
+      "status": "doing",
+      "agent": "DeepSeek",
+      "where": "scratch-sw-2107",
       "labels": [
         "core"
       ],
       "epic": "effects-native",
       "body": "From docs/reviews/SW-2103-pins-at-binding.md (F2-F4). Tests: a_second_registration_is_refused_by_name, a_native_is_registered_once, every_pin_is_checked_at_binding. 30 min.\n\nAudit note (22 Nov): The three tests the ticket names already exist from SW-2081 (2859c6c65: crates/core/tests/it/glue.rs:678, crates/driver/tests/library/pinned_hashes.rs:248, crates/driver/tests/elaboration/natives.rs:269); check which of the log switch, message wording and debug_asserts remain.\n",
       "created": "2026-11-07",
-      "updated": "2026-11-22",
+      "updated": "2026-11-26",
       "commits": []
     },
     {
@@ -36178,9 +36178,9 @@
     {
       "id": 4851,
       "title": "[DeepSeek] soundness fuzzer: save (or print under SOUND_VERBOSE) every accepted mutated void attempt with its source example and edits, so an accepted one can be read without a rerun (26 Nov: 1 of 200 accepted, source not recoverable)",
-      "status": "backlog",
-      "agent": "",
-      "where": "",
+      "status": "doing",
+      "agent": "DeepSeek",
+      "where": "scratch-sw-4851",
       "labels": [],
       "epic": "audit-fuzzing",
       "body": "The 26 Nov accepted attempt (batch 5, seed 0x26112605, attempt 579) was examples/soundness/recursive-passed-type.sw with outer deleted and inner's recursive call removed: a plain non-recursive definition, legitimately accepted (Overmind's rerun; orchestrator agrees). Overmind's uncommitted print change is in its scratch worktree.",
