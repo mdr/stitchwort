@@ -144,6 +144,86 @@ fn formats_a_folder() {
     let _ = std::fs::remove_dir_all(&dir);
 }
 
+/// A folder walk leaves hidden folders alone, but a hidden folder named
+/// itself is still walked.
+#[test]
+fn a_folder_walk_skips_hidden_folders() {
+    let dir = temp("hidden");
+    let visible = dir.join("a.sw");
+    let hidden = dir.join(".hidden/b.sw");
+    std::fs::create_dir_all(hidden.parent().unwrap()).unwrap();
+    std::fs::write(&visible, UNFORMATTED).unwrap();
+    std::fs::write(&hidden, UNFORMATTED).unwrap();
+    let folder = dir.display().to_string();
+
+    let output = stitchwort(&dir, &["fmt", &folder], None);
+    assert_eq!(output.status.code(), Some(0), "{output:?}");
+    assert_eq!(text(&output), format!("{}\n", visible.display()));
+    assert_eq!(std::fs::read_to_string(&visible).unwrap(), FORMATTED);
+    assert_eq!(std::fs::read_to_string(&hidden).unwrap(), UNFORMATTED);
+
+    let hidden_folder = hidden.parent().unwrap().display().to_string();
+    let output = stitchwort(&dir, &["fmt", &hidden_folder], None);
+    assert_eq!(output.status.code(), Some(0), "{output:?}");
+    assert_eq!(text(&output), format!("{}\n", hidden.display()));
+    assert_eq!(std::fs::read_to_string(&hidden).unwrap(), FORMATTED);
+
+    let _ = std::fs::remove_dir_all(&dir);
+}
+
+/// A link back to a parent folder doesn't send the walk round for ever.
+#[cfg(unix)]
+#[test]
+fn a_folder_walk_does_not_follow_a_symlink_to_a_parent() {
+    let dir = temp("symlink");
+    let file = dir.join("a.sw");
+    std::fs::write(&file, UNFORMATTED).unwrap();
+    let child = dir.join("child");
+    std::fs::create_dir_all(&child).unwrap();
+    std::os::unix::fs::symlink(&dir, child.join("up")).unwrap();
+    let folder = dir.display().to_string();
+
+    let check = stitchwort(&dir, &["fmt", "--check", &folder], None);
+    assert_eq!(check.status.code(), Some(1), "{check:?}");
+    assert_eq!(text(&check), format!("{}\n", file.display()));
+
+    let output = stitchwort(&dir, &["fmt", &folder], None);
+    assert_eq!(output.status.code(), Some(0), "{output:?}");
+    assert_eq!(text(&output), format!("{}\n", file.display()));
+    assert_eq!(std::fs::read_to_string(&file).unwrap(), FORMATTED);
+
+    let _ = std::fs::remove_dir_all(&dir);
+}
+
+/// A formatted file keeps its permissions, and is replaced rather than
+/// rewritten in place.
+#[cfg(unix)]
+#[test]
+fn a_formatted_file_keeps_its_permissions() {
+    use std::os::unix::fs::{MetadataExt, PermissionsExt};
+
+    let dir = temp("permissions");
+    let file = dir.join("f.sw");
+    let path = file.display().to_string();
+    std::fs::write(&file, UNFORMATTED).unwrap();
+    std::fs::set_permissions(&file, std::fs::Permissions::from_mode(0o751)).unwrap();
+    let before = std::fs::metadata(&file).unwrap().ino();
+
+    let output = stitchwort(&dir, &["fmt", &path], None);
+    assert_eq!(output.status.code(), Some(0), "{output:?}");
+    assert_eq!(text(&output), format!("{path}\n"));
+    assert_eq!(std::fs::read_to_string(&file).unwrap(), FORMATTED);
+    let after = std::fs::metadata(&file).unwrap();
+    assert_eq!(after.permissions().mode() & 0o777, 0o751);
+    assert_ne!(
+        after.ino(),
+        before,
+        "the file should be replaced, not rewritten"
+    );
+
+    let _ = std::fs::remove_dir_all(&dir);
+}
+
 /// A folder walk skips the paths the repository keeps as written (D1019),
 /// saying how many it skipped; a file named explicitly is still formatted.
 #[test]

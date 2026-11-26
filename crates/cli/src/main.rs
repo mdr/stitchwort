@@ -1,5 +1,5 @@
 use std::collections::BTreeSet;
-use std::io::{IsTerminal, Read};
+use std::io::{IsTerminal, Read, Write};
 use std::path::{Path, PathBuf};
 use std::process::ExitCode;
 
@@ -2422,7 +2422,7 @@ fn check(
             if expand_facts {
                 ok = write_facts_expansions(&session, Path::new("."), to_stdout) && ok;
             }
-            discard(session);
+            drop(session);
         }
         return if stopped {
             ExitCode::from(STOPPED_EARLY)
@@ -5047,7 +5047,7 @@ fn audit(
                 Ok(found) => audits.extend(found),
                 Err(code) => return code,
             }
-            discard(session);
+            drop(session);
         }
         return print_audit(&audits, &options.allowed, errors, args);
     }
@@ -5448,17 +5448,26 @@ fn fmt_command(files: &[PathBuf], check: bool, project: Option<&Path>) -> ExitCo
     }
 }
 
-/// Every `.sw` file under `dir`, recursively, sorted by path.
+/// Every `.sw` file under `dir`, recursively, sorted by path. Hidden and
+/// symlinked folders below `dir` are skipped; `dir` itself is walked even
+/// when its name starts with a dot.
 fn sw_files_in(dir: &Path) -> Vec<PathBuf> {
     fn walk(dir: &Path, found: &mut Vec<PathBuf>) {
         let Ok(entries) = std::fs::read_dir(dir) else {
             return;
         };
         for entry in entries.flatten() {
+            let Ok(file_type) = entry.file_type() else {
+                continue;
+            };
             let path = entry.path();
-            if path.is_dir() {
-                walk(&path, found);
-            } else if path.extension().is_some_and(|extension| extension == "sw") {
+            if file_type.is_dir() {
+                if !entry.file_name().to_string_lossy().starts_with('.') {
+                    walk(&path, found);
+                }
+            } else if file_type.is_file()
+                && path.extension().is_some_and(|extension| extension == "sw")
+            {
                 found.push(path);
             }
         }
@@ -5514,7 +5523,7 @@ fn format_file(path: &Path, check: bool, would_change: &mut bool) -> bool {
                 return true;
             }
             *would_change = true;
-            if !check && let Err(err) = std::fs::write(path, &formatted) {
+            if !check && let Err(err) = write_atomically(path, &formatted) {
                 eprintln!("error: can't write {}: {err}", path.display());
                 return false;
             }
@@ -5533,6 +5542,45 @@ fn format_file(path: &Path, check: bool, would_change: &mut bool) -> bool {
             false
         }
     }
+}
+
+/// Writes `text` to a temporary file beside `path` and renames it over
+/// `path`, so an interrupted write leaves the old file whole. The file keeps
+/// its permissions.
+fn write_atomically(path: &Path, text: &str) -> std::io::Result<()> {
+    use std::sync::atomic::{AtomicU64, Ordering};
+    static TEMPORARY: AtomicU64 = AtomicU64::new(0);
+
+    let permissions = std::fs::metadata(path)?.permissions();
+    let directory = path.parent().unwrap_or(Path::new("."));
+    let name = path.file_name().map_or_else(
+        || "file".to_string(),
+        |name| name.to_string_lossy().into_owned(),
+    );
+    let number = TEMPORARY.fetch_add(1, Ordering::Relaxed);
+    let nanos = std::time::SystemTime::now()
+        .duration_since(std::time::UNIX_EPOCH)
+        .map_or(0, |duration| duration.as_nanos());
+    let name = if name.len() > 200 {
+        format!(".sw-{}-{nanos}-{number}.tmp", std::process::id())
+    } else {
+        format!(".{name}.{}-{nanos}-{number}.tmp", std::process::id())
+    };
+    let temporary = directory.join(name);
+    let result = (|| {
+        let mut file = std::fs::OpenOptions::new()
+            .write(true)
+            .create_new(true)
+            .open(&temporary)?;
+        file.write_all(text.as_bytes())?;
+        file.set_permissions(permissions)?;
+        file.sync_all()?;
+        std::fs::rename(&temporary, path)
+    })();
+    if result.is_err() {
+        let _ = std::fs::remove_file(&temporary);
+    }
+    result
 }
 
 /// Which runner `run` uses for `main`.
