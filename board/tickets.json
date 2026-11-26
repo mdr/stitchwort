@@ -1,5 +1,5 @@
 {
-  "next": 4895,
+  "next": 4896,
   "tickets": [
     {
       "id": 47,
@@ -36930,8 +36930,25 @@
     {
       "id": 4894,
       "title": "[Sonnet] Regression: browser test 'an error is underlined, its message shows on hover…' fails on main after SW-4884 (times out waiting for the message; the new SW-4884 test fails too) on a fresh web/build.sh at 2498b6043; passed on main's build before (SW-4870 note). Find whether SW-4884's pointer replay or something else broke it",
-      "status": "review",
+      "status": "done",
       "agent": "Sonnet",
+      "where": "",
+      "labels": [],
+      "epic": "editor-playground",
+      "body": "Old race (~40% on a fresh build), not SW-4884's doing: refreshMarks' redraw replaced lastMove.target. Pinned by the existing hover test; deterministic test in SW-4895. Model result: sonnet, worked, 15 min (est. 30).",
+      "created": "2026-11-26",
+      "updated": "2026-11-26",
+      "commits": [
+        "208450798",
+        "5969c7fb1",
+        "5a5db277b"
+      ]
+    },
+    {
+      "id": 4895,
+      "title": "[Sonnet] Stale-hover race elsewhere (SW-4894 finding): any transaction that rebuilds the text's elements after a pointer move (diagnostics, inlay hints, other decorations) can leave CodeMirror's hover looking up a replaced lastMove.target; SW-4894 covered only refreshMarks. Find each such dispatch in web/editor/src and replay the pointer, or fix it once at the hover's lookup; add a page hook so a browser test can force a redraw after a move and pin it deterministically",
+      "status": "backlog",
+      "agent": "",
       "where": "",
       "labels": [],
       "epic": "editor-playground",
