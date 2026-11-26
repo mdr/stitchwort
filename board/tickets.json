@@ -1,5 +1,5 @@
 {
-  "next": 4882,
+  "next": 4883,
   "tickets": [
     {
       "id": 47,
@@ -36712,6 +36712,19 @@
       "where": "",
       "labels": [],
       "epic": "elaborator-kernel",
+      "body": "",
+      "created": "2026-11-26",
+      "updated": "2026-11-26",
+      "commits": []
+    },
+    {
+      "id": 4882,
+      "title": "[Sonnet] bench check-long-sum: time 114 ms → 293-329 ms (+160-190%) in two runs today with steps, visits and allocations unchanged (load 11-17). Measure on a quiet machine against a build from before 26 Nov (e.g. the first commit of the day) and, if it's real, find which merge slowed each step (candidates: SW-4866's drop nesting limit 128 → 8, SW-4856/4860's operations, SW-4865's segment stack); profile before changing anything",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "epic": "performance",
       "body": "",
       "created": "2026-11-26",
       "updated": "2026-11-26",
