@@ -36287,9 +36287,9 @@
     },
     {
       "id": 4857,
-      "title": "[Opus] Playground: Chrome's own stack overflows at about 268 KiB of wasm stack checking Aoc.Year2020.Day05.Proofs (check_tree recursion, 22 levels; native peak 244 KiB), under the 320 KiB guard, so the language server crashes (RangeError) instead of E-RESOURCE; the guard counts linear-memory bytes, not the engine's frames (SW-4854; browser test 'after a jump into another file')",
-      "status": "backlog",
-      "agent": "",
+      "title": "[Sonnet] Playground: Chrome's own stack overflows at about 268 KiB of wasm stack checking Aoc.Year2020.Day05.Proofs (check_tree recursion), under the 320 KiB guard, so the language server crashes instead of E-RESOURCE: measure the deepest real proofs' wasm-stack-to-engine ratio in Chrome and Firefox and propose per-engine guards (SW-4854)",
+      "status": "doing",
+      "agent": "Sonnet",
       "where": "",
       "labels": [],
       "epic": "editor-playground",
