@@ -109,7 +109,8 @@ mod state;
 mod term_util;
 pub mod timings;
 pub use kernel::{
-    record_rejections as record_kernel_rejections, take_rejections as take_kernel_rejections,
+    Rejection, RejectionLocation, record_rejections as record_kernel_rejections,
+    take_rejections as take_kernel_rejections,
 };
 pub use library::{IndexCache, LibraryIndex, use_index_cache};
 pub mod std_dir;
