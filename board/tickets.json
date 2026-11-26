@@ -36769,12 +36769,12 @@
     {
       "id": 4884,
       "title": "[Sonnet] Browser test 'an error is underlined, its message shows on hover…' races the editor's redraw: the semantic-tokens answer landing after the mouse move swallows the hover (fails 3/3 on SW-4870's build, passes on main); make the test wait for the redraw, or fix the editor if a real user can lose a hover this way (SW-4870 finding)",
-      "status": "doing",
+      "status": "review",
       "agent": "Sonnet",
       "where": "",
       "labels": [],
       "epic": "editor-playground",
-      "body": "",
+      "body": "Editor bug, not only the test: the lint tooltip hides on every setDiagnostics and a still pointer never re-asks. Fixed by replaying the pointer after a publish; new browser test publishes again under a still pointer (fails before, passes after). Original hover test passes.",
       "created": "2026-11-26",
       "updated": "2026-11-26",
       "commits": []
