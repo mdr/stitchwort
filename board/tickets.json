@@ -6333,17 +6333,21 @@
     {
       "id": 1970,
       "title": "[DeepSeek] Depth error wording: the pass name 'equations' reads as 'nested too deeply for the equations'",
-      "status": "doing",
+      "status": "done",
       "agent": "DeepSeek",
       "where": "scratch-sw-1970",
       "labels": [
         "robustness"
       ],
       "epic": "test-infra",
-      "body": "From docs/proposals/deep-input.md. Stage 9. 30 min.\n\nAudit note (22 Nov): 22 Nov 2026 audit: No commit or ticket addresses it.\n\nStarted 12:26 26 Nov with SW-2020; expected: 30 min.",
+      "body": "From docs/proposals/deep-input.md. Stage 9. 30 min.\n\nAudit note (22 Nov): 22 Nov 2026 audit: No commit or ticket addresses it.\n\nStarted 12:26 26 Nov with SW-2020; expected: 30 min.\n\nModel result: deepseek, needed fixes (the chain note could be added once per nesting level), about 35 min over two rounds (est. 30), with SW-2020.",
       "created": "2026-11-07",
       "updated": "2026-11-26",
-      "commits": []
+      "commits": [
+        "5a5b86362",
+        "4717c3f0e",
+        "8875efb92"
+      ]
     },
     {
       "id": 1972,
@@ -6812,17 +6816,21 @@
     {
       "id": 2020,
       "title": "[DeepSeek] Long + - * chains: the depth error suggests [...].sum",
-      "status": "doing",
+      "status": "done",
       "agent": "DeepSeek",
       "where": "scratch-sw-1970",
       "labels": [
         "errors"
       ],
       "epic": "diagnostics",
-      "body": "From docs/proposals/long-chains.md. D2844. 30 min.\n\nAudit note (22 Nov): 22 Nov 2026 audit: No commit addresses it.\n\nStarted 12:26 26 Nov with SW-1970; expected: 30 min.",
+      "body": "From docs/proposals/long-chains.md. D2844. 30 min.\n\nAudit note (22 Nov): 22 Nov 2026 audit: No commit addresses it.\n\nStarted 12:26 26 Nov with SW-1970; expected: 30 min.\n\nThe kernel-path note looks only at the group's first equation with a right-hand side, so a long chain in a later equation of a multi-equation group gets no note; the in-tree run-out path couldn't be reached by a test (the parser runs out first). Model result: deepseek, needed fixes, with SW-1970.",
       "created": "2026-11-07",
       "updated": "2026-11-26",
-      "commits": []
+      "commits": [
+        "5a5b86362",
+        "4717c3f0e",
+        "8875efb92"
+      ]
     },
     {
       "id": 2021,
@@ -36105,9 +36113,9 @@
     {
       "id": 4848,
       "title": "[DeepSeek] Ctx::var_at(level, &dom): one helper for Value::var_marked(level, cx.mark_of_type(dom)) in the elaborator's signature walks (effects.rs, auto.rs, facts.rs) (SW-4680 finding)",
-      "status": "backlog",
-      "agent": "",
-      "where": "",
+      "status": "doing",
+      "agent": "DeepSeek",
+      "where": "scratch-sw-4848",
       "labels": [],
       "epic": "elaborator-kernel",
       "body": "",
