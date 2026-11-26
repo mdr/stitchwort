@@ -36350,9 +36350,9 @@
     {
       "id": 4860,
       "title": "[DeepSeek] One Budget helper for 'run inside an operation if none is open': the pattern is now repeated in pretty.rs (with_operation), Session::search, search_at, check_project_namespace, equations.rs and module.rs (twice) (SW-4856, SW-4858)",
-      "status": "backlog",
-      "agent": "",
-      "where": "",
+      "status": "doing",
+      "agent": "DeepSeek",
+      "where": "scratch-sw-4860",
       "labels": [],
       "epic": "elaborator-kernel",
       "body": "",
