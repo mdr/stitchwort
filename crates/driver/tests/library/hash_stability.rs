@@ -150,6 +150,83 @@ fn all_names() -> Vec<String> {
     names
 }
 
+/// Whether the snapshot named `name` (the part after `library__hash_stability__`)
+/// has no example file or project folder behind it.
+fn hash_snapshot_is_orphaned(name: &str, examples: &Path) -> bool {
+    let exists = if name == "prelude" {
+        true
+    } else if let Some(project) = name.strip_prefix("project-") {
+        examples.join("projects/accept").join(project).is_dir()
+    } else if let Some(stem) = name.strip_prefix("extract-") {
+        examples.join("extract").join(format!("{stem}.sw")).is_file()
+            // A file named `extract-…` in `accept` would share the name.
+            || examples.join("accept").join(format!("{name}.sw")).is_file()
+    } else {
+        examples.join("accept").join(format!("{name}.sw")).is_file()
+    };
+    !exists
+}
+
+/// The mapping catches a name whose example or project is gone, not just the
+/// current set's empty result.
+#[test]
+fn a_hash_snapshot_without_its_example_is_orphaned() {
+    let examples = Path::new(env!("CARGO_MANIFEST_DIR")).join("../../examples");
+    assert!(!hash_snapshot_is_orphaned(
+        "abbreviation-meets-call",
+        &examples
+    ));
+    assert!(!hash_snapshot_is_orphaned("extract-app-types", &examples));
+    assert!(!hash_snapshot_is_orphaned(
+        "project-alias-dot-across-import",
+        &examples
+    ));
+    assert!(hash_snapshot_is_orphaned("no-such-example", &examples));
+    assert!(hash_snapshot_is_orphaned(
+        "project-no-such-project",
+        &examples
+    ));
+}
+
+/// Fails listing every `library__hash_stability__*.snap` whose example or
+/// project no longer exists. Insta only notices snapshots a test asked for,
+/// so a renamed or deleted example would leave its snapshot behind silently;
+/// this maps each name back the way [`examples`] and [`projects`] write them.
+#[test]
+fn no_hash_snapshots_are_orphaned() {
+    let snapshots = Path::new(env!("CARGO_MANIFEST_DIR")).join("tests/library/snapshots");
+    let examples = Path::new(env!("CARGO_MANIFEST_DIR")).join("../../examples");
+    let mut orphans = Vec::new();
+    let mut checked = 0;
+    for entry in std::fs::read_dir(&snapshots).expect("readable snapshots folder") {
+        let path = entry.expect("readable directory entry").path();
+        let Some(file) = path.file_name().and_then(|name| name.to_str()) else {
+            continue;
+        };
+        let Some(name) = file
+            .strip_prefix("library__hash_stability__")
+            .and_then(|name| name.strip_suffix(".snap"))
+        else {
+            continue;
+        };
+        checked += 1;
+        if hash_snapshot_is_orphaned(name, &examples) {
+            orphans.push(file.to_string());
+        }
+    }
+    assert!(
+        checked > 0,
+        "found no hash snapshots in {}",
+        snapshots.display()
+    );
+    orphans.sort();
+    assert!(
+        orphans.is_empty(),
+        "these hash snapshots name no example or project (delete them):\n{}",
+        orphans.join("\n")
+    );
+}
+
 /// Adds the `.sw` file names under `dir` to `names`, recursively, skipping
 /// `examples/projects` (projects match by folder name instead).
 fn sw_files(dir: &Path, names: &mut Vec<String>) {
