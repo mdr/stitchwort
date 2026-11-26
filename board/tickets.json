@@ -36113,15 +36113,18 @@
     {
       "id": 4848,
       "title": "[DeepSeek] Ctx::var_at(level, &dom): one helper for Value::var_marked(level, cx.mark_of_type(dom)) in the elaborator's signature walks (effects.rs, auto.rs, facts.rs) (SW-4680 finding)",
-      "status": "doing",
+      "status": "done",
       "agent": "DeepSeek",
       "where": "scratch-sw-4848",
       "labels": [],
       "epic": "elaborator-kernel",
-      "body": "",
+      "body": "Model result: deepseek, worked, about 12 min (est. 20).",
       "created": "2026-11-26",
       "updated": "2026-11-26",
-      "commits": []
+      "commits": [
+        "7823f2407",
+        "50041e6c7"
+      ]
     },
     {
       "id": 4849,
