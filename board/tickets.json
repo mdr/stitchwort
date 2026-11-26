@@ -1,5 +1,5 @@
 {
-  "next": 4891,
+  "next": 4893,
   "tickets": [
     {
       "id": 47,
@@ -36849,15 +36849,19 @@
     {
       "id": 4889,
       "title": "[Opus] Design note (docs/proposals/): the elaborator's effects pre-pass makes checking nested applications quadratic (SW-4885: check_special → effects::may_perform_at → call_performs walks the whole argument chain at every level; ~98% of samples at 5,500 levels; 4,000 levels 2.4 s). Options: (a) pass a stamped 'doesn't perform' answer to the argument's check, (b) a per-declaration memo keyed by expression with a local-context change counter, (c) decide effects from elaborated types instead of the syntactic pre-pass (end state). Pick the end state, with the invariants a memo must keep (meta solutions can turn doesn't-perform into performs); pin with SW-4885's visits probe (scratchpad SW-4885/probe-test.patch)",
-      "status": "review",
+      "status": "done",
       "agent": "Opus",
       "where": "",
       "labels": [],
       "epic": "effects-native",
-      "body": "Lane (Opus, 26 Nov): note docs/proposals/effects-prepass-cost.md. Recommends B: memo of may_perform_at's answers (yes and no) keyed by expression address + a Ctx context identity (fresh per push/wholesale change, restored by reset via Mark) + bare_rows_pure/abilities/recursion; each entry stamped with meta_epoch, meta count and trail length, valid while no older metavariable has been solved (monotonic-stack lookup, O(log n)). A alone stays n²/4 (one-shot slot); C (type-directed effects) is a redesign, Matt's, not justified by cost. Two lanes: Ctx refactor (~70 direct field mutations made private), then memo + shadow mode STITCHWORT_SHADOW_MEMO + linear-growth test from SW-4885's probe. Results unchanged: D3447, orchestrator's call.",
+      "body": "Lane (Opus, 26 Nov): note docs/proposals/effects-prepass-cost.md. Recommends B: memo of may_perform_at's answers (yes and no) keyed by expression address + a Ctx context identity (fresh per push/wholesale change, restored by reset via Mark) + bare_rows_pure/abilities/recursion; each entry stamped with meta_epoch, meta count and trail length, valid while no older metavariable has been solved (monotonic-stack lookup, O(log n)). A alone stays n²/4 (one-shot slot); C (type-directed effects) is a redesign, Matt's, not justified by cost. Two lanes: Ctx refactor (~70 direct field mutations made private), then memo + shadow mode STITCHWORT_SHADOW_MEMO + linear-growth test from SW-4885's probe. Results unchanged: D3447, orchestrator's call.\n\nRecommends B (memo); A stays quadratic, C is a redesign (Matt's if ever). Orchestrator's call under D3447: results unchanged. Steps SW-4891, SW-4892. Model result: opus, worked, 10 min (est. 45).",
       "created": "2026-11-26",
       "updated": "2026-11-26",
-      "commits": []
+      "commits": [
+        "d8870b7de",
+        "a63ae1c00",
+        "ad0193f58"
+      ]
     },
     {
       "id": 4890,
@@ -36874,6 +36878,32 @@
         "db5b49115",
         "5b3615d60"
       ]
+    },
+    {
+      "id": 4891,
+      "title": "[Sonnet] Context refactor for the effects memo (docs/proposals/effects-prepass-cost.md, option B, step 1): make the elaborator's local-context fields private and route the ~70 direct changes in ~20 files through methods that maintain a context identity (new on every binding and narrowing, restored on going back to a saved point). Behaviour unchanged: results, messages and hashes identical",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "epic": "performance",
+      "body": "",
+      "created": "2026-11-26",
+      "updated": "2026-11-26",
+      "commits": []
+    },
+    {
+      "id": 4892,
+      "title": "[Opus] Effects pre-pass memo (docs/proposals/effects-prepass-cost.md, option B, step 2, after SW-4891): memo of may_perform answers per declaration keyed by expression, context identity and flags, valid while no pre-existing meta is solved; STITCHWORT_SHADOW_MEMO=1 recomputes on each hit and panics on a difference; linear-growth test from SW-4885's probe (visits at 200 and 400 levels under 2.5x); probe effectful chains too. Then Overmind runs shadow mode over examples, std and AoC before it's trusted",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "epic": "performance",
+      "body": "",
+      "created": "2026-11-26",
+      "updated": "2026-11-26",
+      "commits": []
     }
   ]
 }
