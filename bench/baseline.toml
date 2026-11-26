@@ -7,73 +7,72 @@
 # run-machine-* run the runtime's machine, not the checker: their steps and
 # visits are 0, and machine_instructions is the machine's bytecode
 # instructions. Frames entered aren't exposed by the machine yet.
-
 jobs = 8
 
 [examples]
-inputs = "1993 files, 03152abd1ab62a73"
-steps = 16468521006
-visits = 2371228406
-allocations = 19185989146
-peak_bytes = 1161135757
-time_ms = 231977.3
+inputs = "2044 files, 2bd44684ea29465a"
+steps = 2948568785
+visits = 420143263
+allocations = 4676040805
+peak_bytes = 1161017525
+time_ms = 85790.4
 
 [extract-js]
 inputs = "59 files, 9250ea808b305d40"
-steps = 348671
-visits = 420983
-allocations = 1434339
-peak_bytes = 1212821
-time_ms = 596.8
+steps = 386621
+visits = 410957
+allocations = 1429400
+peak_bytes = 1202459
+time_ms = 1359.0
 
 [eval-lengths]
 steps = 44422054
 visits = 18
-allocations = 16806926
-peak_bytes = 1839878
-time_ms = 1282.3
+allocations = 16806929
+peak_bytes = 1841694
+time_ms = 1307.7
 
 [text-append]
 steps = 4760113
 visits = 33
-allocations = 1860243
+allocations = 1860244
 peak_bytes = 50790969
-time_ms = 158.1
+time_ms = 144.2
 
 [text-split-join]
 steps = 1392370
 visits = 62
-allocations = 586561
-peak_bytes = 5403600
-time_ms = 54.7
+allocations = 586562
+peak_bytes = 5405392
+time_ms = 51.0
 
 [text-nat-to-text]
 steps = 14979306
 visits = 18
 allocations = 5775385
 peak_bytes = 8455
-time_ms = 490.0
+time_ms = 453.5
 
 [run-prints]
-steps = 12171647
-visits = 25
-allocations = 4953737
-peak_bytes = 12754
-time_ms = 431.0
+steps = 12171649
+visits = 15
+allocations = 4953717
+peak_bytes = 12642
+time_ms = 413.6
 
 [check-number-pattern]
-steps = 373
-visits = 204
-allocations = 1379
-peak_bytes = 6455
-time_ms = 1.5
+steps = 375
+visits = 195
+allocations = 1409
+peak_bytes = 28827
+time_ms = 2.3
 
 [check-number-table]
-steps = 23105
+steps = 23622
 visits = 13103
-allocations = 129239
-peak_bytes = 1118014
-time_ms = 9.4
+allocations = 132594
+peak_bytes = 1655363
+time_ms = 19.9
 
 [check-list-rfl]
 steps = 720066
@@ -83,11 +82,11 @@ peak_bytes = 96543737
 time_ms = 120.9
 
 [check-list-sym-rfl]
-steps = 1600308
+steps = 1600314
 visits = 580063
-allocations = 2441305
-peak_bytes = 107693687
-time_ms = 225.9
+allocations = 2961326
+peak_bytes = 116103284
+time_ms = 371.9
 
 [check-long-sum]
 steps = 180049
@@ -99,107 +98,107 @@ time_ms = 113.5
 [check-nested-parens]
 steps = 8
 visits = 12
-allocations = 222
+allocations = 221
 peak_bytes = 5048605
-time_ms = 7.0
+time_ms = 9.5
 
 [check-nested-apps]
-steps = 26081
+steps = 26084
 visits = 2025042
-allocations = 2075545
-peak_bytes = 1911530
-time_ms = 571.1
+allocations = 2075563
+peak_bytes = 2452959
+time_ms = 961.7
 
 [check-number-huge]
-steps = 373
-visits = 204
-allocations = 1416
-peak_bytes = 6507
-time_ms = 1.5
+steps = 375
+visits = 195
+allocations = 1446
+peak_bytes = 29015
+time_ms = 1.9
 
 [check-number-wide]
-steps = 90065
+steps = 92070
 visits = 51047
-allocations = 877251
-peak_bytes = 4922498
-time_ms = 73.0
+allocations = 890279
+peak_bytes = 5439751
+time_ms = 99.5
 
 [check-number-dependent]
-steps = 83773
-visits = 11502
-allocations = 141142
-peak_bytes = 209902
-time_ms = 10.7
+steps = 85842
+visits = 11019
+allocations = 145451
+peak_bytes = 732768
+time_ms = 11.1
 
 [check-number-columns]
-steps = 755301
-visits = 131088
-allocations = 1181403
-peak_bytes = 2219497
-time_ms = 75.8
+steps = 738356
+visits = 119748
+allocations = 1159068
+peak_bytes = 2756542
+time_ms = 89.9
 
 [check-text-literal]
 steps = 19
 visits = 17
-allocations = 205
-peak_bytes = 169806
-time_ms = 1.5
+allocations = 204
+peak_bytes = 506655
+time_ms = 1.8
 
 [text-literal-walk]
 steps = 1400141
 visits = 31
 allocations = 633593
 peak_bytes = 3462
-time_ms = 51.8
+time_ms = 48.2
 
 [run-proof-fields]
-steps = 112531
-visits = 25
-allocations = 52866
-peak_bytes = 393188
-time_ms = 20.8
+steps = 112533
+visits = 15
+allocations = 52897
+peak_bytes = 393012
+time_ms = 21.4
 
 [check-closed-print]
-steps = 1291761
-visits = 268901
-allocations = 1623434
-peak_bytes = 4131171
-time_ms = 132.8
+steps = 1311873
+visits = 265737
+allocations = 1676261
+peak_bytes = 4383691
+time_ms = 220.3
 
 [check-closed-dot]
-steps = 1290917
-visits = 268725
-allocations = 1622363
-peak_bytes = 4129877
-time_ms = 131.9
+steps = 1310965
+visits = 265561
+allocations = 1675057
+peak_bytes = 4382397
+time_ms = 199.9
 
 [check-closed-eqeq]
-steps = 1291033
-visits = 268773
-allocations = 1622527
-peak_bytes = 4129695
-time_ms = 132.7
+steps = 1311081
+visits = 265609
+allocations = 1675223
+peak_bytes = 4382215
+time_ms = 197.1
 
 [check-closed-list-eqeq]
-steps = 1291405
-visits = 268818
-allocations = 1622904
-peak_bytes = 4130004
-time_ms = 132.1
+steps = 1311456
+visits = 265654
+allocations = 1675623
+peak_bytes = 4382524
+time_ms = 163.1
 
 [check-closed-if-less]
-steps = 1291704
-visits = 269152
-allocations = 1623602
-peak_bytes = 4130037
-time_ms = 131.7
+steps = 1311776
+visits = 265988
+allocations = 1676313
+peak_bytes = 4382557
+time_ms = 224.5
 
 [check-closed-indexed]
-steps = 1328802
-visits = 274460
-allocations = 1672835
-peak_bytes = 4137412
-time_ms = 138.0
+steps = 1349264
+visits = 271296
+allocations = 1728530
+peak_bytes = 4522862
+time_ms = 177.2
 
 [check-closed-rfl]
 steps = 1250224
@@ -214,7 +213,7 @@ visits = 0
 allocations = 441
 peak_bytes = 7234
 machine_instructions = 26800013
-time_ms = 223.6
+time_ms = 232.6
 
 [run-machine-loop]
 steps = 0
@@ -222,7 +221,7 @@ visits = 0
 allocations = 332
 peak_bytes = 5194
 machine_instructions = 20000013
-time_ms = 174.5
+time_ms = 181.4
 
 [run-machine-closures]
 steps = 0
@@ -230,7 +229,7 @@ visits = 0
 allocations = 201985
 peak_bytes = 12818074
 machine_instructions = 14800083
-time_ms = 160.2
+time_ms = 168.4
 
 [run-machine-set]
 steps = 0
@@ -238,7 +237,7 @@ visits = 0
 allocations = 213515
 peak_bytes = 20118640
 machine_instructions = 70834945
-time_ms = 636.1
+time_ms = 681.6
 
 [run-machine-aoc-2020-19]
 inputs = "1 files, e22769a308077306"
@@ -247,7 +246,7 @@ visits = 0
 allocations = 5656548
 peak_bytes = 2893480
 machine_instructions = 105659072
-time_ms = 1408.0
+time_ms = 2091.5
 
 [run-machine-aoc-2021-11]
 inputs = "1 files, f807e66043e9dc65"
@@ -256,7 +255,7 @@ visits = 0
 allocations = 9767189
 peak_bytes = 362958
 machine_instructions = 172618687
-time_ms = 1949.5
+time_ms = 2053.1
 
 [run-machine-aoc-2024-09]
 inputs = "1 files, 4f431c207ca7ae79"
@@ -265,7 +264,7 @@ visits = 0
 allocations = 2037253
 peak_bytes = 19972727
 machine_instructions = 25795793
-time_ms = 345.0
+time_ms = 360.4
 
 [run-machine-aoc-2021-15-part1]
 inputs = "1 files, c414923c87542324"
@@ -274,18 +273,18 @@ visits = 0
 allocations = 1290804
 peak_bytes = 10313843
 machine_instructions = 17701991
-time_ms = 231.6
+time_ms = 250.1
 
 [check-list-byComputing]
-steps = 760076
+steps = 760074
 visits = 380038
-allocations = 1440791
-peak_bytes = 103939442
-time_ms = 136.2
+allocations = 1960812
+peak_bytes = 105003727
+time_ms = 263.9
 
 [check-closed-byComputing]
-steps = 1290944
-visits = 268739
-allocations = 1622410
-peak_bytes = 4130340
-time_ms = 132.0
+steps = 1311004
+visits = 265575
+allocations = 1675138
+peak_bytes = 4382860
+time_ms = 189.9
