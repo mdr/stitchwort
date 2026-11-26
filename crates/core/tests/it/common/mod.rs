@@ -8,7 +8,7 @@ use stitchwort_core::ProofMark;
 use stitchwort_core::check::{self, CtorDecl};
 use stitchwort_core::registry;
 use stitchwort_core::term::Branch;
-use stitchwort_core::{DataId, DefId, Icit, Kernel, Limits, Sort, Term};
+use stitchwort_core::{DataId, DefId, Icit, Kernel, Sort, Term};
 use stitchwort_syntax::{SourceMap, Span};
 
 pub fn span() -> Span {
@@ -57,9 +57,7 @@ pub fn ipi(x: &str, a: Term, b: Term) -> Term {
 
 /// `a -> b`, where `b` is written outside the binder (it's shifted under it).
 pub fn arrow(a: Term, b: Term) -> Term {
-    let kernel = Kernel::default();
-    let _op = kernel.machine.budget.operation(Limits::default());
-    pi("_", a, b.shift(&kernel.ev(), 1, 0).unwrap())
+    pi("_", a, b.shift(&Kernel::default().ev(), 1, 0).unwrap())
 }
 
 pub fn lam(x: &str, body: Term) -> Term {
@@ -103,7 +101,6 @@ pub struct Prelude {
 impl Prelude {
     pub fn new() -> Self {
         let mut g = Kernel::default();
-        let saved = g.machine.budget.start(Limits::default());
         let nat = data(&mut g, "Nat", vec![], Sort::Type(0));
         let nat_ty = Term::Data(nat, vec![]);
         check::define_ctors(
@@ -159,7 +156,6 @@ impl Prelude {
         registry::bind_data(&mut g, nat);
         registry::bind_def(&mut g, add);
         registry::bind_data(&mut g, list);
-        g.machine.budget.restore(saved);
         Prelude { g, nat, add, list }
     }
 
