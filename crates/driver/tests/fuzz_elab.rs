@@ -564,6 +564,8 @@ struct Report {
     /// The text parsed with no error.
     parsed: bool,
     /// The elaborator saw at least one declaration (or the file parsed).
+    /// A recovered partial parse counts, so this can be higher than
+    /// [`Report::parsed`].
     reached: bool,
     rejections: Vec<(&'static str, String)>,
     /// The message of every diagnostic.
