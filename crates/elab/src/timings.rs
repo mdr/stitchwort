@@ -205,14 +205,27 @@ pub fn kernel_call<T>(f: impl FnOnce() -> T) -> T {
     out
 }
 
+/// A unit's frame on [`STACK`]. Dropping it without [`end`] (a panic) takes
+/// the frame back off, so the next report's attribution isn't off.
+pub(crate) struct UnitFrame {
+    at: usize,
+    ended: bool,
+}
+
 /// Starts a unit.
-pub(crate) fn begin(g: &Ev) {
+pub(crate) fn begin(g: &Ev) -> UnitFrame {
     let frame = Frame::new(g);
-    STACK.with(|s| s.borrow_mut().push(frame));
+    let at = STACK.with(|s| {
+        let mut s = s.borrow_mut();
+        s.push(frame);
+        s.len() - 1
+    });
+    UnitFrame { at, ended: false }
 }
 
 /// Ends the innermost unit and records its row.
-pub(crate) fn end(g: &Ev, label: String) {
+pub(crate) fn end(mut guard: UnitFrame, g: &Ev, label: String) {
+    guard.ended = true;
     let Some(frame) = STACK.with(|s| s.borrow_mut().pop()) else {
         return;
     };
@@ -274,6 +287,14 @@ pub(crate) fn end(g: &Ev, label: String) {
     }
 }
 
+impl Drop for UnitFrame {
+    fn drop(&mut self) {
+        if !self.ended {
+            STACK.with(|s| s.borrow_mut().truncate(self.at));
+        }
+    }
+}
+
 /// Records namespace `ns`, which the check cache answered for without
 /// elaborating anything: a row marked `(cached)`, with no time to show.
 pub fn cached_namespace(ns: &str) {
@@ -288,11 +309,24 @@ pub fn cached_namespace(ns: &str) {
     }
 }
 
+/// A declaration's frame on [`DECLS`]. Dropping it without [`decl_end`] (a
+/// panic) takes the frame back off, so the next report's attribution isn't
+/// off.
+pub(crate) struct DeclFrame {
+    at: usize,
+    ended: bool,
+}
+
 /// Starts checking a declaration (a component of them).
-pub(crate) fn decl_begin(g: &Ev) {
+pub(crate) fn decl_begin(g: &Ev) -> DeclFrame {
     let mut frame = Frame::new(g);
     frame.outer_peaks = g.machine.budget.take_peaks();
-    DECLS.with(|d| d.borrow_mut().push(frame));
+    let at = DECLS.with(|d| {
+        let mut d = d.borrow_mut();
+        d.push(frame);
+        d.len() - 1
+    });
+    DeclFrame { at, ended: false }
 }
 
 /// Counts one `byFacts` call's attempts against the declaration being
@@ -311,7 +345,8 @@ pub(crate) fn facts_attempts(attempts: usize) {
 
 /// Ends the innermost declaration and records its row. Called after its
 /// operation has ended, so that its steps are counted.
-pub(crate) fn decl_end(g: &Ev, label: String) {
+pub(crate) fn decl_end(mut guard: DeclFrame, g: &Ev, label: String) {
+    guard.ended = true;
     let Some(frame) = DECLS.with(|d| d.borrow_mut().pop()) else {
         return;
     };
@@ -353,6 +388,14 @@ pub(crate) fn decl_end(g: &Ev, label: String) {
         peaks,
         facts: frame.facts,
     });
+}
+
+impl Drop for DeclFrame {
+    fn drop(&mut self) {
+        if !self.ended {
+            DECLS.with(|d| d.borrow_mut().truncate(self.at));
+        }
+    }
 }
 
 /// The core term nodes of the definitions and types made since `frame`
@@ -556,6 +599,10 @@ pub fn report() {
     let mut stderr = stderr.lock();
     let _ = stderr.write_all(out.as_bytes());
     let _ = stderr.flush();
+    rows.clear();
+    drop(rows);
+    DECL_ROWS.lock().unwrap().clear();
+    SESSION_STATS.lock().unwrap().clear();
 }
 
 /// Prints the declarations, slowest first.

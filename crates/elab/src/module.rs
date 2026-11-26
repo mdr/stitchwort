@@ -373,7 +373,7 @@ impl Elaborator {
         if !crate::timings::enabled() {
             return run(self).0;
         }
-        crate::timings::begin(&self.ev());
+        let frame = crate::timings::begin(&self.ev());
         let (diagnostics, hit) = run(self);
         let label = namespace
             .map(str::to_string)
@@ -394,7 +394,7 @@ impl Elaborator {
         } else {
             label
         };
-        crate::timings::end(&self.ev(), label);
+        crate::timings::end(frame, &self.ev(), label);
         diagnostics
     }
 
@@ -546,9 +546,7 @@ impl Elaborator {
             // report which declaration a read-back was in.
             let current = stitchwort_core::budget::report_big_readbacks()
                 .then(|| self.component_label(&items, &component));
-            if timed {
-                crate::timings::decl_begin(&self.ev());
-            }
+            let frame = timed.then(|| crate::timings::decl_begin(&self.ev()));
             let previous = current
                 .as_ref()
                 .map(|name| stitchwort_core::budget::set_current_declaration(Some(name.clone())));
@@ -558,9 +556,9 @@ impl Elaborator {
             }
             crate::progress::end(&self.kernel.machine.budget, progress);
             self.kernel.machine.budget.restore(saved);
-            if timed {
+            if let Some(frame) = frame {
                 let label = current.unwrap_or_else(|| self.component_label(&items, &component));
-                crate::timings::decl_end(&self.ev(), label);
+                crate::timings::decl_end(frame, &self.ev(), label);
             }
             let ran_out = diagnostics[before..]
                 .iter()

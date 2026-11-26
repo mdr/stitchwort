@@ -207,17 +207,14 @@ impl Elaborator {
         file: FileId,
         recheck: bool,
     ) -> CoreReplay {
-        let timed = crate::timings::enabled();
-        if timed {
-            crate::timings::begin(&self.ev());
-        }
+        let frame = crate::timings::enabled().then(|| crate::timings::begin(&self.ev()));
         let replay = self.replay_core_untimed(store, key, file, recheck);
-        if timed {
+        if let Some(frame) = frame {
             let label = match &replay {
                 CoreReplay::Hit(_) => "core (cached)",
                 _ => "core (cache miss)",
             };
-            crate::timings::end(&self.ev(), label.to_string());
+            crate::timings::end(frame, &self.ev(), label.to_string());
         }
         match &replay {
             CoreReplay::Hit(_) => {

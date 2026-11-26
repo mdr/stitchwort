@@ -1529,21 +1529,19 @@ impl Elaborator {
         // From the check cache, if it has the file (`cache`).
         let cached = self.cache_lookup(f);
         let timed = cached.is_some() && crate::timings::enabled();
-        if timed {
-            crate::timings::begin(&self.ev());
-        }
+        let frame = timed.then(|| crate::timings::begin(&self.ev()));
         let hit = match &cached {
             Some((unit, key)) => self.load_from_cache(f, unit, key),
             None => false,
         };
-        if timed {
+        if let Some(frame) = frame {
             // A miss is timed again below, as an ordinary load.
             let label = format!(
                 "std/{} ({})",
                 file.path,
                 if hit { "cached" } else { "cache miss" }
             );
-            crate::timings::end(&self.ev(), label);
+            crate::timings::end(frame, &self.ev(), label);
         }
         if hit {
             let lib = self
