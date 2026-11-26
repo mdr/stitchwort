@@ -2504,16 +2504,24 @@ fn fields_key(fields: &Values) -> *const () {
 /// it can't vouch for (a function type, say) is substituted into as
 /// before.
 ///
-/// Shared sequences (constructor fields, spines) found clean are looked at
-/// once per substitution, however many values share them, so the check is
-/// linear in the size of the values as stored, and allocates only its work
-/// list and that set.
+/// Shared sequences (constructor fields, spines) found clean by a value
+/// that is itself clean are looked at once per substitution, however many
+/// later values share them. Those found by a value that turns out unclean
+/// are looked at again if a later value shares them, as [`Rebuild`] forgets
+/// its parts of such a value. So across clean values the check is linear in
+/// the size of the values as stored, and it allocates its work list and two
+/// sets.
 pub(crate) struct Unchanged<'g, K> {
     g: &'g Ev<'g>,
     x: usize,
     known: K,
-    /// The shared sequences already found clean, by address.
+    /// The shared sequences found clean by the values checked so far, by
+    /// address. Nothing is ever removed: removals leave tombstones, whose
+    /// growth, and so allocation count, would depend on hashes (and so
+    /// addresses).
     seen: crate::collections::HashSet<*const ()>,
+    /// Those found while checking the value being checked now.
+    current: crate::collections::HashSet<*const ()>,
 }
 
 impl<'g, K: Fn(usize) -> Option<Apart>> Unchanged<'g, K> {
@@ -2523,6 +2531,7 @@ impl<'g, K: Fn(usize) -> Option<Apart>> Unchanged<'g, K> {
             x,
             known,
             seen: Default::default(),
+            current: Default::default(),
         }
     }
 
@@ -2530,20 +2539,18 @@ impl<'g, K: Fn(usize) -> Option<Apart>> Unchanged<'g, K> {
     pub(crate) fn check(&mut self, value: &Value) -> bool {
         // Evaluation drops erased fields then (`value::fields`).
         let clean = !self.g.machine.erasure.active() && self.look(value);
-        if !clean {
-            // Not removing, which leaves tombstones: then when the set grows,
-            // and so how many allocations it makes, would depend on the
-            // hashes, and so on heap addresses.
-            self.seen.clear();
+        if clean {
+            self.seen.extend(self.current.drain());
+        } else {
+            self.current.clear();
         }
         clean
     }
 
-    /// The work of [`Unchanged::check`]. If it finds a change, `seen` is
-    /// left holding sequences from that value; [`Unchanged::check`] then
-    /// clears it, so a later value sharing one of them looks inside it.
-    /// A work list, not recursion: a list of a million elements is a million
-    /// nested constructors.
+    /// The work of [`Unchanged::check`], which leaves `current` holding the
+    /// sequences it looked at; [`Unchanged::check`] commits them if the
+    /// value is clean and drops them otherwise. A work list, not recursion:
+    /// a list of a million elements is a million nested constructors.
     fn look(&mut self, value: &Value) -> bool {
         let mut todo: Vec<&Value> = vec![value];
         while let Some(v) = todo.pop() {
@@ -2621,9 +2628,10 @@ impl<'g, K: Fn(usize) -> Option<Apart>> Unchanged<'g, K> {
         }
     }
 
-    /// Whether the shared sequence at `ptr`, of `len` elements, is new.
+    /// Whether the shared sequence at `ptr`, of `len` elements, is new: not
+    /// clean from an earlier value, and not looked at in this one.
     fn first(&mut self, ptr: *const (), len: usize) -> bool {
-        len > 0 && self.seen.insert(ptr)
+        len > 0 && !self.seen.contains(&ptr) && self.current.insert(ptr)
     }
 }
 
