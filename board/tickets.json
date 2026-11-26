@@ -7171,16 +7171,16 @@
     {
       "id": 2047,
       "title": "[DeepSeek] Small tier fixes: tier() cross-checks NEXTEST_PROFILE; the log's stage column; the orphaned-snapshot script in test:broad; narrow the doctests",
-      "status": "backlog",
-      "agent": "",
-      "where": "",
+      "status": "doing",
+      "agent": "DeepSeek",
+      "where": "scratch-sw-2047",
       "labels": [
         "tests"
       ],
       "epic": "test-infra",
       "body": "From docs/reviews/code-review-tests.md (§9 lane 1). 45 min.\n\nAudit note (22 Nov): 22 Nov 2026 audit: Still true as filed; daily is now broad (SW-3080), so the test:daily script is test:broad.\n",
       "created": "2026-11-07",
-      "updated": "2026-11-22",
+      "updated": "2026-11-26",
       "commits": []
     },
     {
