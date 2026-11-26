@@ -115,7 +115,7 @@ pub use library::{IndexCache, LibraryIndex, use_index_cache};
 pub mod std_dir;
 pub use equations::{is_equation_name, is_function_induct, is_generated_name};
 pub use goals::{ContextAt, EqDecider, GoalSnapshot, StepAt, StepForm};
-pub use module::{UNPARSED_BODY, with_syntax_errors};
+pub use module::{UNPARSED_BODY, guard_lemma_names, with_syntax_errors};
 pub use rewind::{FreshMark, Mark};
 pub use scope::edit_distance;
 pub use state::JournalStats;

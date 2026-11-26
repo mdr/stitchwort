@@ -3798,7 +3798,7 @@ pub(crate) fn decl_refs<'a>(decl: &'a Decl, equations: &'a [Decl]) -> Vec<(Ref<'
                 work.extend(equation_patterns(patterns, &param_types));
                 if let Some(guard) = guard {
                     work.push(Work::Expr(&guard.cond));
-                    work.extend(GUARD_LEMMAS.iter().map(Work::Name));
+                    work.extend(GUARD_LEMMAS.names().into_iter().map(Work::Name));
                     if let Some(h) = &guard.binder {
                         work.push(Work::Bind(&h.text));
                     }
@@ -3968,22 +3968,53 @@ pub(crate) static WALK_MARKER: std::sync::LazyLock<ast::Name> =
 /// What a guarded arm's generated equations refer to, written nowhere: a
 /// guard on a decided proposition tested by its `Bool` is stated as the
 /// proposition, and its proofs go between the two with these
-/// (`equations.rs`, `BranchLib::to_bool_lemmas`); so does a conjunction of
-/// them (decided by `Decidable.and`).
-pub(crate) static GUARD_LEMMAS: std::sync::LazyLock<[ast::Name; 5]> =
-    std::sync::LazyLock::new(|| {
+/// (`equations.rs`, `BranchLib`); so does a conjunction of them (decided by
+/// `Decidable.and`).
+pub(crate) struct GuardLemmas {
+    pub(crate) to_bool_of_not: ast::Name,
+    pub(crate) refute: ast::Name,
+    pub(crate) dec_true: ast::Name,
+    pub(crate) not_not_of: ast::Name,
+    pub(crate) not: ast::Name,
+}
+
+impl GuardLemmas {
+    pub(crate) fn names(&self) -> [&ast::Name; 5] {
         [
-            "Std.Decidable.toBoolOfNot",
-            "Std.Decidable.refute",
-            "Std.Bool.decTrue",
-            "Std.Decidable.notNotOf",
-            "Std.Decidable.not",
+            &self.to_bool_of_not,
+            &self.refute,
+            &self.dec_true,
+            &self.not_not_of,
+            &self.not,
         ]
-        .map(|text| ast::Name {
-            text: text.to_string(),
-            span: Span::NOWHERE,
-        })
+    }
+}
+
+pub(crate) static GUARD_LEMMAS: std::sync::LazyLock<GuardLemmas> =
+    std::sync::LazyLock::new(|| GuardLemmas {
+        to_bool_of_not: guard_lemma("Std.Decidable.toBoolOfNot"),
+        refute: guard_lemma("Std.Decidable.refute"),
+        dec_true: guard_lemma("Std.Bool.decTrue"),
+        not_not_of: guard_lemma("Std.Decidable.notNotOf"),
+        not: guard_lemma("Std.Decidable.not"),
     });
+
+fn guard_lemma(text: &str) -> ast::Name {
+    ast::Name {
+        text: text.to_string(),
+        span: Span::NOWHERE,
+    }
+}
+
+/// The names in [`GUARD_LEMMAS`], for the test that each resolves.
+#[doc(hidden)]
+pub fn guard_lemma_names() -> Vec<&'static str> {
+    GUARD_LEMMAS
+        .names()
+        .into_iter()
+        .map(|name| name.text.as_str())
+        .collect()
+}
 
 /// What `x in c` refers to, written nowhere: the proposition on lists and
 /// its decision, and `contains` (on sets and maps) as a dot call.
@@ -4435,7 +4466,7 @@ fn names_and_proofs(work: Vec<Work<'_>>) -> Vec<Ref<'_>> {
                     }
                     if let Some(guard) = &alt.guard {
                         steps.push(Work::Expr(&guard.cond));
-                        steps.extend(GUARD_LEMMAS.iter().map(Work::Name));
+                        steps.extend(GUARD_LEMMAS.names().into_iter().map(Work::Name));
                         if let Some(h) = &guard.binder {
                             steps.push(Work::Bind(&h.text));
                             vars.push(&h.text);
@@ -4560,7 +4591,7 @@ fn local_def_work(def: &ast::LocalDef) -> Vec<Work<'_>> {
         work.extend(equation_patterns(patterns, &param_types));
         if let Some(guard) = guard {
             work.push(Work::Expr(&guard.cond));
-            work.extend(GUARD_LEMMAS.iter().map(Work::Name));
+            work.extend(GUARD_LEMMAS.names().into_iter().map(Work::Name));
             if let Some(h) = &guard.binder {
                 work.push(Work::Bind(&h.text));
             }

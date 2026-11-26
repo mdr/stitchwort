@@ -122,6 +122,20 @@ fn standard_index() -> std::sync::Arc<LibraryIndex> {
     LibraryIndex::standard(STACK).expect("the standard library's index")
 }
 
+/// Every name the branch equations' guard lemmas name is a standard
+/// declaration, once the whole library is loaded (F22).
+#[test]
+fn every_guard_lemma_resolves_after_the_library_loads() {
+    with_session(STACK, Session::eager_from_source_for_stack, |session| {
+        for name in stitchwort_elab::guard_lemma_names() {
+            assert!(
+                session.elab.lookup_def(name).is_some(),
+                "`{name}` doesn't resolve"
+            );
+        }
+    });
+}
+
 #[test]
 fn library_files_do_not_form_a_cycle() {
     let index = standard_index();
