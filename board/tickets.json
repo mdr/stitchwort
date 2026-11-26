@@ -36899,7 +36899,7 @@
     {
       "id": 4892,
       "title": "[Opus] Effects pre-pass memo (docs/proposals/effects-prepass-cost.md, option B, step 2, after SW-4891): memo of may_perform answers per declaration keyed by expression, context identity and flags, valid while no pre-existing meta is solved; STITCHWORT_SHADOW_MEMO=1 recomputes on each hit and panics on a difference; linear-growth test from SW-4885's probe (visits at 200 and 400 levels under 2.5x); probe effectful chains too. Then Overmind runs shadow mode over examples, std and AoC before it's trusted",
-      "status": "doing",
+      "status": "review",
       "agent": "Opus",
       "where": "",
       "labels": [],
