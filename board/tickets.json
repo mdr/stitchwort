@@ -1,5 +1,5 @@
 {
-  "next": 4874,
+  "next": 4875,
   "tickets": [
     {
       "id": 47,
@@ -36489,15 +36489,19 @@
     {
       "id": 4868,
       "title": "[Sonnet] Playground stack steps 1-2 (SW-4863): bound the term printer by what it shows (pretty::term_within prints in full before measuring, then reprints 10 deep; nav::not_unfolded has no limit; a type nested past the limit shows … inside), and keep the inline(never) frame splits in the shipped wasm (wasm-opt -ocimfs=30 in web/build.sh); measure Day05/Day22 in Chrome after",
-      "status": "review",
+      "status": "done",
       "agent": "Sonnet",
       "where": "",
       "labels": [],
       "epic": "editor-playground",
-      "body": "Lane: term_within depth-bounded, not_unfolded limited, -ocimfs=30; Chrome peaks Day05 315->73 KiB, Day22 604->96; browser tests pass.",
+      "body": "Lane: term_within depth-bounded, not_unfolded limited, -ocimfs=30; Chrome peaks Day05 315->73 KiB, Day22 604->96; browser tests pass.\n\nWasm stack peak (Chrome, real LSP): Day05 314 -> 73 KiB, Day22 604 -> 96 KiB; both check; jump and F2 browser tests pass. wasm-opt -ocimfs=30: wasm 42 KB smaller. Model result: sonnet, worked, 43 min (est. 45).",
       "created": "2026-11-26",
       "updated": "2026-11-26",
-      "commits": []
+      "commits": [
+        "e71109742",
+        "f8c95db40",
+        "102c7a95a"
+      ]
     },
     {
       "id": 4869,
@@ -36562,6 +36566,19 @@
       "where": "",
       "labels": [],
       "epic": "test-infra",
+      "body": "",
+      "created": "2026-11-26",
+      "updated": "2026-11-26",
+      "commits": []
+    },
+    {
+      "id": 4874,
+      "title": "[DeepSeek] crates/elab/src/nav.rs's other pretty::term calls (hover signatures, constructor fields) print unbounded: use pretty::term_shortened or a depth-bounded print that keeps long signatures whole up to a larger cap (SW-4868 finding)",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "epic": "editor-playground",
       "body": "",
       "created": "2026-11-26",
       "updated": "2026-11-26",
