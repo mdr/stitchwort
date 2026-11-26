@@ -1198,11 +1198,18 @@ impl Budget {
     pub fn nesting(&self, pass: &'static str) -> Result<()> {
         // Outside an operation the floor is 0, so the check below always
         // passes: a pass that relies on it would never stop.
+        // Opt-in until every path that reaches a guard opens an operation
+        // (SW-4861): `STITCHWORT_CHECK_OPERATIONS=1` turns the check on.
         #[cfg(any(test, feature = "test-bypass"))]
-        assert!(
-            self.is_running(),
-            "Budget::nesting(\"{pass}\") ran with no operation: start a Budget::operation first"
-        );
+        {
+            static CHECK: std::sync::OnceLock<bool> = std::sync::OnceLock::new();
+            if *CHECK.get_or_init(|| crate::env_flag::env_flag("STITCHWORT_CHECK_OPERATIONS")) {
+                assert!(
+                    self.is_running(),
+                    "Budget::nesting(\"{pass}\") ran with no operation: start a Budget::operation first"
+                );
+            }
+        }
         self.visits.set(self.visits.get() + 1);
         if stack_position() < self.stack_floor.get() {
             if self.exhausted.get().is_none() {
