@@ -6727,17 +6727,20 @@
     {
       "id": 2012,
       "title": "[DeepSeek] Arity error through definitions: the note names the definition that unfolded",
-      "status": "doing",
+      "status": "done",
       "agent": "DeepSeek",
       "where": "scratch-sw-2012",
       "labels": [
         "errors"
       ],
       "epic": "diagnostics",
-      "body": "From docs/research/aoc-friction-synthesis.md. 3 days. 30 min.\n\nAudit note (22 Nov): 22 Nov 2026 audit: No commit addresses it (its source SW-758 is done).\n",
+      "body": "From docs/research/aoc-friction-synthesis.md. 3 days. 30 min.\n\nAudit note (22 Nov): 22 Nov 2026 audit: No commit addresses it (its source SW-758 is done).\n\nThe E-ARITY arm case was already done by SW-816; this adds the same kind of note to E-NOT-A-FUNCTION (too many arguments). Not covered: a head whose written type is a Pi whose result unfolds. Model result: deepseek, worked (one review fix by the orchestrator: a failure finding the note no longer replaces the error), about 25 min (est. 30).",
       "created": "2026-11-07",
       "updated": "2026-11-26",
-      "commits": []
+      "commits": [
+        "1e2f5edaf",
+        "5d0be9923"
+      ]
     },
     {
       "id": 2015,
