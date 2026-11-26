@@ -128,15 +128,6 @@ theorem templateFits ∀ (range: Range) (template: RepetitionTemplate)
                       | Both oneLe _, Both twoLe _ => Both oneLe (Both twoLe room)
                 | Inr none => none.impossible))
 
---| Two small facts about the product: a block is no longer than the block
---| written `copies` times, and the number of copies is no more than the block
---| length times itself.
-theorem blockLengthLeProduct ∀ (blockLength copies: Nat) (atLeastOne: 1 ≤ copies): blockLength ≤ blockLength * copies :=
-  Nat.leMulPos blockLength copies atLeastOne
-
-theorem copiesLeProduct ∀ (blockLength copies: Nat) (atLeastOne: 1 ≤ blockLength): copies ≤ blockLength * copies :=
-  arithmetic [Nat.leMulPos copies blockLength atLeastOne]
-
 --| A template is its block length and its number of copies.
 theorem templateEta ∀ (template: RepetitionTemplate):
     ({ blockLength = template.blockLength, copies = template.copies }: RepetitionTemplate) = template :=
@@ -159,7 +150,7 @@ theorem fittingTemplateListed ∀ (range: Range) (template: RepetitionTemplate)
           (((List.memRange template.blockLength 1 (size + 1)).backward
             (Both blockNotEmpty
               (Nat.leLessSucc template.blockLength size
-                (arithmetic [blockLengthLeProduct template.blockLength template.copies arithmetic])))))
+                (arithmetic [Nat.leMulPos template.blockLength template.copies arithmetic])))))
           -- and of its number of copies, in the loop over `2..size`,
           (List.memFlatMapIntro
             (copies => keptIfFits size template.blockLength copies)
@@ -169,7 +160,7 @@ theorem fittingTemplateListed ∀ (range: Range) (template: RepetitionTemplate)
             (((List.memRange template.copies 2 (size + 1)).backward
               (Both writtenTwice
                 (Nat.leLessSucc template.copies size
-                  (arithmetic [copiesLeProduct template.blockLength template.copies blockNotEmpty])))))
+                  (arithmetic [Nat.leMulPos template.copies template.blockLength blockNotEmpty])))))
             -- where it fits, so it is kept.
             (rewrite room then Inl (templateEta template)))
 

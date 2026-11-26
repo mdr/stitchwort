@@ -49,9 +49,6 @@ def Answers (network: Network) (clique candidates best result: Set Computer): Pr
       → Within other (clique.union candidates)
       → other.size ≤ result.size)
 
-theorem sizeWithin ∀ (small big: Set Computer) (within: Within small big): small.size ≤ big.size :=
-  Set.sizeSubset big small within
-
 --| The clique and its candidates have no computer in common.
 theorem sizeCliqueAndCandidates ∀ (network: Network) (clique candidates: Set Computer)
     (candidatesOk: Candidates network clique candidates):
@@ -241,14 +238,14 @@ theorem largestFromAnswers ∀ (network: Network) (clique candidates best: Set C
       rewrite largestPruned network.links clique candidates best (arithmetic [fits]) then
         Both bestOk
           (Both (arithmetic) (other otherOk inside within =>
-            arithmetic [sizeWithin other (clique.union candidates) within, joined, fits]))
+            arithmetic [Set.sizeSubset (clique.union candidates) other within, joined, fits]))
     | False =>
       match found: candidates.popMin with
         | None =>
           rewrite largestDone network.links clique candidates best (arithmetic [fits]) found then
             Both cliqueOk
               (Both (arithmetic [fits, sizeNone candidates found]) (other otherOk inside within =>
-                sizeWithin other clique (key held =>
+                Set.sizeSubset clique other (key held =>
                   unionElim clique candidates key
                     (clique.contains key = True)
                     (within key held)

@@ -100,7 +100,7 @@ theorem bothWaysIff ∀ (network: Network) (one other: Computer):
             ({ one = one, other = other })
             network.connections
             (rewrite <- same.read then listed)
-            (firstOfTwo ({ one = one, other = other }) ({ one = other, other = one }))
+            (Inl byComputing)
         | Inr swapped =>
           List.memFlatMapIntro
             ((pair: Connection) => [pair, pair.reverse])
@@ -108,7 +108,7 @@ theorem bothWaysIff ∀ (network: Network) (one other: Computer):
             ({ one = one, other = other })
             network.connections
             (rewrite <- swapped.read then listed)
-            (secondOfTwo ({ one = other, other = one }) ({ one = one, other = other }))
+            (Inr (Inl byComputing))
   }
 
 --| `other` is a neighbour of `one` exactly when the map connects them.
@@ -147,7 +147,7 @@ theorem connectedComputer ∀ (network: Network) (one other: Computer)
         one
         network.connections
         (rewrite <- same.read then listed)
-        (firstOfTwo one other)
+        (Inl byComputing)
     | Inr swapped =>
       List.memFlatMapIntro
         ((pair: Connection) => [pair.one, pair.other])
@@ -155,7 +155,7 @@ theorem connectedComputer ∀ (network: Network) (one other: Computer)
         one
         network.connections
         (rewrite <- swapped.read then listed)
-        (secondOfTwo other one)
+        (Inr (Inl byComputing))
 
 --| A computer on the map has a neighbour.
 theorem computerConnected ∀ (network: Network) (computer: Computer)

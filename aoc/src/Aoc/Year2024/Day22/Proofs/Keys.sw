@@ -45,10 +45,6 @@ theorem sequencesFrom ∀ (changes: List Int) (first second third fourth: Int)
         hasThird
         (List.memMap changes fourth hasFourth (fourth => ({ first, second, third, fourth }: Changes)))))
 
---| Membership carried across an equation, without computing the list.
-theorem memOfEq ∀ (xs: List a) [x y: a] (same: x = y) (member: x ∈ xs): y ∈ xs :=
-  J (other same => other ∈ xs) member same
-
 theorem findMapAny ∀ (f: a → Option b) (found: b) (xs: List a)
     (some: xs.findMap f = Some found):
     List.Any (x => f x = Some found) xs :=
@@ -80,13 +76,12 @@ theorem sellsAtIn ∀ (possible: List Changes)
       match same: ({ first = change a b, second = change b c, third = change c d, fourth = change d e }: Changes)
         == sequence with
         | True =>
-          memOfEq possible same.read
-            (contains a b c d e
-              (digits a (Inl byComputing))
-              (digits b (Inr (Inl byComputing)))
-              (digits c (Inr (Inr (Inl byComputing))))
-              (digits d (Inr (Inr (Inr (Inl byComputing)))))
-              (digits e (Inr (Inr (Inr (Inr (Inl byComputing)))))))
+          rewrite same.read at contains a b c d e
+            (digits a (Inl byComputing))
+            (digits b (Inr (Inl byComputing)))
+            (digits c (Inr (Inr (Inl byComputing))))
+            (digits d (Inr (Inr (Inr (Inl byComputing)))))
+            (digits e (Inr (Inr (Inr (Inr (Inl byComputing))))))
 
 theorem pricesDigits ∀ (count buyer price: Nat) (inPrices: price ∈ prices count buyer): price < 10 :=
   List.anyElim _

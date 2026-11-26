@@ -204,10 +204,8 @@ theorem sameDigit ∀ (wiring: Segment → Segment)
   let agree := (s: Segment) => (digitSegments first).contains s == (digitSegments second).contains s
   let atWires: segments.all (wire => agree (wiring wire)) = True := List.allTrue segments _ (wire =>
     rewrite <- hasDrawn wiring pattern first firstShows wire, <- hasDrawn wiring pattern second secondShows wire then
-      boolEqSelf (pattern.has wire))
+      DecEq.refl (pattern.has wire))
   digitsDiffer first second firstBelow secondBelow (rewrite <- allRewired wiring wired agree then atWires)
-
-theorem boolEqSelf ∀ (b: Bool): (b == b) = True := cases
 
 theorem notNone ∀ (o: Option a) (some: o.isSome = True) (none: o = None): Void :=
   rewrite none at some then Bool.falseNotTrue some

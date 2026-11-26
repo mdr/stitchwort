@@ -14,8 +14,6 @@ def Orthogonal (from to: Position): Prop :=
   ((from.row = to.row) ∧ ((from.column + 1 = to.column) ∨ (to.column + 1 = from.column)))
     ∨ ((from.column = to.column) ∧ ((from.row + 1 = to.row) ∨ (to.row + 1 = from.row)))
 
-theorem eqTrue ∀ [x y: Nat] (same: x = y): (x == y) = True := rewrite same then DecEq.refl y
-
 theorem orthogonalIntro ∀ (from to: Position) (orthogonal: Orthogonal from to): isOrthogonalStep from to = True :=
   arithmetic
 

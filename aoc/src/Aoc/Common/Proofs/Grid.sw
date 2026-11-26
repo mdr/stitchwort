@@ -27,13 +27,11 @@ theorem memDirections ∀ (direction: Direction): direction ∈ directions := ma
 
 -- Adjacency
 
-theorem equalOf ∀ (a b: Nat) (same: a = b): (a == b) = True := rewrite same then DecEq.refl b
-
 theorem upAdjacent ∀ (row column: Nat): adjacent { row = Succ row, column } { row, column } = True :=
-  Inr (Both (DecEq.refl column) (Inr (equalOf (row + 1) (Succ row) (arithmetic))))
+  Inr (Both (DecEq.refl column) (Inr (rewrite (arithmetic: row + 1 = Succ row) then DecEq.refl (Succ row))))
 
 theorem leftAdjacent ∀ (row column: Nat): adjacent { row, column = Succ column } { row, column } = True :=
-  Inl (Both (DecEq.refl row) (Inr (equalOf (column + 1) (Succ column) (arithmetic))))
+  Inl (Both (DecEq.refl row) (Inr (rewrite (arithmetic: column + 1 = Succ column) then DecEq.refl (Succ column))))
 
 theorem rightAdjacent ∀ (row column: Nat): adjacent { row, column } { row, column = column + 1 } = True :=
   Inl (Both (DecEq.refl row) (Inl (DecEq.refl (column + 1))))

@@ -30,13 +30,6 @@ def SeenBy (lab: Lab) (seen: Set Guard) (now: Nat): Prop :=
     → Exists Nat (earlier => (earlier ≤ now) ∧ (after lab earlier = Some guard))
 
 --| What a set has after an insert: the key, or what it had.
-theorem containsInsertEither ∀ (seen: Set Guard) (key guard: Guard)
-    (has: (seen.insert key).contains guard = True):
-    (guard = key) ∨ (seen.contains guard = True) :=
-  match same: guard == key with
-    | True => Inl same.read
-    | False => Inr (rewrite Set.containsInsertOther seen key guard same.read at has)
-
 --| A `True` from the loop test means she loops.
 theorem loopsFromSound ∀ (lab: Lab) (sightlines: Sightlines)
     (simulates: Simulates sightlines lab)
@@ -72,7 +65,7 @@ theorem loopsFromSound ∀ (lab: Lab) (sightlines: Sightlines)
                     (rewrite later then Option.someNotNone next))
                 | Inr rest =>
                   let seenByNext: SeenBy lab (seen.insert next) (now + steps) := guard has =>
-                    match containsInsertEither seen next guard has with
+                    match Set.containsInsertElim seen next guard has with
                       | Inl isNext =>
                         Witness (now + steps) (Both (Nat.leRefl (now + steps)) (rewrite isNext then later))
                       | Inr wasSeen => Exists.elim (seenBy guard wasSeen) (earlier when =>
@@ -108,7 +101,7 @@ theorem loopsFromComplete ∀ (lab: Lab) (sightlines: Sightlines)
               (Eq.trans (afterAdd lab now guard reached steps) both.right)))
 
 theorem seenStart ∀ (lab: Lab): SeenBy lab (Set.singleton lab.startGuard) 0 := guard has =>
-  match containsInsertEither Set.empty lab.startGuard guard has with
+  match Set.containsInsertElim Set.empty lab.startGuard guard has with
     | Inl isStart => Witness 0 (Both byComputing (rewrite isStart))
     | Inr inEmpty => cases
 
