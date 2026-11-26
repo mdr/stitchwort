@@ -950,10 +950,23 @@ pub fn unused() -> Value {
     )
 }
 
+/// A level no binder in scope has, for walking a `Pi` type's codomain without
+/// instantiating it. That is safe while only the codomain's shape is read: no
+/// context lookup can find this level. If a value under it is ever read back as
+/// a term, `quote`'s debug assertion fires (the level is at or above the
+/// context) and in release the variable index would wrap. `usize::MAX` is
+/// [`unused`] and `usize::MAX - 1` is the erased placeholder.
+pub const DUMMY_LEVEL: usize = usize::MAX - 2;
+
 impl Value {
     /// The variable at `level`, not known to be a proof or not.
     pub fn var(level: usize) -> Value {
         Value::var_marked(level, ProofMark::Unknown)
+    }
+
+    /// The fake binder [`DUMMY_LEVEL`], for the same use.
+    pub fn dummy_var() -> Value {
+        Value::var(DUMMY_LEVEL)
     }
 
     /// The variable at `level`, with its binder's mark.

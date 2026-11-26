@@ -10105,7 +10105,7 @@ fn takes_function_argument(g: &Ev<'_>, ty: &Value) -> Result<bool> {
     loop {
         match ty {
             Value::Pi(_, Icit::Implicit | Icit::Auto, _, cod, _) => {
-                ty = force(g, cod.apply(g, Value::var(usize::MAX - 2))?)?;
+                ty = force(g, cod.apply(g, Value::dummy_var())?)?;
             }
             Value::Pi(_, Icit::Explicit, dom, _, _) => {
                 return Ok(matches!(force(g, (*dom).clone())?, Value::Pi(..)));
@@ -10125,7 +10125,7 @@ fn takes_lambda_argument(g: &Ev<'_>, ty: &Value) -> Result<bool> {
         match ty {
             Value::Pi(_, Icit::Implicit | Icit::Auto, _, cod, _) => {
                 // A stand-in for the binder: only the shape of the rest matters.
-                ty = force(g, cod.apply(g, Value::var(usize::MAX - 2))?)?;
+                ty = force(g, cod.apply(g, Value::dummy_var())?)?;
             }
             Value::Pi(_, Icit::Explicit, dom, _, _) => {
                 return Ok(!matches!(force(g, (*dom).clone())?, Value::Data(d, _)

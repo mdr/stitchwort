@@ -36,7 +36,8 @@ use stitchwort_core::{DefId, Ev, Icit, Name, Term};
 use stitchwort_syntax::Diagnostic;
 use stitchwort_syntax::ast::{self, Decl};
 
-use crate::decreasing::{Binder, apps, lams, pis, split_pis};
+use crate::decreasing::{Binder, lams, pis, split_pis};
+use crate::term_util::apps;
 use crate::{Elaborator, Global, Result, kernel};
 
 impl Elaborator {

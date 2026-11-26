@@ -81,7 +81,7 @@
 //!
 //! The split is the generated `match` that `match e: atom with` writes
 //! (`matching::generalised_named`, lifted as `owner.%matchN`), one
-//! alternative per constructor, the equation bound as `%splitN`, and each
+//! alternative per constructor, the equation bound as `%caseN`, and each
 //! alternative's body is this `cases` again: so the proof is ordinary
 //! `match`es and the closers' terms, and the kernel checks it as such.
 //!

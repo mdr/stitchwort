@@ -51,6 +51,7 @@
 use std::collections::{BTreeMap, BTreeSet};
 use std::ops::Range;
 use std::rc::Rc;
+use std::sync::OnceLock;
 
 use stitchwort_core::globals::State;
 use stitchwort_core::registry::Builtin;
@@ -1192,7 +1193,8 @@ pub fn decide(cx: &mut Ctx, prop: &Value, depth: usize) -> Result<Term> {
     if !g.machine.glue.get() {
         return decide_unglued(cx, prop, depth);
     }
-    let both = stitchwort_core::env_flag::env_flag("STITCHWORT_DECIDE_BOTH");
+    static BOTH: OnceLock<bool> = OnceLock::new();
+    let both = *BOTH.get_or_init(|| stitchwort_core::env_flag::env_flag("STITCHWORT_DECIDE_BOTH"));
     let unfolded = if both {
         let snapshot = crate::undo::Snapshot::take(cx);
         let written = cx.quote_unfolded(prop);

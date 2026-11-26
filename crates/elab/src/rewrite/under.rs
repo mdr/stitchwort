@@ -40,7 +40,7 @@ use super::{
 use crate::calc::lemma;
 use crate::check::{Ctx, Piped, Result};
 use crate::congruence::{self, Lookup};
-use crate::decreasing::spine;
+
 use crate::lift::replace_with;
 use crate::matching::same;
 use crate::undo::{Snapshot, fatal};
@@ -205,7 +205,7 @@ impl Keys {
         if is_lambda(arg) {
             return has_bound_occurrence(arg, &self.computed);
         }
-        let (head, args) = spine(arg);
+        let (head, args) = arg.spine_icit();
         match (head, &self.written) {
             (Term::Def(f), Some(Key::Def(g, n))) => f == g && args.len() < *n,
             (Term::Var(ix), Some(Key::Var(level, n))) => ix == level && args.len() < *n,
@@ -217,7 +217,7 @@ impl Keys {
 /// Whether `t` is a call with a function among its arguments that may have
 /// an occurrence inside ([`Keys::wanted`]): the cheap test first.
 fn has_wanted_argument(t: &Term, keys: &Keys) -> bool {
-    let (head, args) = spine(t);
+    let (head, args) = t.spine_icit();
     matches!(head, Term::Def(_)) && args.iter().any(|(a, _)| keys.wanted(a))
 }
 
@@ -252,7 +252,7 @@ fn site(
     missing: &mut Skipped,
 ) -> Result<Option<Site>> {
     let g = cx.g();
-    let (head, args) = spine(call);
+    let (head, args) = call.spine_icit();
     let Term::Def(f) = head else {
         return Ok(None);
     };
@@ -401,7 +401,7 @@ fn by_lemma(
             Term::app_icit(f, a, icit)
         });
     // The call with those functions.
-    let (head, _) = spine(call);
+    let (head, _) = call.spine_icit();
     let mut after = head.clone();
     for (j, (arg, icit)) in args.iter().enumerate() {
         let arg = match changed

@@ -10,9 +10,28 @@
 
 use std::cell::RefCell;
 use std::fmt::Display;
+use std::sync::OnceLock;
 
 thread_local! {
     static COLLECTED: RefCell<Option<Vec<String>>> = const { RefCell::new(None) };
+}
+
+static MATCH_METRICS: OnceLock<bool> = OnceLock::new();
+static REWRITE_METRICS: OnceLock<bool> = OnceLock::new();
+static TRACE_GUARDS: OnceLock<bool> = OnceLock::new();
+
+/// Whether `var` is set, read once for the switches this module knows.
+pub(crate) fn env_on(var: &str) -> bool {
+    match var {
+        "STITCHWORT_MATCH_METRICS" => {
+            *MATCH_METRICS.get_or_init(|| std::env::var_os(var).is_some())
+        }
+        "STITCHWORT_REWRITE_METRICS" => {
+            *REWRITE_METRICS.get_or_init(|| std::env::var_os(var).is_some())
+        }
+        "STITCHWORT_TRACE_GUARDS" => *TRACE_GUARDS.get_or_init(|| std::env::var_os(var).is_some()),
+        _ => std::env::var_os(var).is_some(),
+    }
 }
 
 /// Starts collecting this thread's outcome lines (dropping any collected
@@ -30,13 +49,13 @@ pub fn finish_collecting() -> Vec<String> {
 /// Whether an outcome for `var` is wanted: the variable is set, or this
 /// thread is collecting.
 pub(crate) fn wanted(var: &str) -> bool {
-    std::env::var_os(var).is_some() || COLLECTED.with(|c| c.borrow().is_some())
+    env_on(var) || COLLECTED.with(|c| c.borrow().is_some())
 }
 
 /// Prints `outcome at=<at>` if `var` is set, without collecting: a trace is
 /// for someone watching this run, not a test's `-- metrics:` header.
 pub(crate) fn trace(var: &str, outcome: &str, at: impl Display) {
-    if std::env::var_os(var).is_some() {
+    if env_on(var) {
         eprintln!("{outcome} at={at}");
     }
 }
@@ -44,7 +63,7 @@ pub(crate) fn trace(var: &str, outcome: &str, at: impl Display) {
 /// Prints `outcome at=<at>` if `var` is set, and collects `outcome` if this
 /// thread is collecting.
 pub(crate) fn emit(var: &str, outcome: &str, at: impl Display) {
-    if std::env::var_os(var).is_some() {
+    if env_on(var) {
         eprintln!("{outcome} at={at}");
     }
     COLLECTED.with(|c| {

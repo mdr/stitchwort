@@ -538,6 +538,18 @@ impl Term {
         (head, args)
     }
 
+    /// [`spine`](Self::spine), keeping how each argument is passed.
+    pub fn spine_icit(&self) -> (&Term, Vec<(&Term, Icit)>) {
+        let mut args = Vec::new();
+        let mut head = self.strip_loc();
+        while let Term::App(f, a, icit) = head {
+            args.push((a.as_ref(), *icit));
+            head = f.strip_loc();
+        }
+        args.reverse();
+        (head, args)
+    }
+
     /// The body under the first `n` lambdas.
     pub fn peel_lams(&self, n: usize) -> &Term {
         let mut term = self.strip_loc();
