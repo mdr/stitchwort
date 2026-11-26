@@ -1343,10 +1343,12 @@ fn describe(value: &Value) -> &'static str {
 // one exception is natives forcing their arguments (`native::view`). A
 // native's arguments that are glued calls are forced by the machine first
 // ([`Control::NativeArg`]), and so is a glued call it comes to inside a
-// number, after which it runs again ([`run_native`]), so the native's own
-// `force` finds each one's kept unfolding: what is left for it is a solved
-// metavariable, during elaboration, or a call whose kept unfolding needs
-// forcing again.
+// number, after which it runs again ([`run_native`], and [`run_float`] for
+// the float natives), so the native's own `force` finds each one's kept
+// unfolding: what is left for it is a solved metavariable, during
+// elaboration, or a call whose kept unfolding needs forcing again. Rule E's
+// reading of a `case`'s scrutinee forces and unfolds on this machine too
+// ([`reread_on`]).
 
 type Env = Values;
 
@@ -1530,6 +1532,14 @@ enum Frame {
         spine: Spine,
         asked: usize,
     },
+    /// Float operation `id` applied to `spine`, unfolded gluing if `glue`,
+    /// waiting as a [`Frame::NativeAgain`] does ([`run_float`]).
+    FloatAgain {
+        id: DefId,
+        spine: Spine,
+        glue: bool,
+        asked: usize,
+    },
     /// The forced value of the call that field call `id spine` (spine
     /// ending in projection `d`, `i`; [`project_call`]) takes field `i`
     /// of ([`CallField`]). (Boxed: it's large, and rare.)
@@ -1542,6 +1552,9 @@ enum Frame {
     /// argument of a stuck `add m n`, for R3 and R4, or what a
     /// [`Frame::AddNat`] got. (Boxed: it's large, and rare.)
     ReadNumber(Box<ReadNumber>),
+    /// Rule E's walk from a `case`, waiting for a case tree run or a value
+    /// forced for the unfolding of a call folded by name ([`reread_on`]).
+    Reread(Box<Reread>),
 }
 
 /// What a [`Frame::NumberScrutinee`] waits with: the case node `tree`, its
@@ -1559,12 +1572,100 @@ struct NumberScrutinee {
 /// of it: `k` is the `Succ`s found so far, and `outer` more go around the
 /// result.
 struct ReadNumber {
-    /// The stuck sum whose second argument this is, for R3 and R4; `None`
-    /// for the rest of a number a native took `outer` `Succ`s off
-    /// ([`Frame::AddNat`]).
-    sum: Option<StuckSum>,
+    of: NumberOf,
     outer: BigUint,
     k: BigUint,
+}
+
+/// What a number [`read_number`] reads is for.
+enum NumberOf {
+    /// The second argument of this stuck sum, for R3 and R4.
+    Sum(StuckSum),
+    /// The rest of a number a native took `outer` `Succ`s off
+    /// ([`Frame::AddNat`]).
+    Rest,
+    /// A number rule E's walk asked for ([`reread_on`]; `outer` is zero).
+    Reread(Box<Reread>),
+}
+
+/// Rule E's walk from a `case` whose scrutinee is a stuck sum
+/// ([`reread_on`]): the walk, the unfolding it is waiting for if any, and
+/// the `case` that goes on with what it reads.
+struct Reread {
+    walk: crate::nat_add::Walk,
+    folded: Option<Folded>,
+    then: AfterReread,
+}
+
+/// The `case` waiting for rule E's walk ([`reread_on`]): the case node
+/// `tree` with its environment, and the stuck sum `value` it reads. For a
+/// number case, `succs` is the `Succ`s its scrutinee has around the sum.
+struct AfterReread {
+    tree: Rc<Term>,
+    env: Vec<Value>,
+    stuck: Stuck,
+    succs: Option<BigUint>,
+    value: Value,
+}
+
+/// What a [`Folded`] needs from its evaluator before it can go on.
+enum FoldNeed {
+    /// The case tree run as [`Control::Tree`] would, for [`Folded::answer`].
+    Run(Rc<Term>, Vec<Value>, Stuck),
+    /// The value forced, for [`Folded::answer`].
+    Force(Value),
+    /// What [`unfold_folded`] gives.
+    Done(Option<Value>),
+}
+
+/// [`unfold_folded`], a step at a time: each step ends where it needs a
+/// case tree run or a value forced ([`FoldNeed`]). `unfold_folded` does
+/// those with [`run`] and [`force`]; rule E's walk on the machine
+/// ([`reread_on`]) does them on the machine's own stack. Its levels are
+/// `unfold_folded`'s recursion, for the field of a call (`(f x).i`) whose
+/// value is another folded call, innermost last.
+struct Folded {
+    levels: Vec<FoldLevel>,
+}
+
+/// One [`unfold_folded`] of [`Folded`]: of `value`, unfolded to `current`
+/// so far, waiting `at`.
+struct FoldLevel {
+    value: Value,
+    current: Option<Value>,
+    at: FoldAt,
+}
+
+/// What a [`FoldLevel`] is waiting for.
+enum FoldAt {
+    /// Nothing: about to look at `current`.
+    Idle,
+    /// The case tree of `id` applied to `call` to run, for a call of which
+    /// `fields` are then taken.
+    Ran {
+        id: DefId,
+        call: Spine,
+        fields: Vec<(DataId, usize)>,
+    },
+    /// `next`, what the case tree ran to, to be forced.
+    Forced(Value),
+    /// The value field `fields[i]` is taken of, to be forced.
+    FieldBase {
+        fields: Vec<(DataId, usize)>,
+        i: usize,
+    },
+    /// The level above to unfold `base`, the forced value field
+    /// `fields[i]` is taken of.
+    FieldInner {
+        fields: Vec<(DataId, usize)>,
+        i: usize,
+        base: Value,
+    },
+    /// What the level above unfolded `fields[i]`'s value to, to be forced.
+    FieldUnfolded {
+        fields: Vec<(DataId, usize)>,
+        i: usize,
+    },
 }
 
 /// A stuck `add m n` whose `n` R3 and R4 are reading: `stuck` is the
@@ -1576,24 +1677,30 @@ struct StuckSum {
 }
 
 impl ReadNumber {
-    /// What the number makes once read to `k` `Succ`s around `base`
-    /// (`None`: around nothing). For a sum, what R3 and R4 make of it, as
+    /// Goes on with the number read to `k` `Succ`s around `base` (`None`:
+    /// around nothing). For a sum, what R3 and R4 make of it, as
     /// [`crate::nat_add::stuck`] does: `m + k` is `k + m`, `m + (k + n')`
     /// with `k > 0` is `k + add m n'`, and otherwise the sum stays stuck.
-    /// Otherwise `outer + k + base`, as `Frame::AddNat` made it with
-    /// [`native::view_with`].
-    fn finish(self, k: BigUint, base: Option<Value>) -> Value {
-        let Some(sum) = self.sum else {
-            return native::from_view(self.outer + k, base);
+    /// For the rest of a number, `outer + k + base`, as `Frame::AddNat`
+    /// made it with [`native::view_with`]. For rule E's walk, the walk
+    /// goes on.
+    fn done(self, g: &Ev, stack: &mut Stack, base: Option<Value>) -> Result<Control> {
+        let ReadNumber { of, outer, k } = self;
+        let sum = match of {
+            NumberOf::Sum(sum) => sum,
+            NumberOf::Rest => return Ok(Control::Return(native::from_view(outer + k, base))),
+            NumberOf::Reread(mut reread) => {
+                let need = reread.walk.viewed(g, k, base)?;
+                return reread_go(g, stack, reread, RereadStep::Walk(need));
+            }
         };
-        match base {
-            None => native::from_view(self.outer + k, Some(sum.m)),
+        Ok(Control::Return(match base {
+            None => native::from_view(outer + k, Some(sum.m)),
             Some(_) if num_traits::Zero::is_zero(&k) => sum.stuck,
-            Some(base) => native::from_view(
-                self.outer + k,
-                Some(crate::nat_add::call(sum.id, sum.m, base)),
-            ),
-        }
+            Some(base) => {
+                native::from_view(outer + k, Some(crate::nat_add::call(sum.id, sum.m, base)))
+            }
+        }))
     }
 }
 
@@ -1894,9 +2001,11 @@ fn eval_ends(g: &Ev, env: &Env, ty: &Term, x: &Term, y: &Term) -> Result<Ends> {
 /// starts a segment ([`push_segment`]) is.
 ///
 /// A segment is a forcing that was a machine of its own, started by
-/// [`force`] on the Rust stack, before this machine did it with its own
-/// stack (SW-4865, SW-4878): forcing a part of a number that R3 and R4, a
-/// native, a number `case` or [`Frame::AddNat`] read. The frame limit counts the frames of the
+/// [`force`] (or [`run`]) on the Rust stack, before this machine did it
+/// with its own stack (SW-4865, SW-4878, SW-4881): forcing a part of a
+/// number that R3 and R4, a native, a number `case` or [`Frame::AddNat`]
+/// read, and the forcing and case tree runs of rule E's reading for a
+/// `case` ([`reread_on`]). The frame limit counts the frames of the
 /// topmost segment, those above the frame that waits for it, so each
 /// forcing has the allowance of frames its own machine had, and a run is
 /// refused for depth exactly where it was then. The frames that start
@@ -2349,7 +2458,7 @@ fn resume(g: &Ev, frame: Frame, value: Value, stack: &mut Stack) -> Result<Contr
         // `k` more than `value`, read as `native::view_with` would.
         Frame::AddNat(k) => {
             let read = ReadNumber {
-                sum: None,
+                of: NumberOf::Rest,
                 outer: Rc::unwrap_or_clone(k),
                 k: BigUint::default(),
             };
@@ -2723,6 +2832,17 @@ fn resume_rare(g: &Ev, frame: Frame, value: Value, stack: &mut Stack) -> Result<
             branch_asked(g, stack, tree, env, stuck, scrutinee, asked)?
         }
         Frame::NativeAgain { id, spine, asked } => run_native(g, stack, id, spine, asked)?,
+        Frame::FloatAgain {
+            id,
+            spine,
+            glue,
+            asked,
+        } => run_float(g, stack, id, spine, glue, asked)?,
+        Frame::Reread(mut reread) => {
+            let folded = reread.folded.as_mut().expect("an unfolding is waiting");
+            let need = folded.answer(g, value);
+            reread_go(g, stack, reread, RereadStep::Fold(need))?
+        }
         Frame::FieldOf(field) => {
             let FieldOf {
                 id,
@@ -2998,13 +3118,16 @@ fn branch_asked(
                 (k, Some(base)) => match arms.last() {
                     Some(last) if *last.value < k => default.clone(),
                     _ if apart_of(&base).excludes(g, &k, arms) => default.clone(),
-                    _ => match reread_sum(g, &base, &mut Unread::default())? {
-                        Some(base) => {
-                            let value = native::from_view(k, Some(base));
-                            return branch_asked(g, stack, tree, env, stuck, value, 0);
-                        }
-                        None => return stuck_tree(g, stack, stuck),
-                    },
+                    _ => {
+                        let then = AfterReread {
+                            tree: tree.clone(),
+                            env,
+                            stuck,
+                            succs: Some(k),
+                            value: base,
+                        };
+                        return reread_on(g, stack, then);
+                    }
                 },
             };
             return Ok(Control::Tree(next, env, stuck));
@@ -3078,15 +3201,16 @@ fn branch_asked(
             let k = g.data(*d).ctors[0].fields.len();
             (0, (0..k).map(|i| project(*d, i, n.clone())).collect())
         }
-        other => match reread_sum(g, &other, &mut Unread::default())? {
-            Some(value) => return branch_asked(g, stack, tree, env, stuck, value, 0),
-            None => {
-                if proof_counts::on() {
-                    count_stuck_one_shape(g, *d, &stuck, &other);
-                }
-                return stuck_tree(g, stack, stuck);
-            }
-        },
+        other => {
+            let then = AfterReread {
+                tree: tree.clone(),
+                env,
+                stuck,
+                succs: None,
+                value: other,
+            };
+            return reread_on(g, stack, then);
+        }
     };
     let Some(body) = branches[c].body.clone() else {
         // An impossible branch is never reached by a well-typed value
@@ -3327,6 +3451,305 @@ fn reread_sum(g: &Ev, value: &Value, unread: &mut Unread) -> Result<Option<Value
     crate::nat_add::reread(g, value, force, |x| unfold_folded(g, x), unread)
 }
 
+/// [`reread_sum`] for a `case` whose scrutinee, `then.value`, is a stuck
+/// sum, on this machine's stack, then the `case` going on with what it
+/// reads ([`AfterReread::finish`]).
+///
+/// The walk is [`crate::nat_add::Walk`], as `reread_sum`'s is; only where
+/// it forces and unfolds differs. `reread_sum` forces with [`force`] and
+/// unfolds with [`unfold_folded`], each of which starts another machine on
+/// the Rust stack, and what that machine computes can be another `case` on
+/// such a sum, read the same way: a chain of `n` of them took `n` nested
+/// machines. Here each is done by this machine, with a frame waiting for it
+/// that starts a segment ([`Stack`]): the number reads of [`read_number`]
+/// ([`NumberOf::Reread`]), and the case tree runs and forcings of
+/// [`Folded`] ([`Frame::Reread`]). As for `read_number`, the machine doing
+/// one from that state takes the steps, and gives the value, that the
+/// nested machine would: it starts from the same [`Control`], and the
+/// frames below it are only counted, as that machine counted its own. What
+/// `force` does without a machine (nothing, or taking a call's kept
+/// unfolding) is done here without one too, taking no step. The walk's own
+/// steps (one per sum it goes down to) are its own, as before.
+fn reread_on(g: &Ev, stack: &mut Stack, then: AfterReread) -> Result<Control> {
+    #[cfg(any(test, feature = "reference"))]
+    if NESTED_REREAD.with(|n| n.get()) {
+        let read = reread_sum(g, &then.value, &mut Unread::default())?;
+        return then.finish(g, stack, read);
+    }
+    let mut unread = Unread::default();
+    match crate::nat_add::Walk::start(g, &then.value, &mut unread) {
+        None => then.finish(g, stack, None),
+        Some((walk, need)) => {
+            let reread = Box::new(Reread {
+                walk,
+                folded: None,
+                then,
+            });
+            reread_go(g, stack, reread, RereadStep::Walk(need))
+        }
+    }
+}
+
+#[cfg(any(test, feature = "reference"))]
+thread_local! {
+    static NESTED_REREAD: std::cell::Cell<bool> = const { std::cell::Cell::new(false) };
+}
+
+/// Makes a `case` on this thread read a stuck sum by rule E with
+/// [`reread_sum`], forcing and unfolding with machines of their own, if
+/// `nested`; returns what it was. For tests comparing that with
+/// [`reread_on`], which must take the same steps.
+#[cfg(any(test, feature = "reference"))]
+pub fn set_nested_reread(nested: bool) -> bool {
+    NESTED_REREAD.with(|n| n.replace(nested))
+}
+
+/// Where [`reread_go`] picks up: what the walk needs, or what its
+/// unfolding ([`Reread::folded`]) needs.
+enum RereadStep {
+    Walk(crate::nat_add::Need),
+    Fold(FoldNeed),
+}
+
+/// [`reread_on`] going on from `step`, until the walk needs this machine
+/// or is done.
+fn reread_go(
+    g: &Ev,
+    stack: &mut Stack,
+    mut reread: Box<Reread>,
+    mut step: RereadStep,
+) -> Result<Control> {
+    use crate::nat_add::Need;
+    loop {
+        step = match step {
+            RereadStep::Walk(Need::View(n)) => {
+                let mut k = BigUint::default();
+                match read_on(g, &mut k, n, false) {
+                    Ok(base) => RereadStep::Walk(reread.walk.viewed(g, k, base)?),
+                    Err(part) => {
+                        let read = ReadNumber {
+                            of: NumberOf::Reread(reread),
+                            outer: BigUint::default(),
+                            k,
+                        };
+                        push_segment(g, stack, Frame::ReadNumber(Box::new(read)))?;
+                        return Ok(Control::Force(part));
+                    }
+                }
+            }
+            RereadStep::Walk(Need::Unfold(call)) => {
+                let (folded, need) = Folded::start(g, call);
+                reread.folded = Some(folded);
+                RereadStep::Fold(need)
+            }
+            RereadStep::Walk(Need::Done(read)) => return reread.then.finish(g, stack, read),
+            RereadStep::Fold(FoldNeed::Run(tree, env, stuck)) => {
+                push_segment(g, stack, Frame::Reread(reread))?;
+                return Ok(Control::Tree(tree, env, stuck));
+            }
+            RereadStep::Fold(FoldNeed::Force(value)) => match forced_free(g, &value) {
+                Some(forced) => {
+                    let folded = reread.folded.as_mut().expect("an unfolding is going on");
+                    RereadStep::Fold(folded.answer(g, forced))
+                }
+                None => {
+                    push_segment(g, stack, Frame::Reread(reread))?;
+                    return Ok(Control::Force(value));
+                }
+            },
+            RereadStep::Fold(FoldNeed::Done(next)) => {
+                reread.folded = None;
+                RereadStep::Walk(reread.walk.unfolded(g, next)?)
+            }
+        };
+    }
+}
+
+impl AfterReread {
+    /// The `case` going on with what rule E read its scrutinee as (`None`:
+    /// nothing, and it is stuck), as [`branch_asked`] did after
+    /// [`reread_sum`].
+    fn finish(self, g: &Ev, stack: &mut Stack, read: Option<Value>) -> Result<Control> {
+        let AfterReread {
+            tree,
+            env,
+            stuck,
+            succs,
+            value,
+        } = self;
+        match (read, succs) {
+            (Some(read), Some(k)) => {
+                let value = native::from_view(k, Some(read));
+                branch_asked(g, stack, tree, env, stuck, value, 0)
+            }
+            (Some(read), None) => branch_asked(g, stack, tree, env, stuck, read, 0),
+            (None, succs) => {
+                if succs.is_none()
+                    && proof_counts::on()
+                    && let Term::Case(_, d, _) = &*tree
+                {
+                    count_stuck_one_shape(g, *d, &stuck, &value);
+                }
+                stuck_tree(g, stack, stuck)
+            }
+        }
+    }
+}
+
+/// What [`force`] gives for `value` without starting a machine, if it
+/// can: `value` itself if it needs no forcing, or a call's kept unfolding
+/// that needs no more (`force_now`'s shortcut). Neither takes a step.
+fn forced_free(g: &Ev, value: &Value) -> Option<Value> {
+    if !needs_forcing(g, value) {
+        return Some(value.clone());
+    }
+    match value {
+        Value::Call(_, _, unfolding) => unfolding
+            .get(g)
+            .filter(|unfolded| !needs_forcing(g, unfolded)),
+        _ => None,
+    }
+}
+
+impl Folded {
+    /// [`unfold_folded`] of `value`, with what it needs first.
+    fn start(g: &Ev, value: Value) -> (Folded, FoldNeed) {
+        let mut folded = Folded {
+            levels: vec![FoldLevel {
+                value,
+                current: None,
+                at: FoldAt::Idle,
+            }],
+        };
+        let need = folded.go(g, None);
+        (folded, need)
+    }
+
+    /// Goes on with `value`, what the last [`FoldNeed::Run`] ran to or the
+    /// last [`FoldNeed::Force`] forced to.
+    fn answer(&mut self, g: &Ev, value: Value) -> FoldNeed {
+        self.go(g, Some(value))
+    }
+
+    /// `unfold_folded`'s loop, for the innermost level, from `answer` to
+    /// what it was waiting for (`None`: from the top of the loop), until
+    /// it needs something.
+    fn go(&mut self, g: &Ev, mut answer: Option<Value>) -> FoldNeed {
+        loop {
+            let level = self.levels.last_mut().expect("a level");
+            let at = std::mem::replace(&mut level.at, FoldAt::Idle);
+            let finished = match (at, answer.take()) {
+                (FoldAt::Idle, _) => {
+                    let v = level.current.as_ref().unwrap_or(&level.value);
+                    if !is_folded(g, v) {
+                        level.current.take()
+                    } else {
+                        let Value::Neutral(Head::Def(id), spine) = v else {
+                            unreachable!()
+                        };
+                        let id = *id;
+                        let def = g.def(id);
+                        let body = def.body.as_ref().expect("checked by is_folded");
+                        let (args, call, fields) = folded_parts(g, id, spine);
+                        let tree = Term::peel_lams_rc(body, def.arity);
+                        let stuck = Some((id, call.clone(), false));
+                        level.at = FoldAt::Ran { id, call, fields };
+                        return FoldNeed::Run(tree, args, stuck);
+                    }
+                }
+                (FoldAt::Ran { id, call, fields }, Some(next)) => {
+                    if let Value::Neutral(Head::Def(id2), s2) = &next
+                        && *id2 == id
+                        && s2.ptr_eq(&call)
+                    {
+                        level.current.take() // stuck
+                    } else if fields.is_empty() && needs_forcing(g, &next) {
+                        // Another folded call, perhaps (`unfold_folded`).
+                        level.at = FoldAt::Forced(next.clone());
+                        return FoldNeed::Force(next);
+                    } else if fields.is_empty() {
+                        level.current = Some(next);
+                        continue;
+                    } else {
+                        level.at = FoldAt::FieldBase { fields, i: 0 };
+                        return FoldNeed::Force(next);
+                    }
+                }
+                (FoldAt::Forced(next), Some(forced)) => {
+                    level.current = Some(if folded_call(g, &forced) {
+                        forced
+                    } else {
+                        next
+                    });
+                    continue;
+                }
+                (FoldAt::FieldBase { fields, i }, Some(base)) => {
+                    level.at = FoldAt::FieldInner {
+                        fields,
+                        i,
+                        base: base.clone(),
+                    };
+                    self.levels.push(FoldLevel {
+                        value: base,
+                        current: None,
+                        at: FoldAt::Idle,
+                    });
+                    continue;
+                }
+                (FoldAt::FieldUnfolded { fields, i }, Some(base)) => {
+                    if let Some(need) = Self::field(level, fields, i, base) {
+                        return need;
+                    }
+                    continue;
+                }
+                (FoldAt::FieldInner { .. }, _) | (_, None) => {
+                    unreachable!("an answer for what the level waits for")
+                }
+            };
+            // The innermost level is done: `unfold_folded` returns
+            // `finished`, to the level below if there is one.
+            self.levels.pop();
+            let Some(level) = self.levels.last_mut() else {
+                return FoldNeed::Done(finished);
+            };
+            let FoldAt::FieldInner { fields, i, base } =
+                std::mem::replace(&mut level.at, FoldAt::Idle)
+            else {
+                unreachable!("a level below waits for the one above")
+            };
+            match finished {
+                Some(unfolded) => {
+                    level.at = FoldAt::FieldUnfolded { fields, i };
+                    return FoldNeed::Force(unfolded);
+                }
+                None => {
+                    if let Some(need) = Self::field(level, fields, i, base) {
+                        return need;
+                    }
+                }
+            }
+        }
+    }
+
+    /// `level` takes field `fields[i]` of `base`, the forced value of the
+    /// call or of what it unfolds to, then the next field, if any, of that.
+    fn field(
+        level: &mut FoldLevel,
+        fields: Vec<(DataId, usize)>,
+        i: usize,
+        base: Value,
+    ) -> Option<FoldNeed> {
+        let (d, field) = fields[i];
+        let next = project(d, field, base);
+        if i + 1 == fields.len() {
+            level.current = Some(next);
+            return None;
+        }
+        level.at = FoldAt::FieldBase { fields, i: i + 1 };
+        Some(FoldNeed::Force(next))
+    }
+}
+
 /// Field `i` of `value`, a forced value of data type `d`, which has eta
 /// ([`Term::Proj`]): the constructor's field, or the projection left stuck
 /// on an unknown. A constructor of another type (the Lean projection bug,
@@ -3485,7 +3908,7 @@ fn stuck_tree(g: &Ev, stack: &mut Stack, stuck: Stuck) -> Result<Control> {
             {
                 let (m, n) = (m.clone(), n.clone());
                 let read = ReadNumber {
-                    sum: Some(StuckSum {
+                    of: NumberOf::Sum(StuckSum {
                         id,
                         m,
                         stuck: Value::Neutral(Head::Def(id), spine),
@@ -3524,50 +3947,51 @@ fn read_number(
     g: &Ev,
     stack: &mut Stack,
     mut read: ReadNumber,
+    next: Value,
+    forced: bool,
+) -> Result<Control> {
+    match read_on(g, &mut read.k, next, forced) {
+        Ok(base) => read.done(g, stack, base),
+        Err(part) => {
+            push_segment(g, stack, Frame::ReadNumber(Box::new(read)))?;
+            Ok(Control::Force(part))
+        }
+    }
+}
+
+/// [`read_number`]'s reading, adding the `Succ`s it finds to `k`: `Ok`
+/// with the base once read (`None`: a number), or `Err` with a part that
+/// needs this machine to force it, before reading goes on from there.
+fn read_on(
+    g: &Ev,
+    k: &mut BigUint,
     mut next: Value,
     mut forced: bool,
-) -> Result<Control> {
+) -> std::result::Result<Option<Value>, Value> {
     let nat = g.env.builtins().nat;
     loop {
-        if !forced && needs_forcing(g, &next) {
-            // `force_now`'s shortcut, which takes no step: a call's kept
-            // unfolding, if forcing has nothing more to do to it.
-            let kept = match &next {
-                Value::Call(_, _, unfolding) => unfolding
-                    .get(g)
-                    .filter(|unfolded| !needs_forcing(g, unfolded)),
-                _ => None,
-            };
-            match kept {
-                Some(unfolded) => next = unfolded,
-                None => {
-                    push_segment(g, stack, Frame::ReadNumber(Box::new(read)))?;
-                    return Ok(Control::Force(next));
-                }
+        if !forced {
+            match forced_free(g, &next) {
+                Some(free) => next = free,
+                None => return Err(next),
             }
         }
         forced = false;
         next = match next {
             Value::Nat(n) => {
-                let k = std::mem::take(&mut read.k) + &*n;
-                return Ok(Control::Return(read.finish(k, None)));
+                *k += &*n;
+                return Ok(None);
             }
             Value::NatAdd(n, base) => {
-                read.k += &*n;
+                *k += &*n;
                 (*base).clone()
             }
-            Value::Ctor(d, 0, _) if Some(d) == nat => {
-                let k = std::mem::take(&mut read.k);
-                return Ok(Control::Return(read.finish(k, None)));
-            }
+            Value::Ctor(d, 0, _) if Some(d) == nat => return Ok(None),
             Value::Ctor(d, 1, fields) if Some(d) == nat && fields.len() == 1 => {
-                read.k += 1u32;
+                *k += 1u32;
                 fields[0].clone()
             }
-            other => {
-                let k = std::mem::take(&mut read.k);
-                return Ok(Control::Return(read.finish(k, Some(other))));
-            }
+            other => return Ok(Some(other)),
         };
     }
 }
@@ -3602,10 +4026,22 @@ fn unfold_now(g: &Ev, stack: &mut Stack, id: DefId, spine: Spine, glue: bool) ->
         .builtins()
         .float_def(id, g.machine.erasure.program_running())
         .is_some()
-        && let Some(value) = crate::float::run(g, id, &spine, force)?
     {
-        return Ok(Control::Return(value));
+        return run_float(g, stack, id, spine, glue, 0);
     }
+    unfold_unless_float(g, stack, id, spine, glue)
+}
+
+/// [`unfold_now`] for a definition that isn't a float operation, or whose
+/// float native gave nothing.
+#[inline(always)]
+fn unfold_unless_float(
+    g: &Ev,
+    stack: &mut Stack,
+    id: DefId,
+    spine: Spine,
+    glue: bool,
+) -> Result<Control> {
     if let Some(op) = g.env.builtins().native(id)
         && op.arity() == spine.len()
     {
@@ -3632,6 +4068,41 @@ fn from_native(g: &Ev, stack: &mut Stack, id: DefId, spine: Spine, from: usize) 
     match unforced_number_arg(g, op, &spine, from) {
         Some(index) => Ok(Control::NativeArg(id, spine, index)),
         None => run_native(g, stack, id, spine, 0),
+    }
+}
+
+/// Float operation `id` applied to `spine`: its float native, or else
+/// what [`unfold_now`] does with any other definition. It has had this
+/// machine force a glued call inside one of its arguments `asked` times.
+/// The native reads its arguments as [`run_native`]'s do, with
+/// [`force_or_ask`], and runs again from the start once the call is forced
+/// ([`Frame::FloatAgain`]); it charges nothing, so a rerun repeats only
+/// forcings that take no step.
+#[inline(never)]
+fn run_float(
+    g: &Ev,
+    stack: &mut Stack,
+    id: DefId,
+    spine: Spine,
+    glue: bool,
+    asked: usize,
+) -> Result<Control> {
+    start_read();
+    let outcome = crate::float::run(g, id, &spine, forcing_for(asked));
+    if let Some(part) = ASKED.take() {
+        let asked = asked + 1;
+        let waiting = Frame::FloatAgain {
+            id,
+            spine,
+            glue,
+            asked,
+        };
+        push_segment(g, stack, waiting)?;
+        return Ok(Control::Force(part));
+    }
+    match outcome? {
+        Some(value) => Ok(Control::Return(value)),
+        None => unfold_unless_float(g, stack, id, spine, glue),
     }
 }
 
@@ -3677,7 +4148,7 @@ fn run_native(g: &Ev, stack: &mut Stack, id: DefId, spine: Spine, asked: usize) 
                 return Ok(Control::Return(stuck));
             }
             let read = ReadNumber {
-                sum: Some(StuckSum { id, m, stuck }),
+                of: NumberOf::Sum(StuckSum { id, m, stuck }),
                 outer: k,
                 k: BigUint::default(),
             };
@@ -3692,8 +4163,9 @@ fn run_native(g: &Ev, stack: &mut Stack, id: DefId, spine: Spine, asked: usize) 
 thread_local! {
     /// The call [`force_or_ask`] handed back, for the machine to force. Set
     /// only between `force_or_ask` returning and the read it was called
-    /// from (`native::run` in [`run_native`], `native::view_with` in
-    /// [`branch_asked`]) returning to its caller, which takes it.
+    /// from (`native::run` in [`run_native`], `float::run` in
+    /// [`run_float`], `native::view_with` in [`branch_asked`]) returning to
+    /// its caller, which takes it.
     static ASKED: std::cell::Cell<Option<Value>> = const { std::cell::Cell::new(None) };
     /// Whether the read in progress has forced something that took steps
     /// (a solved metavariable replayed, a call's kept unfolding forced
@@ -3721,7 +4193,7 @@ fn forces_free(g: &Ev, value: &Value) -> bool {
     }
 }
 
-/// How many times a native's run ([`run_native`]), or a number case's read
+/// How many times a native's run ([`run_native`], [`run_float`]), or a number case's read
 /// of its scrutinee ([`branch_asked`]), has this machine force a glued call
 /// and starts again, before it forces with [`force`] instead. Each time
 /// reads the numbers again up to where the last stopped, so a number with
@@ -4085,52 +4557,32 @@ pub(crate) fn has_lift_leaf(tree: &Term) -> bool {
 /// may be a call of another, `Ord.fromCompare …`): what taking it apart, or
 /// comparing it with something that isn't the same call, sees. `None` if
 /// `value` isn't one, or its case tree is stuck.
+///
+/// Its steps are [`Folded`]'s, with each case tree run by another machine
+/// ([`run`]) and each value forced with [`force`]. The body of a call is
+/// run from its case tree, as [`Control::Tree`], leaving the call stuck as
+/// it was if the tree is stuck; what that gives is forced, if it is a glued
+/// call or a solved metavariable, and kept if that is another folded call
+/// (a `decreasing` definition's fuelled helper computing to its leaf `g y`,
+/// which unglued evaluation, where the helper isn't glued, gets here as it
+/// is and unfolds too, SW-2126); otherwise the call is kept, unfolding
+/// shared, for conversion to compare lazily. For a field of a call
+/// (`(f x).i`), the field is taken of the call's value, forced, and
+/// unfolded and forced again if that is another folded call.
 pub fn unfold_folded(g: &Ev, value: &Value) -> Result<Option<Value>> {
-    let mut current: Option<Value> = None;
+    let (mut folded, mut need) = Folded::start(g, value.clone());
     loop {
-        let v = current.as_ref().unwrap_or(value);
-        if !is_folded(g, v) {
-            return Ok(current);
-        }
-        let Value::Neutral(Head::Def(id), spine) = v else {
-            unreachable!()
-        };
-        let id = *id;
-        let def = g.def(id);
-        let body = def.body.as_ref().expect("checked by is_folded");
-        let (args, call, fields) = folded_parts(g, id, spine);
-        let tree = Term::peel_lams_rc(body, def.arity);
-        let mut next = run(
-            g,
-            Control::Tree(tree, args, Some((id, call.clone(), false))),
-        )?;
-        if let Value::Neutral(Head::Def(id2), s2) = &next
-            && *id2 == id
-            && s2.ptr_eq(&call)
-        {
-            return Ok(current); // stuck
-        }
-        // A glued call (a `decreasing` definition's fuelled helper) or a
-        // solved metavariable may compute to another folded call, its leaf `g y`, which unglued
-        // evaluation, where the helper isn't glued, gets here as it is and
-        // unfolds too (SW-2126). Otherwise the call is kept, unfolding
-        // shared, for conversion to compare lazily.
-        if fields.is_empty() && needs_forcing(g, &next) {
-            let forced = force(g, next.clone())?;
-            if folded_call(g, &forced) {
-                next = forced;
+        need = match need {
+            FoldNeed::Run(tree, env, stuck) => {
+                let next = run(g, Control::Tree(tree, env, stuck))?;
+                folded.answer(g, next)
             }
+            FoldNeed::Force(value) => {
+                let forced = force(g, value)?;
+                folded.answer(g, forced)
+            }
+            FoldNeed::Done(unfolded) => return Ok(unfolded),
         }
-        // A field of the call: the fields of its unfolding.
-        for (d, i) in fields {
-            let base = force(g, next)?;
-            let base = match unfold_folded(g, &base)? {
-                Some(unfolded) => force(g, unfolded)?,
-                None => base,
-            };
-            next = project(d, i, base);
-        }
-        current = Some(next);
     }
 }
 

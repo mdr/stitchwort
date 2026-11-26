@@ -108,17 +108,6 @@ pub fn stuck(
     })
 }
 
-/// [`stuck`] as a value, for an evaluator to return.
-pub fn stuck_value(
-    g: &Ev,
-    id: DefId,
-    m: &Value,
-    n: &Value,
-    force: Force,
-) -> budget::Result<Option<Value>> {
-    Ok(stuck(g, id, m, n, force)?.map(|(k, rest)| crate::native::from_view(k, Some(rest))))
-}
-
 /// `value` read by rule E (docs/core.md, "The equality rule"; SW-2251 F6),
 /// if it's a stuck `m + n` whose second argument, under its `Succ`s, is a
 /// call folded by name, or another such sum: R3 and R4 read the head of
@@ -142,6 +131,10 @@ pub fn stuck_value(
 /// chain `rep 10000 x` is walked once, not once per level (SW-2875).
 /// `unread` must only be kept while `force` and `unfold` would give the
 /// same answers, as within one comparison with no metavariable solved.
+///
+/// The walk is [`Walk`], with its forcing and unfolding done here by
+/// `force` and `unfold`; a `case` in the machine walks it on the machine's
+/// own stack instead (SW-4881).
 pub fn reread(
     g: &Ev,
     value: &Value,
@@ -149,69 +142,182 @@ pub fn reread(
     unfold: impl Fn(&Value) -> budget::Result<Option<Value>>,
     unread: &mut Unread,
 ) -> budget::Result<Option<Value>> {
-    let Some(mut sum) = Sum::of(g, value) else {
+    let Some((mut walk, mut need)) = Walk::start(g, value, unread) else {
         return Ok(None);
     };
-    if unread.contains(value) {
-        return Ok(None);
+    let read = (|| {
+        loop {
+            need = match need {
+                Need::View(n) => {
+                    let (k, base) = view_with(g, &n, force)?;
+                    walk.viewed(g, k, base)?
+                }
+                Need::Unfold(base) => {
+                    let next = unfold(&base)?;
+                    walk.unfolded(g, next)?
+                }
+                Need::Done(read) => return Ok(read),
+            }
+        }
+    })();
+    *unread = walk.into_unread();
+    read
+}
+
+/// What a [`Walk`] needs from its evaluator before it can go on.
+pub(crate) enum Need {
+    /// The number read as [`view_with`] reads it, with the evaluator's
+    /// `force`, for [`Walk::viewed`].
+    View(Value),
+    /// A call folded by name, unfolded with the evaluator's `unfold`, for
+    /// [`Walk::unfolded`].
+    Unfold(Value),
+    /// What [`reread`] gives.
+    Done(Option<Value>),
+}
+
+/// [`reread`]'s walk, a step at a time: each step ends where the walk
+/// needs the evaluator to force or unfold something ([`Need`]). `reread`
+/// does those with the evaluator's own functions; the machine does them
+/// on its own stack (`value::reread_on`), so a forcing or an unfolding
+/// that comes to another such sum doesn't start a machine on the Rust
+/// stack for it. Either way the walk is this code, taking its steps in the
+/// same order.
+pub(crate) struct Walk {
+    sum: Sum,
+    /// The sums `sum` is below, outermost first, each with the `Succ`s
+    /// over the next one's.
+    above: Vec<(Sum, BigUint)>,
+    walked: Vec<Value>,
+    unfolded_any: bool,
+    unread: Unread,
+    /// Whether the number asked for is `sum`'s `n` for R3 and R4 to read
+    /// (as [`stuck`] does), rather than to go down.
+    reading: bool,
+    /// The call asked to be unfolded, and the `Succ`s over it in `sum.n`.
+    unfolding: Option<(BigUint, Value)>,
+}
+
+impl Walk {
+    /// The walk from `value`, taking `unread` until [`Walk::into_unread`]
+    /// gives it back, with what it needs first; `None` if `value` isn't a
+    /// stuck sum, or is one already found to read as nothing.
+    pub(crate) fn start(g: &Ev, value: &Value, unread: &mut Unread) -> Option<(Walk, Need)> {
+        let sum = Sum::of(g, value)?;
+        if unread.contains(value) {
+            return None;
+        }
+        let need = Need::View(sum.n.clone());
+        let walk = Walk {
+            sum,
+            above: Vec::new(),
+            walked: vec![value.clone()],
+            unfolded_any: false,
+            unread: std::mem::take(unread),
+            reading: false,
+            unfolding: None,
+        };
+        Some((walk, need))
     }
-    // The sums `sum` is below, outermost first, each with the `Succ`s over
-    // the next one's.
-    let mut above: Vec<(Sum, BigUint)> = Vec::new();
-    let mut walked = vec![value.clone()];
-    let mut unfolded_any = false;
-    loop {
-        let (k, base) = view_with(g, &sum.n, force)?;
-        let next = match base {
-            None => None,
+
+    /// The record of sums that read as nothing, with those this walk
+    /// found if it finished.
+    pub(crate) fn into_unread(self) -> Unread {
+        self.unread
+    }
+
+    /// Goes on with the number asked for read as `k` `Succ`s around `base`.
+    pub(crate) fn viewed(
+        &mut self,
+        g: &Ev,
+        k: BigUint,
+        base: Option<Value>,
+    ) -> budget::Result<Need> {
+        if std::mem::take(&mut self.reading) {
+            // What `stuck` makes of the sum (its rules are bound to
+            // `sum.id`: `Sum::of` checked).
+            let sum = &self.sum;
+            let read = match base {
+                None => Some(crate::native::from_view(k, Some(sum.m.clone()))),
+                Some(_) if k.is_zero() => None,
+                Some(base) => Some(crate::native::from_view(
+                    k,
+                    Some(call(sum.id, sum.m.clone(), base)),
+                )),
+            };
+            return Ok(self.climb(read));
+        }
+        Ok(match base {
+            None => self.read_sum(),
             // `k * x` left folded unfolds to `x + (k - 1) * x`, and so on `k`
             // levels down, all stuck on the variable `x`: R3 and R4 never
             // find a `Zero` or a `Succ` in it, and `k` can be 2^53.
             Some(Value::Neutral(Head::Def(f), args)) if crate::native::folds_mul(g, f, &args) => {
-                None
+                self.read_sum()
             }
-            Some(base) => match unfold(&base)? {
-                Some(next) => {
-                    unfolded_any = true;
-                    Some(next)
-                }
-                None => match Sum::of(g, &base) {
-                    Some(below) if !unread.contains(&base) => {
-                        g.machine.budget.step()?;
-                        walked.push(base);
-                        above.push((std::mem::replace(&mut sum, below), k));
-                        continue;
-                    }
-                    _ => None,
-                },
-            },
-        };
+            Some(base) => {
+                self.unfolding = Some((k, base.clone()));
+                Need::Unfold(base)
+            }
+        })
+    }
+
+    /// Goes on with the call asked for unfolded to `next` (`None`: nothing
+    /// to unfold).
+    pub(crate) fn unfolded(&mut self, g: &Ev, next: Option<Value>) -> budget::Result<Need> {
+        let (k, base) = self.unfolding.take().expect("an unfolding was asked for");
         if let Some(next) = next {
-            sum.n = crate::native::from_view(k, Some(next));
-            sum.unfolded = true;
-            continue;
+            self.unfolded_any = true;
+            self.sum.n = crate::native::from_view(k, Some(next));
+            self.sum.unfolded = true;
+            return Ok(Need::View(self.sum.n.clone()));
         }
-        // `sum` is read as far as it goes; hand what it reads to (by R3 and
-        // R4 on the `n` it's part of) the sums above, until one of them has
-        // more to read.
-        let mut read = sum.read(g, force)?;
+        Ok(match Sum::of(g, &base) {
+            Some(below) if !self.unread.contains(&base) => {
+                g.machine.budget.step()?;
+                self.walked.push(base);
+                let parent = std::mem::replace(&mut self.sum, below);
+                self.above.push((parent, k));
+                Need::View(self.sum.n.clone())
+            }
+            _ => self.read_sum(),
+        })
+    }
+
+    /// `sum` is read as far as it goes: what R3 and R4 make of it, if
+    /// anything in it was unfolded, as [`stuck`] reads it.
+    fn read_sum(&mut self) -> Need {
+        if !self.sum.unfolded {
+            return self.climb(None);
+        }
+        self.reading = true;
+        Need::View(self.sum.n.clone())
+    }
+
+    /// Hands `read`, what the sum below read as, to (by R3 and R4 on the
+    /// `n` it's part of) the sums above, until one of them has more to
+    /// read.
+    fn climb(&mut self, mut read: Option<Value>) -> Need {
         loop {
-            let Some((mut parent, k)) = above.pop() else {
+            let Some((parent, k)) = self.above.pop() else {
                 // Nothing unfolded: a walk from any sum below the first
                 // goes over the same sums from there down, unfolding
                 // nothing either, so each reads as nothing.
-                if !unfolded_any {
-                    unread.extend(walked);
+                if !self.unfolded_any {
+                    self.unread.extend(std::mem::take(&mut self.walked));
                 }
-                return Ok(read);
+                return Need::Done(read);
             };
-            if let Some(next) = read {
-                parent.n = crate::native::from_view(k, Some(next));
-                parent.unfolded = true;
-                sum = parent;
-                break;
+            self.sum = parent;
+            if let Some(next) = read.take() {
+                self.sum.n = crate::native::from_view(k, Some(next));
+                self.sum.unfolded = true;
+                return Need::View(self.sum.n.clone());
             }
-            read = parent.read(g, force)?;
+            if self.sum.unfolded {
+                self.reading = true;
+                return Need::View(self.sum.n.clone());
+            }
         }
     }
 }
@@ -240,15 +346,6 @@ impl Sum {
             n: n.clone(),
             unfolded: false,
         })
-    }
-
-    /// What R3 and R4 make of the sum with `n` as read, if anything in it
-    /// was unfolded.
-    fn read(&self, g: &Ev, force: Force) -> budget::Result<Option<Value>> {
-        if !self.unfolded {
-            return Ok(None);
-        }
-        stuck_value(g, self.id, &self.m, &self.n, force)
     }
 }
 
