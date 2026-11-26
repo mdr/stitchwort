@@ -1,5 +1,5 @@
 {
-  "next": 4851,
+  "next": 4852,
   "tickets": [
     {
       "id": 47,
@@ -7171,17 +7171,20 @@
     {
       "id": 2047,
       "title": "[DeepSeek] Small tier fixes: tier() cross-checks NEXTEST_PROFILE; the log's stage column; the orphaned-snapshot script in test:broad; narrow the doctests",
-      "status": "doing",
+      "status": "done",
       "agent": "DeepSeek",
       "where": "scratch-sw-2047",
       "labels": [
         "tests"
       ],
       "epic": "test-infra",
-      "body": "From docs/reviews/code-review-tests.md (§9 lane 1). 45 min.\n\nAudit note (22 Nov): 22 Nov 2026 audit: Still true as filed; daily is now broad (SW-3080), so the test:daily script is test:broad.\n",
+      "body": "From docs/reviews/code-review-tests.md (§9 lane 1). 45 min.\n\nAudit note (22 Nov): 22 Nov 2026 audit: Still true as filed; daily is now broad (SW-3080), so the test:daily script is test:broad.\n\nT12: STITCHWORT_TIER and a non-default NEXTEST_PROFILE must agree (panic naming both); default profile makes no claim. T14: no_example_snapshots_are_orphaned and no_hash_snapshots_are_orphaned (none found). T16: stage column (memguard/build/tests). Doctests not narrowed: stitchwort-native has a compile_fail doctest too. Model result: deepseek, worked, about 25 min (est. 40).",
       "created": "2026-11-07",
       "updated": "2026-11-26",
-      "commits": []
+      "commits": [
+        "c885bdfd3",
+        "2f2eab1e7"
+      ]
     },
     {
       "id": 2048,
@@ -36171,6 +36174,19 @@
         "37eea7ea6",
         "ce388fc7b"
       ]
+    },
+    {
+      "id": 4851,
+      "title": "[DeepSeek] soundness fuzzer: save (or print under SOUND_VERBOSE) every accepted mutated void attempt with its source example and edits, so an accepted one can be read without a rerun (26 Nov: 1 of 200 accepted, source not recoverable)",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "epic": "audit-fuzzing",
+      "body": "",
+      "created": "2026-11-26",
+      "updated": "2026-11-26",
+      "commits": []
     }
   ]
 }
