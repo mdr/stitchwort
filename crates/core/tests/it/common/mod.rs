@@ -8,7 +8,7 @@ use stitchwort_core::ProofMark;
 use stitchwort_core::check::{self, CtorDecl};
 use stitchwort_core::registry;
 use stitchwort_core::term::Branch;
-use stitchwort_core::{DataId, DefId, Icit, Kernel, Sort, Term};
+use stitchwort_core::{DataId, DefId, Icit, Kernel, Limits, Sort, Term};
 use stitchwort_syntax::{SourceMap, Span};
 
 pub fn span() -> Span {
@@ -55,9 +55,20 @@ pub fn ipi(x: &str, a: Term, b: Term) -> Term {
     )
 }
 
+/// Runs `f` with an operation open: the kernel's stack guards need one, and
+/// building terms here runs the checker.
+pub fn with_operation<T>(g: &mut Kernel, f: impl FnOnce(&mut Kernel) -> T) -> T {
+    let saved = g.machine.budget.start(Limits::default());
+    let result = f(g);
+    g.machine.budget.restore(saved);
+    result
+}
+
 /// `a -> b`, where `b` is written outside the binder (it's shifted under it).
 pub fn arrow(a: Term, b: Term) -> Term {
-    pi("_", a, b.shift(&Kernel::default().ev(), 1, 0).unwrap())
+    let mut g = Kernel::default();
+    let shifted = with_operation(&mut g, |g| b.shift(&g.ev(), 1, 0).unwrap());
+    pi("_", a, shifted)
 }
 
 pub fn lam(x: &str, body: Term) -> Term {
@@ -101,6 +112,8 @@ pub struct Prelude {
 impl Prelude {
     pub fn new() -> Self {
         let mut g = Kernel::default();
+        // The test runs inside this operation; it ends when `g` is dropped.
+        let _operation = g.machine.budget.start(Limits::default());
         let nat = data(&mut g, "Nat", vec![], Sort::Type(0));
         let nat_ty = Term::Data(nat, vec![]);
         check::define_ctors(

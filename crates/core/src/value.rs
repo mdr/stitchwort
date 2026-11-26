@@ -7005,6 +7005,7 @@ mod tests {
     /// unfolding mentions each argument once more, and its id.
     fn kernel_with_pair() -> (crate::globals::Kernel, DefId) {
         let mut g = crate::globals::Kernel::default();
+        let _operation = g.machine.budget.start(crate::budget::Limits::default());
         let ty = Term::Sort(Sort::Type(0));
         let arrow = |dom: Term, cod: Term| {
             Term::Pi(

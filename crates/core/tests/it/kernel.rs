@@ -2306,6 +2306,7 @@ fn nested_applications_are_checked_in_a_loop() {
 #[test]
 fn nested_stuck_calls_compare_under_the_playground_guard() {
     let mut g = Kernel::default();
+    let _operation = g.machine.budget.start(Limits::default());
     let b = data(&mut g, "B", vec![], Sort::Type(0));
     stitchwort_core::check::define_ctors(&mut g, b, vec![ctor("T", vec![]), ctor("F", vec![])])
         .expect("B");

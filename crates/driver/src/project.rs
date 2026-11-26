@@ -539,6 +539,21 @@ impl Session {
         analysis: &Analysis,
         ns: &Namespace,
     ) -> (Vec<Diagnostic>, NamespaceOutcome) {
+        let budget = &self.elab.kernel.machine.budget;
+        if budget.is_running() {
+            return self.check_project_namespace_inner(analysis, ns);
+        }
+        let saved = budget.start(self.elab.options.limits);
+        let result = self.check_project_namespace_inner(analysis, ns);
+        self.elab.kernel.machine.budget.restore(saved);
+        result
+    }
+
+    fn check_project_namespace_inner(
+        &mut self,
+        analysis: &Analysis,
+        ns: &Namespace,
+    ) -> (Vec<Diagnostic>, NamespaceOutcome) {
         let name = &ns.name;
         let dependencies = dependencies(analysis, name);
         let names: Vec<String> = ns

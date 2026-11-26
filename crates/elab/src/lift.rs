@@ -1996,6 +1996,10 @@ mod tests {
     #[test]
     fn replace_rebuilds_a_long_spine_in_a_loop() {
         let kernel = stitchwort_core::Kernel::default();
+        let _operation = kernel
+            .machine
+            .budget
+            .start(stitchwort_core::budget::Limits::default());
         let g = &kernel.ev();
         let n = 100_000;
         let replaced = replace(g, &spine(0, n), 1, &|_| Ok(Term::Sort(Sort::Prop))).unwrap();
@@ -2013,6 +2017,10 @@ mod tests {
     #[test]
     fn replace_offers_each_application_of_a_spine_to_the_hook() {
         let kernel = stitchwort_core::Kernel::default();
+        let _operation = kernel
+            .machine
+            .budget
+            .start(stitchwort_core::budget::Limits::default());
         let g = &kernel.ev();
         let offered = std::cell::RefCell::new(Vec::new());
         let hook = |t: &Term, _: usize| {

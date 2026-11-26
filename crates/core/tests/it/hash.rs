@@ -140,6 +140,7 @@ fn hashes_print_as_short_hex() {
 /// only through the literal.
 fn literal_hash_with_nat_ctors(zero: &str, succ: &str) -> ContentHash {
     let mut g = Kernel::default();
+    let _operation = g.machine.budget.start(stitchwort_core::Limits::default());
     let nat = data(&mut g, "Nat", vec![], Sort::Type(0));
     let nat_ty = Term::Data(nat, vec![]);
     check::define_ctors(

@@ -3368,7 +3368,6 @@ mod tests {
     use stitchwort_syntax::SourceMap;
 
     use super::*;
-    use crate::Elaborator;
 
     fn span() -> Span {
         let mut sources = SourceMap::new();
@@ -3381,7 +3380,7 @@ mod tests {
 
     #[test]
     fn a_motive_that_does_not_give_the_goal_back_fails_the_round_trip() {
-        let e = Elaborator::new();
+        let e = crate::Elaborator::test_elaborator();
         let cx = Ctx::new(&e, span());
         // The goal is `Type0 = Type0`. The motive for replacing `Type0` by `Type1`
         // is `x _ => x = Type0`: applied to `Type0` it gives the goal...
@@ -3446,7 +3445,7 @@ mod tests {
 
     #[test]
     fn a_motive_body_is_written_with_its_binders_named() {
-        let e = Elaborator::new();
+        let e = crate::Elaborator::test_elaborator();
         let mut cx = Ctx::new(&e, span());
         cx.bind_hidden("a".into(), Value::Sort(Sort::Type(0)));
         // `a = x'` under the motive's `x'` and `_`: `a`, the outermost
@@ -3461,7 +3460,7 @@ mod tests {
 
     #[test]
     fn a_candidate_of_another_type_is_not_of_the_carrier() {
-        let e = Elaborator::new();
+        let e = crate::Elaborator::test_elaborator();
         let mut cx = Ctx::new(&e, span());
         // `x: Type0` and `p: x`: the variable `p` has type `x`.
         cx.bind_hidden("x".into(), Value::Sort(Sort::Type(0)));
