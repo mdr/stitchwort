@@ -119,7 +119,7 @@ impl Snapshot {
 /// Whether `e` means elaboration must stop, rather than that this way
 /// didn't work.
 pub(crate) fn fatal(e: &Diagnostic) -> bool {
-    e.code == "E-RESOURCE"
+    e.is_resource()
 }
 
 /// Whether `e` is running out of resources in a way the declaration can go

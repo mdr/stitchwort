@@ -1818,7 +1818,7 @@ const STOPPED_EARLY: u8 = 3;
 fn stopped_early(diagnostics: &[Diagnostic]) -> Option<&Diagnostic> {
     diagnostics
         .iter()
-        .find(|d| d.severity == Severity::Error && d.code == "E-RESOURCE")
+        .find(|d| d.severity == Severity::Error && d.is_resource())
 }
 
 /// Says in one line that `check` stopped before finishing, and why; `at` is

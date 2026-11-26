@@ -3909,7 +3909,7 @@ impl Elaborator {
             let d = self.explain_lifted(d);
             // The kernel checks the long term the group built, so the
             // source expression is still here to explain it (D2844).
-            let d = if d.code == "E-RESOURCE" {
+            let d = if d.is_resource() {
                 let chain = members
                     .iter()
                     .flat_map(|(_, _, equations)| equations.iter())
