@@ -36218,15 +36218,18 @@
     {
       "id": 4853,
       "title": "[DeepSeek] Formatter bug (fmt fuzz batch 8, seed 0x26112608, case 769695): a record update whose base is a multi-line let block formats to text that does not parse (expected ; after the value of let); the formatter refuses with its internal error and leaves the file unchanged",
-      "status": "doing",
+      "status": "done",
       "agent": "DeepSeek",
       "where": "scratch-sw-4853",
       "labels": [],
       "epic": "syntax-language",
-      "body": "",
+      "body": "Block base now starts on the line below the opener at +2; golden record-update-block-base (failed before the fix). fuzz:fmt 20k at the finding's seed clean. tools/fmt refuses the input (outside slice 6a), so the formatters agree. Model result: deepseek, worked, about 20 min (est. 30).",
       "created": "2026-11-26",
       "updated": "2026-11-26",
-      "commits": []
+      "commits": [
+        "bb3cae934",
+        "46238daa3"
+      ]
     },
     {
       "id": 4854,
