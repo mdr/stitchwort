@@ -5271,17 +5271,13 @@ fn a_tailrec_definition_that_is_not_a_loop_is_an_internal_error() {
 
     let backend = session.elab.backend();
     let limits = session.elab.options.limits;
-    let panic = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
-        let _ = stitchwort_js::generate(&backend, limits);
-    }))
-    .expect_err("the generator refuses a marked definition that isn't a loop");
-    let message = panic
-        .downcast_ref::<String>()
-        .cloned()
-        .or_else(|| panic.downcast_ref::<&str>().map(|s| s.to_string()))
-        .unwrap_or_default();
+    let error = stitchwort_js::generate(&backend, limits)
+        .err()
+        .expect("the generator refuses a marked definition that isn't a loop");
+    assert_eq!(error.code, "E-INTERNAL");
     assert!(
-        message.contains("`Main.f` is marked @[tailrec]"),
-        "{message}"
+        error.message.contains("`Main.f` is marked @[tailrec]"),
+        "{}",
+        error.message
     );
 }

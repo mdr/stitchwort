@@ -50,8 +50,14 @@ pub use sourcemap::Mapping;
 
 /// Generating code recurses over a definition's body, so each level checks
 /// there's stack left first (docs/proposals/stack-safe-evaluation.md).
-type Fallible<T> = Result<T, ResourceError>;
+type Fallible<T> = Result<T, Diagnostic>;
 const PASS: &str = "JavaScript generator";
+
+/// A state the generator has no way to produce from a checked program: the
+/// caller reports it like any other error instead of panicking.
+fn internal(message: impl Into<String>) -> Diagnostic {
+    Diagnostic::error("E-INTERNAL", format!("internal error: {}", message.into()))
+}
 
 /// How a type crosses the JS boundary.
 #[derive(Clone, Debug, PartialEq, Eq)]
@@ -1048,11 +1054,15 @@ pub fn generate_exports(
         );
     }
     for &d in &boundary_datas {
-        js.push_str(&codegen.define(d).map_err(Diagnostic::from)?);
+        js.push_str(&codegen.define(d)?);
     }
     js.push('\n');
     // Partial computations are one token (docs/proposals/partial.md §7.6).
-    if wanted.iter().any(|id| codegen.info(*id).delay.is_some()) {
+    let mut any_delay = false;
+    for &id in &wanted {
+        any_delay |= codegen.info(id)?.delay.is_some();
+    }
+    if any_delay {
         js.push_str("// A partial computation, which nothing here can run.\nconst delayed = Symbol(\"Delay\");\n\n");
     }
     if let Some(effect) = &codegen.effect
@@ -1062,21 +1072,22 @@ pub fn generate_exports(
         js.push('\n');
     }
     let while_generating = |id: DefId| {
-        move |e: ResourceError| {
-            Diagnostic::from(e).with_label(g.def(id).span(), "while generating JavaScript for this")
-        }
+        move |e: Diagnostic| e.with_label(g.def(id).span(), "while generating JavaScript for this")
     };
-    let wanted: Vec<DefId> = wanted
-        .into_iter()
-        .filter(|id| codegen.info(*id).delay.is_none())
-        .collect();
+    let mut runnable = Vec::with_capacity(wanted.len());
+    for id in wanted {
+        if codegen.info(id)?.delay.is_none() {
+            runnable.push(id);
+        }
+    }
+    let wanted = runnable;
     let mut mapper = sourcemap::Mapper::new(&js);
     for id in dependency_order(&codegen, &wanted) {
         // Only an admitted definition has a body. The driver doesn't extract
         // a module with errors, but if it were asked to, the JS would call a
         // function that isn't there.
         let def = g.def(id);
-        if def.body().is_none() && !codegen.info(id).result_erased && !codegen.is_native(id) {
+        if def.body().is_none() && !codegen.info(id)?.result_erased && !codegen.is_native(id) {
             return Err(Diagnostic::error(
                 "E-EXPORT",
                 format!("can't generate JavaScript for `{}`", def.name()),
@@ -1092,7 +1103,7 @@ pub fn generate_exports(
     }
     mapper.end(&js);
     if maps_cross {
-        js.push_str(&codegen.map_shape().map_err(Diagnostic::from)?);
+        js.push_str(&codegen.map_shape()?);
     }
     for sig in &exports {
         let text = codegen.wrapper(sig).map_err(while_generating(sig.id))?;
@@ -2543,7 +2554,7 @@ impl<'g> Gen<'g> {
             return Err(e);
         }
         if let Some(e) = inline_failure.into_inner() {
-            return Err(Diagnostic::from(e));
+            return Err(e);
         }
         let wanted: Vec<DefId> = (0..g.env.defs().len())
             .map(DefId)
@@ -2566,26 +2577,27 @@ impl<'g> Gen<'g> {
 
     /// The [`DefInfo`] of `id`'s empty-row variant: its row parameters are
     /// erased.
-    fn empty_info(&self, id: DefId) -> &DefInfo {
-        self.empty_infos[id.0].get_or_init(|| {
-            let info = self.info(id);
-            let mask = self
-                .spec
-                .empty_mask(id, &info.mask)
-                .unwrap_or_else(|_| info.mask.clone());
-            let convention = if mask.iter().any(|erased| !erased) {
-                Convention::Function
-            } else {
-                Convention::Thunk
-            };
-            DefInfo {
-                result_erased: info.result_erased,
-                uncurried: runtime_params(&mask) >= 2,
-                mask,
-                convention,
-                delay: None,
-            }
-        })
+    fn empty_info(&self, id: DefId) -> Fallible<&DefInfo> {
+        if let Some(info) = self.empty_infos[id.0].get() {
+            return Ok(info);
+        }
+        let info = self.info(id)?;
+        let mask = self
+            .spec
+            .empty_mask(id, &info.mask)
+            .unwrap_or_else(|_| info.mask.clone());
+        let convention = if mask.iter().any(|erased| !erased) {
+            Convention::Function
+        } else {
+            Convention::Thunk
+        };
+        Ok(self.empty_infos[id.0].get_or_init(|| DefInfo {
+            result_erased: info.result_erased,
+            uncurried: runtime_params(&mask) >= 2,
+            mask,
+            convention,
+            delay: None,
+        }))
     }
 
     /// The JS name of `id`, or of its empty-row variant: the name with
@@ -2702,10 +2714,12 @@ impl<'g> Gen<'g> {
 
     /// `try_info` for a definition the generator has already consulted:
     /// `generate_with` computes it for every definition it reaches.
-    fn info(&self, id: DefId) -> &DefInfo {
-        self.infos[id.0]
-            .get()
-            .unwrap_or_else(|| panic!("no info for {}", self.g.def(id).name()))
+    fn info(&self, id: DefId) -> Fallible<&DefInfo> {
+        self.infos[id.0].get().ok_or_else(|| {
+            let def = self.g.def(id);
+            internal(format!("no information was computed for `{}`", def.path()))
+                .with_label(def.span(), "while generating JavaScript for this")
+        })
     }
 
     /// The declaration of `id` if the program uses it as it is, followed by
@@ -2714,7 +2728,7 @@ impl<'g> Gen<'g> {
         let mut out = String::new();
         if self.used.borrow()[id.0] {
             let text = self.def_with(id, false)?;
-            out.push_str(&self.share(id, text));
+            out.push_str(&self.share(id, text)?);
         }
         if self.empty.borrow()[id.0] {
             out.push_str(&self.def_with(id, true)?);
@@ -2742,49 +2756,60 @@ impl<'g> Gen<'g> {
     ///
     /// Only a definition generated earlier is a `g`, so `const f = g;`
     /// never reads `g` before it's defined.
-    fn share(&self, id: DefId, text: String) -> String {
+    fn share(&self, id: DefId, text: String) -> Fallible<String> {
         let name = self.own_name(id, false);
-        let info = self.info(id);
-        let target = text
+        let info = self.info(id)?;
+        let rhs = text
             .strip_prefix(&format!("const {name} = "))
-            .and_then(|rest| rest.strip_suffix(";\n"))
-            .and_then(|rhs| match info.convention {
-                Convention::Function => {
-                    let target = forwards_to(rhs)?;
-                    let to = *self.emitted.borrow().get(target)?;
-                    let to_info = self.info(to);
-                    (to != id
-                        && to_info.convention == Convention::Function
-                        && to_info.uncurried == info.uncurried
-                        && runtime_params(&to_info.mask) == runtime_params(&info.mask))
-                    .then(|| target.to_string())
-                }
-                Convention::Value if !is_simple(rhs) => {
-                    if let Some(&to) = self.emitted.borrow().get(rhs)
-                        && self.info(to).convention == Convention::Value
-                    {
-                        return Some(rhs.to_string());
+            .and_then(|rest| rest.strip_suffix(";\n"));
+        let target = match rhs {
+            Some(rhs) => (|| -> Fallible<Option<String>> {
+                Ok(match info.convention {
+                    Convention::Function => {
+                        let mut target = None;
+                        if let Some(target_name) = forwards_to(rhs)
+                            && let Some(&to) = self.emitted.borrow().get(target_name)
+                        {
+                            let to_info = self.info(to)?;
+                            if to != id
+                                && to_info.convention == Convention::Function
+                                && to_info.uncurried == info.uncurried
+                                && runtime_params(&to_info.mask) == runtime_params(&info.mask)
+                            {
+                                target = Some(target_name.to_string());
+                            }
+                        }
+                        target
                     }
-                    let mut values = self.values.borrow_mut();
-                    match values.get(rhs) {
-                        Some(first) => Some(first.clone()),
-                        None => {
-                            values.insert(rhs.to_string(), name.clone());
-                            None
+                    Convention::Value if !is_simple(rhs) => {
+                        if let Some(&to) = self.emitted.borrow().get(rhs)
+                            && self.info(to)?.convention == Convention::Value
+                        {
+                            return Ok(Some(rhs.to_string()));
+                        }
+                        let mut values = self.values.borrow_mut();
+                        match values.get(rhs) {
+                            Some(first) => Some(first.clone()),
+                            None => {
+                                values.insert(rhs.to_string(), name.clone());
+                                None
+                            }
                         }
                     }
-                }
-                _ => None,
-            });
+                    _ => None,
+                })
+            })(),
+            None => Ok(None),
+        }?;
         self.emitted.borrow_mut().insert(name.clone(), id);
-        match target {
+        Ok(match target {
             Some(target) => {
                 let out = format!("const {name} = {target};\n");
                 self.aliases.borrow_mut().insert(id, target);
                 out
             }
             None => text,
-        }
+        })
     }
 
     /// The declaration of `id`, or of its empty-row variant.
@@ -2793,9 +2818,9 @@ impl<'g> Gen<'g> {
         let DefInfo {
             mask, convention, ..
         } = if variant {
-            self.empty_info(id)
+            self.empty_info(id)?
         } else {
-            self.info(id)
+            self.info(id)?
         };
         let convention = *convention;
         if convention == Convention::Erased {
@@ -2816,7 +2841,7 @@ impl<'g> Gen<'g> {
             return Ok(format!("const {} = {};\n", def_name(def.path()), op.js()));
         }
         if let Some(js) = self.native_rhs(id) {
-            let info = self.info(id);
+            let info = self.info(id)?;
             let js = if info.uncurried {
                 uncurry_arrows(&js, runtime_params(&info.mask))
                     .expect("`try_info` checked that it uncurries")
@@ -2877,9 +2902,9 @@ impl<'g> Gen<'g> {
         let name = self.own_name(id, variant);
         let mut env = mask.to_vec();
         let uncurried = if variant {
-            self.empty_info(id)
+            self.empty_info(id)?
         } else {
-            self.info(id)
+            self.info(id)?
         }
         .uncurried;
         let runtime: Vec<String> = (0..mask.len())
@@ -2901,7 +2926,7 @@ impl<'g> Gen<'g> {
                 return Ok(format!("const {name} = {params}{block};\n"));
             }
             if !params.is_empty() {
-                self.tailrec_not_looped(id, tree);
+                self.tailrec_not_looped(id, tree)?;
             }
             let block = self.tree(tree, &mut env, 1, None)?;
             match convention {
@@ -2920,7 +2945,7 @@ impl<'g> Gen<'g> {
                 return Ok(format!("const {name} = {params}{block};\n"));
             }
             if !params.is_empty() {
-                self.tailrec_not_looped(id, tree);
+                self.tailrec_not_looped(id, tree)?;
             }
             // After `=>`, leading `let`s are `const`s in a block.
             let rhs = if convention == Convention::Value {
@@ -2940,10 +2965,10 @@ impl<'g> Gen<'g> {
     /// definition whose body didn't become one is a compiler bug, not a
     /// frame per call. Its recursion goes through the effect runtime's loop
     /// instead when its body binds effects, so those are exempt.
-    fn tailrec_not_looped(&self, id: DefId, body: &Term) {
+    fn tailrec_not_looped(&self, id: DefId, body: &Term) -> Fallible<()> {
         let def = self.g.def(id);
         if !def.tailrec() {
-            return;
+            return Ok(());
         }
         let binds_effects = body.subterms().any(|(t, _)| {
             matches!(t, Term::Def(d) if {
@@ -2951,13 +2976,15 @@ impl<'g> Gen<'g> {
                 path.starts_with("Std.Effect.bind")
             })
         });
-        if !binds_effects {
-            panic!(
-                "internal error: `{}` is marked @[tailrec], but the JavaScript backend could not \
-                 make a loop of it, so it would use a frame per call (this is a bug in the compiler)",
-                def.path()
-            );
+        if binds_effects {
+            return Ok(());
         }
+        Err(internal(format!(
+            "`{}` is marked @[tailrec], but the JavaScript backend could not make a loop of it, \
+             so it would use a frame per call",
+            def.path()
+        ))
+        .with_label(def.span(), "while generating JavaScript for this"))
     }
 
     /// If the definition `id`, with case tree `tree`, calls itself in tail
@@ -3157,7 +3184,7 @@ impl<'g> Gen<'g> {
         // A record stored as its one run-time field (D866): that field is the
         // value matched.
         let unboxed = self.unboxed(*d).is_some();
-        let mut branch = |out: &mut String, c: usize, b: &Branch, depth: usize| {
+        let mut branch = |out: &mut String, c: usize, b: &Branch, depth: usize| -> Fallible<()> {
             let pad = "  ".repeat(depth);
             let level = env.len();
             for (f, ((_, _), erased)) in data.ctors()[c]
@@ -3969,7 +3996,7 @@ impl<'g> Gen<'g> {
             return Ok(None);
         };
         let variant = self.empty_call(id, args);
-        let info = if variant { self.empty_info(id) } else { info };
+        let info = if variant { self.empty_info(id)? } else { info };
         if info.convention != Convention::Function || info.delay.is_some() {
             return Ok(None);
         }
@@ -4503,10 +4530,10 @@ impl<'g> Gen<'g> {
                 "undefined".into()
             }
             Term::Case(..) | Term::NumCase(..) => {
-                panic!("internal error: case outside a case tree")
+                return Err(internal("case outside a case tree"));
             }
             Term::Meta(_) => {
-                panic!("internal error: unsolved metavariable in a checked definition")
+                return Err(internal("unsolved metavariable in a checked definition"));
             }
         })
     }
@@ -4821,7 +4848,7 @@ impl<'g> Gen<'g> {
         // A partial computation is the token, whatever its arguments: they
         // only feed a `Delay`, which nothing can run, so they aren't
         // computed.
-        if let Some(mask) = &self.info(id).delay {
+        if let Some(mask) = &self.info(id)?.delay {
             let mut out = "delayed".to_string();
             for erased in mask.iter().skip(args.len()).rev() {
                 if !erased {
@@ -4854,9 +4881,9 @@ impl<'g> Gen<'g> {
         // A call at the empty row calls the variant, which takes no row.
         let variant = self.empty_call(id, args);
         let info = if variant {
-            self.empty_info(id)
+            self.empty_info(id)?
         } else {
-            self.info(id)
+            self.info(id)?
         };
         let mask = &info.mask;
         let mut out = match info.convention {
@@ -5019,7 +5046,7 @@ impl<'g> Gen<'g> {
             params.join(", ")
         );
         let mut call = def_name(self.g.def(sig.id).path());
-        let info = self.info(sig.id);
+        let info = self.info(sig.id)?;
         if info.convention == Convention::Thunk {
             call.push_str("()");
         }

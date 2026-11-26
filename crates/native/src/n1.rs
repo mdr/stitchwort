@@ -332,8 +332,7 @@ impl Islands {
     /// What `run --native --verbose` says about the code.
     pub fn note(&self) -> String {
         format!(
-            "native: running {} of the {} bodies `main` reaches natively (frames of at most {} bytes, compiled in {:.1} ms)",
-            self.bodies,
+            "native: running {} bodies `main` reaches natively (frames of at most {} bytes, compiled in {:.1} ms)",
             self.bodies,
             self.max_frame,
             self.compile_time.as_secs_f64() * 1000.0
@@ -1921,7 +1920,7 @@ fn emit_adapter(
 }
 
 /// The steps left, from the pinned register, written to the context as the
-/// steps so far, for a helper that runs the machine.
+/// steps so far, before a runtime helper that can charge steps.
 fn steps_out(b: &mut FunctionBuilder<'_>, ctx: IrValue) {
     let left = b.ins().get_pinned_reg(types::I64);
     let limit = b
@@ -1932,7 +1931,7 @@ fn steps_out(b: &mut FunctionBuilder<'_>, ctx: IrValue) {
 }
 
 /// The steps so far, read back from the context into the pinned register
-/// as the steps left, after a helper that runs the machine.
+/// as the steps left, after a runtime helper that charges steps.
 fn steps_in(b: &mut FunctionBuilder<'_>, ctx: IrValue) {
     let limit = b
         .ins()
@@ -1945,8 +1944,7 @@ fn steps_in(b: &mut FunctionBuilder<'_>, ctx: IrValue) {
 /// `Apply`'s slow path for `n` arguments (`apply_signature`): the
 /// machine's eval/apply. Each step is the runtime's `sw_apply_prepare` on a
 /// plan in this frame (`ApplyPlan`, with room for `cap` values): a value
-/// now (a partial application, a native's result, `Done`, or what the
-/// machine computed for a function value without native code), or code to
+/// now (a partial application, a native's result, `Done`), or code to
 /// call with a frame, counted as the machine's `enter` counts it, or one of
 /// the runtime bodies to call with none (the compiled `Text.fold`, the
 /// effect runtime's `rt_resume` and `rt_loop`). Then any over-application's
@@ -2005,9 +2003,8 @@ fn emit_apply_any(
     b.ins()
         .call(prepare, &[ctx, frames, fun_at, in_at, count, plan]);
     steps_in(b, ctx);
-    // A failure in `sw_apply_prepare` (in the machine, for a body that
-    // isn't compiled), with the function value and the closure to drop if
-    // they're still this frame's.
+    // A failure in `sw_apply_prepare`, with the function value and the
+    // closure to drop if they're still this frame's.
     let unprepared = b.create_block();
     b.append_block_param(unprepared, pointer);
     b.append_block_param(unprepared, pointer);
