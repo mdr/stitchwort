@@ -1,5 +1,5 @@
 {
-  "next": 4849,
+  "next": 4850,
   "tickets": [
     {
       "id": 47,
@@ -7457,17 +7457,20 @@
     {
       "id": 2070,
       "title": "[DeepSeek] Syntax small: docs/syntax.md says a number followed by ' lexes as a number then a character (1'…); a lone \\r (old-Mac line endings) is read as a line break, not a space",
-      "status": "backlog",
-      "agent": "",
-      "where": "",
+      "status": "done",
+      "agent": "DeepSeek",
+      "where": "scratch-sw-2070",
       "labels": [
         "syntax"
       ],
       "epic": "syntax-language",
-      "body": "From SW-1916 (syntax review F6, F17). 30 min.\n\nAudit note (22 Nov): Audit 22 Nov: no commit touches it; docs/syntax.md claim not re-read. Small.\n",
+      "body": "From SW-1916 (syntax review F6, F17). 30 min.\n\nAudit note (22 Nov): Audit 22 Nov: no commit touches it; docs/syntax.md claim not re-read. Small.\n\nStarted 12:36 26 Nov with SW-4847; expected: 25 min.\n\nThe doc's numeral sentence was right; a lone CR was already whitespace (the ticket's premise was wrong), now documented and tested. Model result: deepseek, worked, about 15 min (est. 25), with SW-4847.",
       "created": "2026-11-07",
-      "updated": "2026-11-22",
-      "commits": []
+      "updated": "2026-11-26",
+      "commits": [
+        "365038c0c",
+        "e20c61fb8"
+      ]
     },
     {
       "id": 2071,
@@ -36083,15 +36086,18 @@
     {
       "id": 4847,
       "title": "[DeepSeek] clippy needless_lifetimes in crates/driver/src/live/term_diff.rs:777 fails cargo clippy --all-targets -D warnings (SW-4846 finding)",
-      "status": "backlog",
-      "agent": "",
-      "where": "",
+      "status": "done",
+      "agent": "DeepSeek",
+      "where": "scratch-sw-2070",
       "labels": [],
       "epic": "test-infra",
-      "body": "",
+      "body": "Also fixed a type_complexity lint in crates/driver/tests/projects/project.rs. Model result: deepseek, worked.",
       "created": "2026-11-26",
       "updated": "2026-11-26",
-      "commits": []
+      "commits": [
+        "365038c0c",
+        "e20c61fb8"
+      ]
     },
     {
       "id": 4848,
@@ -36101,6 +36107,19 @@
       "where": "",
       "labels": [],
       "epic": "elaborator-kernel",
+      "body": "",
+      "created": "2026-11-26",
+      "updated": "2026-11-26",
+      "commits": []
+    },
+    {
+      "id": 4849,
+      "title": "[DeepSeek] nesting::nested_applications_under_the_playground_guard fails in a fresh scratch clone (E-RESOURCE where None is expected, nesting.rs:151); check whether it fails on main and whether the quick tier runs it (SW-1970 finding)",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "epic": "test-infra",
       "body": "",
       "created": "2026-11-26",
       "updated": "2026-11-26",
