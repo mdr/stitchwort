@@ -36634,9 +36634,9 @@
     {
       "id": 4877,
       "title": "[DeepSeek] SW-4871 follow-ups: a native round-trip test for LayeredStore::with_sink/restore (crates/driver check_cache) and the LSP's entry_sink/restored options; docs/testing.md: web/test.sh --no-build takes several names, matched by substring, and one web/build.sh at a time per worktree; the guide's playground page: an exhausted namespace's importers stay unchecked until it is edited",
-      "status": "backlog",
-      "agent": "",
-      "where": "",
+      "status": "doing",
+      "agent": "DeepSeek",
+      "where": "scratch-sw-4877",
       "labels": [],
       "epic": "editor-playground",
       "body": "",
