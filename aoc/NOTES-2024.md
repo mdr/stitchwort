@@ -728,6 +728,25 @@ Release build, wall-clock times, with other work running on the machine:
 | `stitchwort test Aoc.Year2024.Day03 --no-cache` (32 tests) | 2.2 s |
 | `stitchwort run Aoc.Year2024.Day03.main` on the input (18 KB) | 0.63 s |
 
+### Ranked
+
+Std.Parse:
+
+1. No `findAll` (item 1): the core of the puzzle had to be hand-written.
+2. Scanning speed and memory (item 2): 1.2 GB for 180 KB.
+3. No bounded repetition (item 3).
+4. `Parse.mark()` inside a comparison passed as an argument (item 5).
+5. The per-operation lemmas need the continuation spelled out (item 6).
+6. `ensure` reports after the digits, not at the number (item 4).
+
+General:
+
+1. `rewrite` against unfolded goals (item 8), again.
+2. `n + 0` and `if c then a else a` (item 9).
+3. A record literal before the argument that fixes its type (item 7).
+4. Missing `take`-snoc and `last`-of-append lemmas (item 10).
+5. `|>` in `calc` steps (item 11).
+
 ## Day 4: Ceres Search
 
 Community comparison (SW-892): [docs/comparisons/aoc-2024-day04-community.md](../docs/comparisons/aoc-2024-day04-community.md).
@@ -981,6 +1000,24 @@ characters' `Nat.decEq`, without help. A `Back` step from `3 + c` computes
 `sumShift`. `rewrite` under `List.sumBy`'s binder (`rewrite acrossSum grid _
 wide (rowFits grid _)`) worked first time. The proof time was in finding the
 right statements, not in fighting the checker, except for items 3 to 6.
+
+### Ranked
+
+1. The proof caught a real difference between program and spec (item 1):
+   worth recording as the payoff, not a gap.
+2. `rfl` errors that print both sides the same, and the wrong
+   "compiler fills in" note (item 3): cost the most time.
+3. `c + 1` doesn't compute (item 2): rewrites in every `Ahead` proof.
+4. Holes and instances in `rewrite` (items 5 and 6).
+5. Missing list lemmas: `getDrop`, sums over zipped lists, range shifts,
+   `Some x == Some y` (item 7).
+6. `xs.all p` ends in `&& True` (item 4).
+7. Proof terms in goals (item 9).
+8. No inline `let` (item 8).
+9. `List.zipWith4` was missing; added to `List/Toolkit.sw` beside
+   `zipWith3` (Haskell's `Data.List` has
+   [`zipWith4` to `zipWith7`](https://hackage.haskell.org/package/base/docs/Data-List.html)).
+   The prelude hash snapshot gains one line.
 
 ## Day 5: Print Queue
 
@@ -1261,25 +1298,6 @@ and `List.allNotAnyComm` (List/Sort.sw); the proofs use them.
 `test` is a keyword. What I did: `property`. Fix: say "`test` is a keyword"
 in the message.
 
-### Ranked
-
-Std.Parse:
-
-1. No `findAll` (item 1): the core of the puzzle had to be hand-written.
-2. Scanning speed and memory (item 2): 1.2 GB for 180 KB.
-3. No bounded repetition (item 3).
-4. `Parse.mark()` inside a comparison passed as an argument (item 5).
-5. The per-operation lemmas need the continuation spelled out (item 6).
-6. `ensure` reports after the digits, not at the number (item 4).
-
-General:
-
-1. `rewrite` against unfolded goals (item 8), again.
-2. `n + 0` and `if c then a else a` (item 9).
-3. A record literal before the argument that fixes its type (item 7).
-4. Missing `take`-snoc and `last`-of-append lemmas (item 10).
-5. `|>` in `calc` steps (item 11).
-
 | `stitchwort check --no-cache` (whole project) | 11.1 s (5.0 s before day 6) |
 | `stitchwort check` (warm) | 1.6 s |
 | `stitchwort check --no-cache Aoc.Year2024.Day06.Proofs` | 7.4 s |
@@ -1295,18 +1313,26 @@ The day is in `machine.rs`'s list but, at its place, not in the daily sample
 285 s, most of it the reference evaluator on this day. Native and JS weren't
 measured (this build has no `native` feature).
 
-### Ranked
+1. A trailing blank line is an error with a misleading message (item 1).
+   Fix: let `Parse.all` allow trailing blank lines.
+2. A missing section break reports the wrong thing (item 2). Fix: a
+   `section` combinator, or label the line parsers in the guide's example.
+3. `sections` doesn't fit two kinds of section (item 3). Fix: document the
+   `lines`/`blankLine`/`lines` shape beside it, or add `section p`.
+4. Parser names shadow value names (item 4). Fix: a naming convention in the
+   guide.
+5. Whole-input parsing is the run time and memory (Performance). Fix: the
+   proposal's native text cursor, only if big inputs matter.
 
-1. No `Set.below`/`Set.above` spec (item 1): left the jumping walk
-   unproved.
-2. A resource blow-up on a plain lemma application, with an unprintable
-   error (item 3): cost the most time.
-3. No pigeonhole principle or finite enumeration (item 2): 120 lines of
-   encoding and counting for a one-line fact.
-4. Goals unfolding (item 4).
-5. `E-EFFECT-ESCAPE` on a pure `let` lambda (item 5).
-6. `cases` gaps and record eta (item 6).
-7. The small ones (item 7).
+General:
+
+1. `||` elaborating to `if b then True else False` inside effect-polymorphic
+   lambdas (item 1): the most time lost, and the message gives no hint.
+   Fix: plain `Bool.or` when the row is `Total`.
+2. No record eta or `T.ext` (item 2). Fix: generate `T.ext` for records.
+3. No pair equality lemma (item 3). Fix: `Pair.eqAnd` in std.
+4. Missing `all`/`any` lemmas (item 4). Fix: add the four to std.
+5. `test` as a name (item 5). Fix: name the keyword in the error.
 
 ## Day 6: Guard Gallivant
 
@@ -1632,42 +1658,16 @@ input as a test took about 0.5 s more (not kept: the proofs cover it).
 
 ### Ranked
 
-1. The proof caught a real difference between program and spec (item 1):
-   worth recording as the payoff, not a gap.
-2. `rfl` errors that print both sides the same, and the wrong
-   "compiler fills in" note (item 3): cost the most time.
-3. `c + 1` doesn't compute (item 2): rewrites in every `Ahead` proof.
-4. Holes and instances in `rewrite` (items 5 and 6).
-5. Missing list lemmas: `getDrop`, sums over zipped lists, range shifts,
-   `Some x == Some y` (item 7).
-6. `xs.all p` ends in `&& True` (item 4).
-7. Proof terms in goals (item 9).
-8. No inline `let` (item 8).
-9. `List.zipWith4` was missing; added to `List/Toolkit.sw` beside
-   `zipWith3` (Haskell's `Data.List` has
-   [`zipWith4` to `zipWith7`](https://hackage.haskell.org/package/base/docs/Data-List.html)).
-   The prelude hash snapshot gains one line.
-
-1. A trailing blank line is an error with a misleading message (item 1).
-   Fix: let `Parse.all` allow trailing blank lines.
-2. A missing section break reports the wrong thing (item 2). Fix: a
-   `section` combinator, or label the line parsers in the guide's example.
-3. `sections` doesn't fit two kinds of section (item 3). Fix: document the
-   `lines`/`blankLine`/`lines` shape beside it, or add `section p`.
-4. Parser names shadow value names (item 4). Fix: a naming convention in the
-   guide.
-5. Whole-input parsing is the run time and memory (Performance). Fix: the
-   proposal's native text cursor, only if big inputs matter.
-
-General:
-
-1. `||` elaborating to `if b then True else False` inside effect-polymorphic
-   lambdas (item 1): the most time lost, and the message gives no hint.
-   Fix: plain `Bool.or` when the row is `Total`.
-2. No record eta or `T.ext` (item 2). Fix: generate `T.ext` for records.
-3. No pair equality lemma (item 3). Fix: `Pair.eqAnd` in std.
-4. Missing `all`/`any` lemmas (item 4). Fix: add the four to std.
-5. `test` as a name (item 5). Fix: name the keyword in the error.
+1. No `Set.below`/`Set.above` spec (item 1): left the jumping walk
+   unproved.
+2. A resource blow-up on a plain lemma application, with an unprintable
+   error (item 3): cost the most time.
+3. No pigeonhole principle or finite enumeration (item 2): 120 lines of
+   encoding and counting for a one-line fact.
+4. Goals unfolding (item 4).
+5. `E-EFFECT-ESCAPE` on a pure `let` lambda (item 5).
+6. `cases` gaps and record eta (item 6).
+7. The small ones (item 7).
 
 ## Day 7: Bridge Repair
 

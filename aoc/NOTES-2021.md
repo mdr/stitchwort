@@ -1596,6 +1596,24 @@ audit with the search 1.6 s.
   proofs (`Aoc.Year2024.Day08.Proofs.natMulSelfZero`) and warned that 8
   comparisons with `Std.Float.Theory` lemmas ran out of steps: noise, but
   harmless.
+
+### Ranked
+
+1. `cases` doesn't see that `x == 0` and `x == 1` can't both hold, so
+   "`x ≤ 8` means `x` is 0 to 8" goes over the budget, and a `match` with
+   literal patterns gives its wildcard no `x ≥ 9` for `omega` (item 6).
+   Fix: substitute `x = k` after a `Yes` split, and give a wildcard after
+   literal patterns the fact that it is above them.
+2. `omega`'s messages print counts and `==` unfolded (item 3). Fix: print
+   atoms as written.
+3. No `List.countReplicate`, no count by a sum of predicates, no
+   `Nat.iterate` simulation lemma (item 2). Fix: add them to std.
+4. `(proof, proof)` for an `And` gives a "type annotation" note instead of
+   naming `Both` (item 3).
+5. `search --at` lists other days' lemmas and Float comparisons that ran
+   out of steps (item 6). Fix: rank the project's other namespaces lower,
+   or leave out unimported ones.
+
 ## Day 7: The Treachery of Whales
 
 The input is one line of crab positions, comma-separated. The crabs all
@@ -1732,22 +1750,6 @@ Release build:
 
 74 lines of program, 22 of spec, 143 of proofs, 44 of tests.
 
-### Ranked
-
-1. `cases` doesn't see that `x == 0` and `x == 1` can't both hold, so
-   "`x ≤ 8` means `x` is 0 to 8" goes over the budget, and a `match` with
-   literal patterns gives its wildcard no `x ≥ 9` for `omega` (item 6).
-   Fix: substitute `x = k` after a `Yes` split, and give a wildcard after
-   literal patterns the fact that it is above them.
-2. `omega`'s messages print counts and `==` unfolded (item 3). Fix: print
-   atoms as written.
-3. No `List.countReplicate`, no count by a sum of predicates, no
-   `Nat.iterate` simulation lemma (item 2). Fix: add them to std.
-4. `(proof, proof)` for an `And` gives a "type annotation" note instead of
-   naming `Both` (item 3).
-5. `search --at` lists other days' lemmas and Float comparisons that ran
-   out of steps (item 6). Fix: rank the project's other namespaces lower,
-   or leave out unimported ones.
 | `stitchwort check --no-cache Aoc.Year2021.Day07.Proofs Aoc.Year2021.Day07.Tests` | 0.90 s user (0.95 s) |
 | `stitchwort run Aoc.Year2021.Day07.main` on the input (1000 crabs) | 0.80 s user (0.86 s) |
 | `stitchwort audit Aoc.Year2021.Day07` (with the search) | 0.53 s user (0.59 s) |
