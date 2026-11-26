@@ -33390,14 +33390,14 @@
     {
       "id": 4680,
       "title": "[Sonnet] Mark the remaining elaborator variables: about 15 sites bind unmarked variables with Value::var(cx.level()) (omega, ring, facts, auto, effects); unmarked costs completeness under rule I (SW-4674 finding; list in docs/reviews/SW-4674-notes.md)",
-      "status": "backlog",
-      "agent": "",
+      "status": "doing",
+      "agent": "Sonnet",
       "where": "",
       "labels": [],
       "epic": "elaborator-kernel",
       "body": "",
       "created": "2026-11-23",
-      "updated": "2026-11-23",
+      "updated": "2026-11-26",
       "commits": []
     },
     {
