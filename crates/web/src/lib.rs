@@ -27,6 +27,32 @@ use stitchwort_driver::run::{Main, RunError};
 use stitchwort_syntax::{Diagnostic, Severity, SourceMap};
 use wasm_bindgen::prelude::wasm_bindgen;
 
+#[cfg(target_arch = "wasm32")]
+#[wasm_bindgen]
+extern "C" {
+    #[wasm_bindgen(js_namespace = console, js_name = error)]
+    fn console_error(text: &str);
+}
+
+/// Shows a panic's message in the browser's console: without a hook, the
+/// WebAssembly traps and JavaScript sees only `unreachable` (SW-4855).
+#[cfg(target_arch = "wasm32")]
+#[wasm_bindgen(start)]
+fn report_panics() {
+    std::panic::set_hook(Box::new(|panic| {
+        let message = panic
+            .payload()
+            .downcast_ref::<&str>()
+            .copied()
+            .or_else(|| panic.payload().downcast_ref::<String>().map(String::as_str))
+            .unwrap_or("panicked without a message");
+        let place = panic
+            .location()
+            .map_or_else(|| "an unknown place".to_string(), |l| l.to_string());
+        console_error(&format!("{message} (at {place})"));
+    }));
+}
+
 /// The file name shown in error messages.
 const FILE: &str = "playground.sw";
 
