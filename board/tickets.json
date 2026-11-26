@@ -36242,12 +36242,12 @@
     {
       "id": 4854,
       "title": "[Sonnet] Browser tests failing on main: the book tests expect book/src/02-cases.sw's old line numbers (167, noAndAnything); the after-a-jump-into-another-file project test overflows (RangeError) in headless Chrome 158, then F2 renames fails with recursive use of an object; find whether the RangeError is new since the 16 Nov wasm breakage (SW-4852 report)",
-      "status": "doing",
+      "status": "review",
       "agent": "Sonnet",
       "where": "",
       "labels": [],
       "epic": "editor-playground",
-      "body": "",
+      "body": "Lane: fixed 4 browser tests (book/sf line numbers now found by text; proof syntax 'rewrite h then'; split-on-b goal shows 'both No Yes = No'). Full run was 96/102 (hover test flaky, passes alone). Remaining: 'after a jump into another file' crashes in V8 (RangeError) checking Aoc.Year2020.Day05.Proofs: wasm stack peak 268 KiB (guard 320 KiB doesn't fire), native peak 244 KiB, check_tree recursion 22 deep. F2 'recursive use' is the aftermath of the same crash (poisoned server). Needs a design decision: lower guard, or reduce recursion frames.",
       "created": "2026-11-26",
       "updated": "2026-11-26",
       "commits": []
