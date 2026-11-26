@@ -774,14 +774,9 @@ impl Session {
         scope: &Scope,
         checker: Option<&mut Session>,
     ) -> Result<AtReport, Diagnostic> {
-        let budget = &self.elab.kernel.machine.budget;
-        if budget.is_running() {
-            return self.search_at_inner(found, file, options, scope, checker);
-        }
-        let saved = budget.start(self.elab.options.limits);
-        let result = self.search_at_inner(found, file, options, scope, checker);
-        self.elab.kernel.machine.budget.restore(saved);
-        result
+        stitchwort_core::budget::within(self, |session| {
+            session.search_at_inner(found, file, options, scope, checker)
+        })
     }
 
     fn search_at_inner(

@@ -539,14 +539,9 @@ impl Session {
         analysis: &Analysis,
         ns: &Namespace,
     ) -> (Vec<Diagnostic>, NamespaceOutcome) {
-        let budget = &self.elab.kernel.machine.budget;
-        if budget.is_running() {
-            return self.check_project_namespace_inner(analysis, ns);
-        }
-        let saved = budget.start(self.elab.options.limits);
-        let result = self.check_project_namespace_inner(analysis, ns);
-        self.elab.kernel.machine.budget.restore(saved);
-        result
+        stitchwort_core::budget::within(self, |session| {
+            session.check_project_namespace_inner(analysis, ns)
+        })
     }
 
     fn check_project_namespace_inner(

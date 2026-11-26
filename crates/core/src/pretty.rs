@@ -11,7 +11,7 @@ use std::rc::Rc;
 
 use num_bigint::BigUint;
 
-use crate::budget::{Limits, Result};
+use crate::budget::{Budget, HasBudget, Limits, Result, within};
 use crate::collections::HashMap;
 use crate::globals::{CallDefaults, DefaultCall, PlaceholderText};
 use crate::registry::Builtin;
@@ -20,15 +20,22 @@ use crate::value::{
     Value, quote_as_written_shown, quote_shown_at_most, quote_unfolded_shown, same_term,
 };
 
+impl HasBudget for Ev<'_> {
+    fn budget(&self) -> &Budget {
+        &self.machine.budget
+    }
+
+    fn operation_limits(&self) -> Limits {
+        Limits::default()
+    }
+}
+
 /// Runs `f` in an operation when none is running: a public printer can be
 /// called after the operation that checked its term has ended, and printing
 /// an update helper reaches `Term::shift`.
 fn with_operation<T>(g: &Ev, f: impl FnOnce() -> T) -> T {
-    if g.machine.budget.is_running() {
-        return f();
-    }
-    let _op = g.machine.budget.operation(Limits::default());
-    f()
+    let mut g = g;
+    within(&mut g, |_| f())
 }
 
 /// A declaration a printed name stands for.

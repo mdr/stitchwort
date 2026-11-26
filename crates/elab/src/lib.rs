@@ -1255,6 +1255,16 @@ fn name(n: &ast::Name) -> Name {
 /// The nodes a value may grow to while a proof being tried is checked.
 const TRIED_PROOF_SIZE: u64 = 200_000;
 
+impl stitchwort_core::budget::HasBudget for Elaborator {
+    fn budget(&self) -> &stitchwort_core::budget::Budget {
+        &self.kernel.machine.budget
+    }
+
+    fn operation_limits(&self) -> stitchwort_core::budget::Limits {
+        self.options.limits
+    }
+}
+
 impl Elaborator {
     /// The unifier, on this elaborator's metavariables and attempt.
     /// What the evaluator reads: the kernel's side, with this elaborator's

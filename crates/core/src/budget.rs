@@ -649,6 +649,52 @@ pub struct Saved {
     out_of_stack: bool,
 }
 
+/// A type that owns a [`Budget`] and knows what limits its own work runs with.
+pub trait HasBudget {
+    fn budget(&self) -> &Budget;
+
+    /// The limits an operation for this work starts with.
+    fn operation_limits(&self) -> Limits;
+}
+
+impl<T: HasBudget + ?Sized> HasBudget for &T {
+    fn budget(&self) -> &Budget {
+        (**self).budget()
+    }
+
+    fn operation_limits(&self) -> Limits {
+        (**self).operation_limits()
+    }
+}
+
+/// Runs `f` as an operation with `state`'s limits when none is running,
+/// restoring what was running before even if `f` returns early through `?`.
+pub fn within<T, S: HasBudget>(state: &mut S, f: impl FnOnce(&mut S) -> T) -> T {
+    if state.budget().is_running() {
+        return f(state);
+    }
+    let saved = state.budget().start(state.operation_limits());
+
+    struct Restore<'a, S: HasBudget> {
+        state: &'a mut S,
+        saved: Option<Saved>,
+    }
+
+    impl<S: HasBudget> Drop for Restore<'_, S> {
+        fn drop(&mut self) {
+            if let Some(saved) = self.saved.take() {
+                self.state.budget().restore(saved);
+            }
+        }
+    }
+
+    let restore = Restore {
+        state,
+        saved: Some(saved),
+    };
+    f(&mut *restore.state)
+}
+
 impl Budget {
     /// Whether an operation is running: a guard outside one can't fire.
     pub fn is_running(&self) -> bool {
