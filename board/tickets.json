@@ -1,5 +1,5 @@
 {
-  "next": 4879,
+  "next": 4880,
   "tickets": [
     {
       "id": 47,
@@ -36449,15 +36449,23 @@
     {
       "id": 4865,
       "title": "[Opus] Kernel: nat_add::stuck forces a sum of sums by re-entering the machine once per link (9 calls, 3.4 KiB wasm a link; Day11's 100-link chain): an iterative loop, same rule, plus resume's 1,280-byte frame; Fable soundness review (SW-4863 step 4; waits for Matt's D)",
-      "status": "review",
+      "status": "done",
       "agent": "Opus",
       "where": "",
       "labels": [],
       "epic": "elaborator-kernel",
-      "body": "D3751 (Matt, 26 Nov 2026): yes — Opus builds the loop for the stuck-sum chain (and trims resume's frame), Fable soundness review.\n\nProgress (Opus lane, 26 Nov): done in 44b27902e. The machine reads a stuck sum's second argument itself (value::read_second, Frame::ReadSecond; add's native returns Outcome::AddStuck) instead of re-entering force once per link. Same rule, same steps. Day11.Proofs (stack:wasm): wasm 320 -> 126 KiB, V8 176 -> 96 KB default, 224 -> 112 KB Liftoff. resume's wasm frame 1,280 -> 832 bytes (rare arms in resume_rare). New test nat_add_rule::reading_a_long_chain_of_sums_takes_constant_stack (100,000 links, 4 MiB stack; E-RESOURCE before). Waits for the Fable soundness review.\n\nReview fixes (Opus lane): the frame limit counts frames above the topmost ReadSecond (Stack type), so nothing accepted before is refused; ReadSecond frames themselves count against the limit in place of the Rust stack. resume_rare names its frames; two new tests (suspension with outer and k > 0 vs reference; depth limit, which fails with frames counted together).",
+      "body": "D3751 (Matt, 26 Nov 2026): yes — Opus builds the loop for the stuck-sum chain (and trims resume's frame), Fable soundness review.\n\nProgress (Opus lane, 26 Nov): done in 44b27902e. The machine reads a stuck sum's second argument itself (value::read_second, Frame::ReadSecond; add's native returns Outcome::AddStuck) instead of re-entering force once per link. Same rule, same steps. Day11.Proofs (stack:wasm): wasm 320 -> 126 KiB, V8 176 -> 96 KB default, 224 -> 112 KB Liftoff. resume's wasm frame 1,280 -> 832 bytes (rare arms in resume_rare). New test nat_add_rule::reading_a_long_chain_of_sums_takes_constant_stack (100,000 links, 4 MiB stack; E-RESOURCE before). Waits for the Fable soundness review.\n\nReview fixes (Opus lane): the frame limit counts frames above the topmost ReadSecond (Stack type), so nothing accepted before is refused; ReadSecond frames themselves count against the limit in place of the Rust stack. resume_rare names its frames; two new tests (suspension with outer and k > 0 vs reference; depth limit, which fails with frames counted together).\n\nFable: SOUND (two passes; docs/reviews/SW-4865-sum-chain-loop.md). Narrowing found in pass 1 (shared frame count) removed: limit counted per read segment. Day11 wasm stack 320 -> 126 KiB. Model result: opus, worked (review fix: depth-limit narrowing), 46 min (est. 60).",
       "created": "2026-11-26",
       "updated": "2026-11-26",
-      "commits": []
+      "commits": [
+        "44b27902e",
+        "8aa4d29e7",
+        "0ef63eae8",
+        "e91300f1a",
+        "270493c73",
+        "bd226ee42",
+        "a5ee39790"
+      ]
     },
     {
       "id": 4866,
@@ -36653,6 +36661,19 @@
     {
       "id": 4878,
       "title": "[Opus] Kernel evaluator: Frame::AddNat's resume and nat_add::reread (rule E) still call force, starting a nested machine, so a chain through them still nests per link (SW-4865 finding); give them the read_second treatment, with a Fable soundness review",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "epic": "elaborator-kernel",
+      "body": "",
+      "created": "2026-11-26",
+      "updated": "2026-11-26",
+      "commits": []
+    },
+    {
+      "id": 4879,
+      "title": "[Sonnet] Measure peak heap of a 2,000,000-link thin stuck-sum chain in the browser after SW-4865 (Fable estimates several hundred MB to ~1 GB); if it runs out of wasm memory rather than E-RESOURCE, lower the pending-read cap (anything above ~200,000 refuses nothing a configured stack reached)",
       "status": "backlog",
       "agent": "",
       "where": "",
