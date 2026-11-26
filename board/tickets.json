@@ -1,5 +1,5 @@
 {
-  "next": 4878,
+  "next": 4879,
   "tickets": [
     {
       "id": 47,
@@ -36639,6 +36639,19 @@
       "where": "",
       "labels": [],
       "epic": "editor-playground",
+      "body": "",
+      "created": "2026-11-26",
+      "updated": "2026-11-26",
+      "commits": []
+    },
+    {
+      "id": 4878,
+      "title": "[Opus] Kernel evaluator: Frame::AddNat's resume and nat_add::reread (rule E) still call force, starting a nested machine, so a chain through them still nests per link (SW-4865 finding); give them the read_second treatment, with a Fable soundness review",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "epic": "elaborator-kernel",
       "body": "",
       "created": "2026-11-26",
       "updated": "2026-11-26",
