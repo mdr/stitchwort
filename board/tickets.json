@@ -7717,17 +7717,20 @@
     {
       "id": 2107,
       "title": "[DeepSeek] Pin follow-ups: an on/off switch for the pin-check log (it grows forever in dev language servers); messages that don't read 'Nat.add is bound to Nat.add'; debug_asserts at the two primitive-binding sites (elab/src/lib.rs:2543, 2559)",
-      "status": "doing",
+      "status": "done",
       "agent": "DeepSeek",
       "where": "scratch-sw-2107",
       "labels": [
         "core"
       ],
       "epic": "effects-native",
-      "body": "From docs/reviews/SW-2103-pins-at-binding.md (F2-F4). Tests: a_second_registration_is_refused_by_name, a_native_is_registered_once, every_pin_is_checked_at_binding. 30 min.\n\nAudit note (22 Nov): The three tests the ticket names already exist from SW-2081 (2859c6c65: crates/core/tests/it/glue.rs:678, crates/driver/tests/library/pinned_hashes.rs:248, crates/driver/tests/elaboration/natives.rs:269); check which of the log switch, message wording and debug_asserts remain.\n",
+      "body": "From docs/reviews/SW-2103-pins-at-binding.md (F2-F4). Tests: a_second_registration_is_refused_by_name, a_native_is_registered_once, every_pin_is_checked_at_binding. 30 min.\n\nAudit note (22 Nov): The three tests the ticket names already exist from SW-2081 (2859c6c65: crates/core/tests/it/glue.rs:678, crates/driver/tests/library/pinned_hashes.rs:248, crates/driver/tests/elaboration/natives.rs:269); check which of the log switch, message wording and debug_asserts remain.\n\nRecording is opt-in (take_bound_checks starts it; STITCHWORT_RECORD_BOUND_CHECKS for a whole session); test-bypass builds only. Model result: deepseek, worked, about 20 min (est. 30).",
       "created": "2026-11-07",
       "updated": "2026-11-26",
-      "commits": []
+      "commits": [
+        "9bf26b394",
+        "f0ee2e309"
+      ]
     },
     {
       "id": 2110,
