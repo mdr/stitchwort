@@ -6160,16 +6160,16 @@
     {
       "id": 1953,
       "title": "[DeepSeek] Bench tidy-ups from docs/reviews/code-review-cli-lsp-web-fmt.md (lane G)",
-      "status": "backlog",
-      "agent": "",
-      "where": "",
+      "status": "doing",
+      "agent": "DeepSeek",
+      "where": "scratch-sw-1953",
       "labels": [
         "bench"
       ],
       "epic": "test-infra",
       "body": "From docs/reviews/code-review-cli-lsp-web-fmt.md (lane G). 30 min.\n\nAudit note (22 Nov): See docs/reviews/code-review-cli-lsp-web-fmt.md, lane G.\n",
       "created": "2026-11-07",
-      "updated": "2026-11-22",
+      "updated": "2026-11-26",
       "commits": []
     },
     {
