@@ -36691,15 +36691,18 @@
     {
       "id": 4880,
       "title": "[DeepSeek] bench std: after SW-4876 the first run still differs from the rest (allocations 344,727,290 then 344,727,285 on runs 2-5; peak bytes 310,185,308 then 310,184,818), so --update refuses std. Likely a first-use allocation (a lazy static or thread-local) in run 1 only: find it, or warm up once before measuring if the cause is outside the checker; don't loosen the comparison (SW-4876 follow-up)",
-      "status": "doing",
+      "status": "done",
       "agent": "DeepSeek",
       "where": "scratch-sw-4880",
       "labels": [],
       "epic": "performance",
-      "body": "",
+      "body": "DeepSeek found run 1's +8 (pattern expansions cached in the parsed library on first check) and a separate ±3/±6 224-byte wobble in Parse/Runs.sw. Orchestrator's call: don't precompute caches in a name pass to tidy a benchmark; instead the consistency check needs exact steps/visits and lets allocations/peak bytes differ by ≤ 1 part in a million.\n\nModel result: deepseek, needed fixes (first fix precomputed caches in a name pass, dropped; bound raised to 10 ppm for peak heap in review), 40 min (est. 35).",
       "created": "2026-11-26",
       "updated": "2026-11-26",
-      "commits": []
+      "commits": [
+        "288d3ae41",
+        "faeb69def"
+      ]
     },
     {
       "id": 4881,
