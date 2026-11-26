@@ -36331,9 +36331,9 @@
     {
       "id": 4859,
       "title": "[DeepSeek] clippy items_after_test_module in crates/elab/src/numbers.rs (~2156: an item after mod tests, from SW-4850): move it above the tests module",
-      "status": "backlog",
-      "agent": "",
-      "where": "",
+      "status": "doing",
+      "agent": "DeepSeek",
+      "where": "scratch-sw-4859",
       "labels": [],
       "epic": "diagnostics",
       "body": "",
