@@ -36661,8 +36661,8 @@
     {
       "id": 4878,
       "title": "[Opus] Kernel evaluator: Frame::AddNat's resume and nat_add::reread (rule E) still call force, starting a nested machine, so a chain through them still nests per link (SW-4865 finding); give them the read_second treatment, with a Fable soundness review",
-      "status": "backlog",
-      "agent": "",
+      "status": "doing",
+      "agent": "Opus",
       "where": "",
       "labels": [],
       "epic": "elaborator-kernel",
@@ -36674,8 +36674,8 @@
     {
       "id": 4879,
       "title": "[Sonnet] Measure peak heap of a 2,000,000-link thin stuck-sum chain in the browser after SW-4865 (Fable estimates several hundred MB to ~1 GB); if it runs out of wasm memory rather than E-RESOURCE, lower the pending-read cap (anything above ~200,000 refuses nothing a configured stack reached)",
-      "status": "backlog",
-      "agent": "",
+      "status": "doing",
+      "agent": "Sonnet",
       "where": "",
       "labels": [],
       "epic": "elaborator-kernel",
