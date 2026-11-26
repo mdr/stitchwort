@@ -8194,16 +8194,16 @@
     {
       "id": 2167,
       "title": "[DeepSeek] Delete AoC lemmas that restate std (leBoth = Nat.leAntisym, boolOfIff = Bool.eqOf, natEqSelf = Nat.equalRefl, …) or that omega/cases/rfl closes in one word; point uses at std or the tactic",
-      "status": "backlog",
-      "agent": "",
-      "where": "",
+      "status": "doing",
+      "agent": "DeepSeek",
+      "where": "scratch-sw-2167",
       "labels": [
         "proofs"
       ],
       "epic": "aoc-common",
       "body": "From docs/reviews/SW-2159-aoc-lemmas-to-std.md, lane D0; its brief paragraph is in the report. No std edits. audit:touched on each changed namespace. 45 min.\n\n7 Nov: run SW-2182 first, so the restated lemmas are still there to test search on.\n\n7 Nov: include rogue's now-unused memAppendLeft/memAppendRight (SW-2169).\n\nAudit note (22 Nov): Audit 22 Nov: partly done: leBoth is gone; natEqSelf (Year2025/Day07/Proofs/Part1.sw:31) and boolOfIff (Year2024/Day06/Proofs/Part2.sw:167) still restate std. SW-2182 (run the ~30 restated lemmas through stitchwort search) is the neighbour.\n",
       "created": "2026-11-07",
-      "updated": "2026-11-22",
+      "updated": "2026-11-26",
       "commits": []
     },
     {
