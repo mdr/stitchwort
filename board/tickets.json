@@ -1,5 +1,5 @@
 {
-  "next": 4859,
+  "next": 4860,
   "tickets": [
     {
       "id": 47,
@@ -6381,17 +6381,20 @@
     {
       "id": 1973,
       "title": "[DeepSeek] Error kinds stage 2: route the ~23 direct E-RESOURCE comparisons through fatal",
-      "status": "doing",
+      "status": "done",
       "agent": "DeepSeek",
       "where": "scratch-sw-1973",
       "labels": [
         "errors"
       ],
       "epic": "elaborator-kernel",
-      "body": "From docs/proposals/error-kinds.md. After stage 1 (SW-1972). Absorbs elab-checking F13. 40 min.\n\nD2770-D2773: yes, as recommended (orchestrator's call, 7 Nov; docs/reviews/open-decisions-2026-11-07.md).\n\nAudit note (22 Nov): Audit 22 Nov: still open; no error-kinds stage has merged (no kind field on Diagnostic).\n",
+      "body": "From docs/proposals/error-kinds.md. After stage 1 (SW-1972). Absorbs elab-checking F13. 40 min.\n\nD2770-D2773: yes, as recommended (orchestrator's call, 7 Nov; docs/reviews/open-decisions-2026-11-07.md).\n\nAudit note (22 Nov): Audit 22 Nov: still open; no error-kinds stage has merged (no kind field on Diagnostic).\n\n7 comparisons now Diagnostic::is_resource (in stitchwort-syntax, where Diagnostic lives); fatal delegates. Model result: deepseek, worked, about 20 min (est. 30).",
       "created": "2026-11-07",
       "updated": "2026-11-26",
-      "commits": []
+      "commits": [
+        "984ffbf28",
+        "9b1b71f87"
+      ]
     },
     {
       "id": 1974,
@@ -36320,6 +36323,19 @@
       "where": "scratch-sw-4858",
       "labels": [],
       "epic": "elaborator-kernel",
+      "body": "",
+      "created": "2026-11-26",
+      "updated": "2026-11-26",
+      "commits": []
+    },
+    {
+      "id": 4859,
+      "title": "[DeepSeek] clippy items_after_test_module in crates/elab/src/numbers.rs (~2156: an item after mod tests, from SW-4850): move it above the tests module",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "epic": "diagnostics",
       "body": "",
       "created": "2026-11-26",
       "updated": "2026-11-26",
