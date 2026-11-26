@@ -36541,8 +36541,8 @@
     {
       "id": 4871,
       "title": "[Sonnet] Playground after an overflow: each one costs a full project re-check (~100 s on AoC); keep checked namespaces' results across the worker restart (or remember overflows per text hash); dependents of a skipped namespace report it missing rather than failed; the in-page fallback compiler doesn't flag overflows (SW-4862)",
-      "status": "backlog",
-      "agent": "",
+      "status": "doing",
+      "agent": "Sonnet",
       "where": "",
       "labels": [],
       "epic": "editor-playground",
