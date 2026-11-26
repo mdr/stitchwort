@@ -774,7 +774,7 @@ fn full_spine(term: &Term) -> (&Term, Vec<(&Term, Icit)>) {
 /// The equation a cast into data carries, when the proofless hash keeps it:
 /// exactly the term `hash.rs` hashes in place of the proof, under the same
 /// mark guard. `None` when the hash writes the proof marker instead.
-fn cast_equation<'t>(proof: &'t Term, mark: ProofMark) -> Option<&'t Term> {
+fn cast_equation(proof: &Term, mark: ProofMark) -> Option<&Term> {
     match (mark, Term::j_ends(proof), proof.strip_loc()) {
         (ProofMark::NotProof | ProofMark::Unknown, Some(_), Term::Ann(_, eq)) => Some(eq.as_ref()),
         _ => None,

@@ -1287,7 +1287,9 @@ fn generated_project(name: &str, unreadable: &[&str]) -> std::path::PathBuf {
     dir
 }
 
-fn read_both(dir: &std::path::Path) -> [Result<Vec<(String, String)>, Vec<String>>; 2] {
+type ReadProject = Result<Vec<(String, String)>, Vec<String>>;
+
+fn read_both(dir: &std::path::Path) -> [ReadProject; 2] {
     let read = |files: &dyn Files| {
         let mut sources = stitchwort_syntax::SourceMap::new();
         project_sources(files, "proj", &mut sources).map_err(|ds| {

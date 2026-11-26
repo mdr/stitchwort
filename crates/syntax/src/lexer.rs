@@ -1932,6 +1932,32 @@ mod tests {
     }
 
     #[test]
+    fn a_numeral_ends_before_a_quote() {
+        assert_eq!(
+            tokens("1'}' 1'a'"),
+            Ok(vec![
+                Tok::Num(1u32.into()),
+                Tok::Char('}'),
+                Tok::Num(1u32.into()),
+                Tok::Char('a'),
+            ])
+        );
+    }
+
+    #[test]
+    fn a_lone_carriage_return_is_whitespace() {
+        let mut sources = SourceMap::new();
+        let text = "a\rb";
+        let file = sources.add("test.sw", text);
+        let ts = lex(file, text).expect("lexes");
+        assert_eq!(
+            ts.iter().map(|t| t.tok.clone()).collect::<Vec<_>>(),
+            vec![Tok::Lower("a".into()), Tok::Lower("b".into())]
+        );
+        assert!(!ts[1].line_start);
+    }
+
+    #[test]
     fn string_interpolation() {
         assert_eq!(
             tokens("\"a${x}b\""),
