@@ -5118,16 +5118,16 @@
     {
       "id": 1857,
       "title": "[DeepSeek] Guide and tour house-style sweep: the seven (.field) sections, List.range where ..= reads better, Set.fromList and qualified calls in tour pages",
-      "status": "backlog",
-      "agent": "",
-      "where": "",
+      "status": "doing",
+      "agent": "DeepSeek",
+      "where": "scratch-sw-1857",
       "labels": [
         "docs"
       ],
       "epic": "docs-tutorials",
       "body": "From SW-1850's audit (docs/reviews/SW-1850-guide-accuracy.md §6, ticket 4). 30 min.\n\nAudit note (22 Nov): 22 Nov 2026 audit: No commit or ticket addresses it.\n",
       "created": "2026-11-07",
-      "updated": "2026-11-22",
+      "updated": "2026-11-26",
       "commits": []
     },
     {
