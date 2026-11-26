@@ -256,7 +256,7 @@ pub fn check_bound_def(g: &mut Kernel, id: DefId, b: Builtin) -> Result<(), Diag
         return Ok(());
     }
     #[cfg(feature = "test-bypass")]
-    BOUND_CHECKS.with(|c| c.borrow_mut().push(b));
+    record_bound_check(b);
     in_kernel_modes(g, |g| check_def(&g.ev(), id, b))
 }
 
@@ -266,21 +266,42 @@ pub fn check_bound_data(g: &mut Kernel, d: DataId, b: Builtin) -> Result<(), Dia
         return Ok(());
     }
     #[cfg(feature = "test-bypass")]
-    BOUND_CHECKS.with(|c| c.borrow_mut().push(b));
+    record_bound_check(b);
     in_kernel_modes(g, |g| check_data(&g.ev(), d, b))
 }
 
 #[cfg(feature = "test-bypass")]
 thread_local! {
+    /// Whether [`BOUND_CHECKS`] records on this thread. Off unless a test
+    /// starts it, or `STITCHWORT_RECORD_BOUND_CHECKS` is set, so a
+    /// long-running session (the language server) doesn't keep every check.
+    static RECORDING: std::cell::Cell<bool> = const { std::cell::Cell::new(false) };
     static BOUND_CHECKS: std::cell::RefCell<Vec<Builtin>> = const { std::cell::RefCell::new(Vec::new()) };
 }
 
+/// `STITCHWORT_RECORD_BOUND_CHECKS`, read once: whether [`BOUND_CHECKS`]
+/// records from a session's first check.
+#[cfg(feature = "test-bypass")]
+static RECORD_FROM_ENV: std::sync::OnceLock<bool> = std::sync::OnceLock::new();
+
+/// Adds `b` to [`BOUND_CHECKS`] while recording.
+#[cfg(feature = "test-bypass")]
+fn record_bound_check(b: Builtin) {
+    let on = RECORDING.get()
+        || *RECORD_FROM_ENV
+            .get_or_init(|| crate::env_flag::env_flag("STITCHWORT_RECORD_BOUND_CHECKS"));
+    if on {
+        BOUND_CHECKS.with(|c| c.borrow_mut().push(b));
+    }
+}
+
 /// The builtins [`check_bound_def`] and [`check_bound_data`] have checked on
-/// this thread since the last call: for the test that every pin is reached
-/// by the check at binding.
+/// this thread since the last call, and starts recording them: for the test
+/// that every pin is reached by the check at binding.
 #[cfg(feature = "test-bypass")]
 #[doc(hidden)]
 pub fn take_bound_checks() -> Vec<Builtin> {
+    RECORDING.set(true);
     BOUND_CHECKS.with(|c| std::mem::take(&mut *c.borrow_mut()))
 }
 

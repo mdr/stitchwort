@@ -694,7 +694,8 @@ fn a_second_registration_is_refused_by_name() {
     // The native already has a definition.
     let e = register_native_unpinned(&mut p.g, other, Native::Add).unwrap_err();
     assert!(
-        e.message.contains("`Nat.add` is bound to a definition"),
+        e.message
+            .contains("the native for `Nat.add` is bound to `Nat.add` already"),
         "{}",
         e.message
     );
@@ -702,7 +703,8 @@ fn a_second_registration_is_refused_by_name() {
     // definition and its native, not the one being added.
     let e = register_native_unpinned(&mut p.g, p.add, Native::Mul).unwrap_err();
     assert!(
-        e.message.contains("is bound to `Nat.add` already"),
+        e.message
+            .contains("`Nat.add` has a native already (`Nat.add`'s)"),
         "{}",
         e.message
     );
