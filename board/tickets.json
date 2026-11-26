@@ -1,5 +1,5 @@
 {
-  "next": 4857,
+  "next": 4858,
   "tickets": [
     {
       "id": 47,
@@ -36242,15 +36242,19 @@
     {
       "id": 4854,
       "title": "[Sonnet] Browser tests failing on main: the book tests expect book/src/02-cases.sw's old line numbers (167, noAndAnything); the after-a-jump-into-another-file project test overflows (RangeError) in headless Chrome 158, then F2 renames fails with recursive use of an object; find whether the RangeError is new since the 16 Nov wasm breakage (SW-4852 report)",
-      "status": "review",
+      "status": "done",
       "agent": "Sonnet",
       "where": "",
       "labels": [],
       "epic": "editor-playground",
-      "body": "Lane: fixed 4 browser tests (book/sf line numbers now found by text; proof syntax 'rewrite h then'; split-on-b goal shows 'both No Yes = No'). Full run was 96/102 (hover test flaky, passes alone). Remaining: 'after a jump into another file' crashes in V8 (RangeError) checking Aoc.Year2020.Day05.Proofs: wasm stack peak 268 KiB (guard 320 KiB doesn't fire), native peak 244 KiB, check_tree recursion 22 deep. F2 'recursive use' is the aftermath of the same crash (poisoned server). Needs a design decision: lower guard, or reduce recursion frames.",
+      "body": "Lane: fixed 4 browser tests (book/sf line numbers now found by text; proof syntax 'rewrite h then'; split-on-b goal shows 'both No Yes = No'). Full run was 96/102 (hover test flaky, passes alone). Remaining: 'after a jump into another file' crashes in V8 (RangeError) checking Aoc.Year2020.Day05.Proofs: wasm stack peak 268 KiB (guard 320 KiB doesn't fire), native peak 244 KiB, check_tree recursion 22 deep. F2 'recursive use' is the aftermath of the same crash (poisoned server). Needs a design decision: lower guard, or reduce recursion frames.\n\n96/102 at start; book, LateDays, rewrite-step and split tests fixed (positions found from text). Jump-into-another-file and F2 rename left failing: SW-4857. Hover test flaky (passed alone). Model result: sonnet, worked (part 3 stopped for a design call as briefed), 41 min (est. 40).",
       "created": "2026-11-26",
       "updated": "2026-11-26",
-      "commits": []
+      "commits": [
+        "aaa0b2ee0",
+        "b8f82372c",
+        "b33613828"
+      ]
     },
     {
       "id": 4855,
@@ -36276,6 +36280,19 @@
       "where": "scratch-sw-4856",
       "labels": [],
       "epic": "elaborator-kernel",
+      "body": "",
+      "created": "2026-11-26",
+      "updated": "2026-11-26",
+      "commits": []
+    },
+    {
+      "id": 4857,
+      "title": "[Opus] Playground: Chrome's own stack overflows at about 268 KiB of wasm stack checking Aoc.Year2020.Day05.Proofs (check_tree recursion, 22 levels; native peak 244 KiB), under the 320 KiB guard, so the language server crashes (RangeError) instead of E-RESOURCE; the guard counts linear-memory bytes, not the engine's frames (SW-4854; browser test 'after a jump into another file')",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "epic": "editor-playground",
       "body": "",
       "created": "2026-11-26",
       "updated": "2026-11-26",
