@@ -1741,6 +1741,7 @@ fn refine_branch(
     let data = g.data(d);
     let ctor = &data.ctors[c];
     let (params, indices) = args.split_at(data.params.len());
+    debug_assert_eq!(cx.unforced, 0);
     let mut goal = eval(&g, &cx.env, goal_term)?;
     let base = cx.level();
     // 1. The fields, bound after everything in scope.
@@ -1905,6 +1906,7 @@ fn check_num_case(
         let mut env = substitute_in(&g, &cx.env, x, &value, &cx.env)?;
         env[x] = value.clone();
         let refined_types = substitute_in(&g, &cx.env, x, &value, &cx.types)?;
+        debug_assert_eq!(cx.unforced, 0);
         let goal = eval(&g, &cx.env, &goal_term)?;
         let refined_goal = substitute_in(&g, &cx.env, x, &value, &[goal])?
             .pop()
@@ -2512,11 +2514,6 @@ pub(crate) struct Unchanged<'g, K> {
     known: K,
     /// The shared sequences already found clean, by address.
     seen: crate::collections::HashSet<*const ()>,
-    /// Those of `seen` added by the value being checked, whose contents
-    /// may not all have been looked at yet: if it turns out to change,
-    /// they're taken out again, so a later value sharing one of them looks
-    /// inside it.
-    added: Vec<*const ()>,
 }
 
 impl<'g, K: Fn(usize) -> Option<Apart>> Unchanged<'g, K> {
@@ -2526,26 +2523,26 @@ impl<'g, K: Fn(usize) -> Option<Apart>> Unchanged<'g, K> {
             x,
             known,
             seen: Default::default(),
-            added: Vec::new(),
         }
     }
 
     /// Whether substitution would give `value` back (see [`Unchanged`]).
     pub(crate) fn check(&mut self, value: &Value) -> bool {
-        self.added.clear();
         // Evaluation drops erased fields then (`value::fields`).
         let clean = !self.g.machine.erasure.active() && self.look(value);
         if !clean {
-            for ptr in self.added.drain(..) {
-                self.seen.remove(&ptr);
-            }
+            // Not removing, which leaves tombstones: then when the set grows,
+            // and so how many allocations it makes, would depend on the
+            // hashes, and so on heap addresses.
+            self.seen.clear();
         }
         clean
     }
 
-    /// The work of [`Unchanged::check`], which leaves `seen` holding
-    /// sequences it hadn't finished looking at when it finds a change. A
-    /// work list, not recursion: a list of a million elements is a million
+    /// The work of [`Unchanged::check`]. If it finds a change, `seen` is
+    /// left holding sequences from that value; [`Unchanged::check`] then
+    /// clears it, so a later value sharing one of them looks inside it.
+    /// A work list, not recursion: a list of a million elements is a million
     /// nested constructors.
     fn look(&mut self, value: &Value) -> bool {
         let mut todo: Vec<&Value> = vec![value];
@@ -2626,11 +2623,7 @@ impl<'g, K: Fn(usize) -> Option<Apart>> Unchanged<'g, K> {
 
     /// Whether the shared sequence at `ptr`, of `len` elements, is new.
     fn first(&mut self, ptr: *const (), len: usize) -> bool {
-        let new = len > 0 && self.seen.insert(ptr);
-        if new {
-            self.added.push(ptr);
-        }
-        new
+        len > 0 && self.seen.insert(ptr)
     }
 }
 
