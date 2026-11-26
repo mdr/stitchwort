@@ -22,5 +22,6 @@ mod partial_handlers;
 mod profile;
 mod reuse;
 mod tick_counts;
+mod validate;
 
 use stitchwort_test_alloc as _;

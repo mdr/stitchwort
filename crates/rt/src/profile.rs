@@ -192,6 +192,11 @@ impl Profiler {
         let (names, row_of) = rows(program, image);
         let n = names.len();
         let counters = || (0..n).map(|_| AtomicU64::new(0)).collect::<Vec<_>>();
+        let (sampling, due) = sampling_and_timer(sampling, |run| {
+            std::thread::Builder::new()
+                .name("profile timer".into())
+                .spawn(run)
+        });
         let shared = Arc::new(Profile {
             names,
             calls: counters(),
@@ -200,10 +205,6 @@ impl Profiler {
             samples: AtomicU64::new(0),
             sampling,
         });
-        let due = match sampling {
-            Sampling::Every(every) => Some(timer(every)),
-            Sampling::EachEntry => None,
-        };
         Profiler {
             shared,
             row_of,
@@ -280,24 +281,36 @@ impl Profiler {
     }
 }
 
+/// The sampling to charge by and the flag that raises it: a timer that
+/// can't start falls back to sampling at every entry.
+fn sampling_and_timer(
+    sampling: Sampling,
+    spawn: impl FnOnce(Box<dyn FnOnce() + Send>) -> std::io::Result<std::thread::JoinHandle<()>>,
+) -> (Sampling, Option<Arc<AtomicBool>>) {
+    match sampling {
+        Sampling::EachEntry => (Sampling::EachEntry, None),
+        Sampling::Every(every) => match timer(every, spawn) {
+            Some(due) => (Sampling::Every(every), Some(due)),
+            None => (Sampling::EachEntry, None),
+        },
+    }
+}
+
 /// A flag raised every `every`, by a thread that ends once only it holds
-/// the flag.
-fn timer(every: Duration) -> Arc<AtomicBool> {
+/// the flag; `None` if the thread can't be started.
+fn timer(
+    every: Duration,
+    spawn: impl FnOnce(Box<dyn FnOnce() + Send>) -> std::io::Result<std::thread::JoinHandle<()>>,
+) -> Option<Arc<AtomicBool>> {
     let due = Arc::new(AtomicBool::new(false));
     let theirs = due.clone();
-    let spawned = std::thread::Builder::new()
-        .name("profile timer".into())
-        .spawn(move || {
-            while Arc::strong_count(&theirs) > 1 {
-                std::thread::sleep(every);
-                theirs.store(true, Relaxed);
-            }
-        });
-    if spawned.is_err() {
-        // No timer: sample at every entry rather than never.
-        due.store(true, Relaxed);
-    }
-    due
+    let run: Box<dyn FnOnce() + Send> = Box::new(move || {
+        while Arc::strong_count(&theirs) > 1 {
+            std::thread::sleep(every);
+            theirs.store(true, Relaxed);
+        }
+    });
+    spawn(run).ok().map(|_| due)
 }
 
 /// The rows' names and each code's row (see the module's doc).
@@ -401,5 +414,14 @@ mod tests {
         assert_eq!(grouped(999), "999");
         assert_eq!(grouped(1000), "1,000");
         assert_eq!(grouped(21_816_000), "21,816,000");
+    }
+
+    #[test]
+    fn a_timer_that_cannot_start_samples_at_every_entry() {
+        let (sampling, due) = sampling_and_timer(Sampling::Every(Duration::from_secs(1)), |_| {
+            Err(std::io::Error::other("no thread"))
+        });
+        assert!(matches!(sampling, Sampling::EachEntry));
+        assert!(due.is_none());
     }
 }

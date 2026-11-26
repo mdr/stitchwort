@@ -1094,7 +1094,7 @@ fn fill(fields: &Fields, i: usize, value: Value) {
     // overwriting it without dropping it leaks nothing. Miri accepts this
     // under Stacked and Tree Borrows (`hole_tests`).
     unsafe {
-        debug_assert!(matches!(*hole, Value::Erased));
+        assert!(matches!(*hole, Value::Erased));
         std::ptr::write(hole, value);
     }
 }
