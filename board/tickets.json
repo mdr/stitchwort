@@ -36599,15 +36599,19 @@
     {
       "id": 4875,
       "title": "[Sonnet] SW-4868 regression: goal example large-hypothesis-goal now prints 'big: …' for 'big: q (grow 22 (Leaf n))' (running__examples__goals__large-hypothesis-goal.snap); term_within's new depth cap (max_depth = limit) cuts a short term",
-      "status": "review",
+      "status": "done",
       "agent": "Sonnet",
       "where": "",
       "labels": [],
       "epic": "editor-playground",
-      "body": "",
+      "body": "Not SW-4868: quote_as_until dropped a display cap equal to the size limit (cap < limit; both 2,000,000), so the read-back failed with Size instead of falling back. Fix: <=. Likely exposed by today's operations (SW-4856/4858/4860: the display now runs inside an operation whose size limit is 2,000,000; orchestrator's reading, not verified). Model result: sonnet, worked, 18 min (est. 25).",
       "created": "2026-11-26",
       "updated": "2026-11-26",
-      "commits": []
+      "commits": [
+        "5e7984972",
+        "71c64fdd1",
+        "4cabc84ae"
+      ]
     },
     {
       "id": 4876,
