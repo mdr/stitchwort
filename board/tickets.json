@@ -1,5 +1,5 @@
 {
-  "next": 4860,
+  "next": 4861,
   "tickets": [
     {
       "id": 47,
@@ -36318,15 +36318,18 @@
     {
       "id": 4858,
       "title": "[DeepSeek] SW-4856 follow-up: Elaborator::note_counterexample calls hash::type_hash outside an operation, so the new test-build assert fails three proofs::function_induct tests (a_nested_pattern_in_a_lifted_match, a_recursive_theorem_has_no_induct_and_no_skip_row, using_them_and_their_names)",
-      "status": "doing",
+      "status": "done",
       "agent": "DeepSeek",
       "where": "scratch-sw-4858",
       "labels": [],
       "epic": "elaborator-kernel",
-      "body": "",
+      "body": "ensure_equations, take_goals and note_counterexample open an operation when none is running. Model result: deepseek, worked, about 25 min (est. 20).",
       "created": "2026-11-26",
       "updated": "2026-11-26",
-      "commits": []
+      "commits": [
+        "62f8dbf56",
+        "53002fc5b"
+      ]
     },
     {
       "id": 4859,
@@ -36343,6 +36346,19 @@
         "3c0c782bd",
         "0a7317682"
       ]
+    },
+    {
+      "id": 4860,
+      "title": "[DeepSeek] One Budget helper for 'run inside an operation if none is open': the pattern is now repeated in pretty.rs (with_operation), Session::search, search_at, check_project_namespace, equations.rs and module.rs (twice) (SW-4856, SW-4858)",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "epic": "elaborator-kernel",
+      "body": "",
+      "created": "2026-11-26",
+      "updated": "2026-11-26",
+      "commits": []
     }
   ]
 }
