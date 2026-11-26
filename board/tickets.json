@@ -36511,15 +36511,19 @@
     {
       "id": 4869,
       "title": "[Sonnet] task stack:wasm from SW-4863's scratch scripts (Node --stack-size bisection, overflow trace, wasm-objdump join; scratchpad/SW-4863/n, frames.py): per-namespace engine-stack need of the shipped wasm; then Overmind runs it over all of AoC and the guards are set from the list (SW-4863 step 3)",
-      "status": "review",
+      "status": "done",
       "agent": "Sonnet",
       "where": "",
       "labels": [],
       "epic": "editor-playground",
-      "body": "Lane: task stack:wasm added (dev/stack-wasm, dev/stack-wasm.mjs, Taskfile, flake wabt, docs/testing.md Stack). Day13.Proofs: wasm 134 KiB, engine 96 KB default / 120 liftoff; Day22.Proofs: 607 KiB, 1048 / 1176 KB. 2-3 min a namespace at load 15.",
+      "body": "Lane: task stack:wasm added (dev/stack-wasm, dev/stack-wasm.mjs, Taskfile, flake wabt, docs/testing.md Stack). Day13.Proofs: wasm 134 KiB, engine 96 KB default / 120 liftoff; Day22.Proofs: 607 KiB, 1048 / 1176 KB. 2-3 min a namespace at load 15.\n\ntask stack:wasm -- [--dir aoc] [--all] NS...; Day13 134 KiB wasm / 96 KB engine; Day22 607 / 1048 (measured before SW-4868). ~2.5 min a namespace. Engine figure varies by ~8-16 KB run to run. Model result: sonnet, worked, 23 min (est. 50).",
       "created": "2026-11-26",
       "updated": "2026-11-26",
-      "commits": []
+      "commits": [
+        "2838ad5a0",
+        "2826fdb6c",
+        "90da3c2c9"
+      ]
     },
     {
       "id": 4870,
