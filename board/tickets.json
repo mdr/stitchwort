@@ -33341,15 +33341,18 @@
     {
       "id": 4676,
       "title": "[DeepSeek] Add #[track_caller] to the elaborator Ctx::unify wrapper (crates/elab/src/check.rs ~879) so STITCHWORT_PROOF_COUNTS names its real callers (SW-4671 finding)",
-      "status": "doing",
+      "status": "done",
       "agent": "DeepSeek",
       "where": "scratch-sw-4676",
       "labels": [],
       "epic": "elaborator-kernel",
-      "body": "Started 12:20 26 Nov; expected: 15 min.",
+      "body": "Started 12:20 26 Nov; expected: 15 min.\n\nModel result: deepseek, needed fixes (track_caller doesn't pass through undo's closure; test only ran with the env var), about 30 min over two rounds (est. 15).",
       "created": "2026-11-23",
       "updated": "2026-11-26",
-      "commits": []
+      "commits": [
+        "e9eabaaf3",
+        "8ccb58337"
+      ]
     },
     {
       "id": 4677,
