@@ -1,5 +1,5 @@
 {
-  "next": 4881,
+  "next": 4882,
   "tickets": [
     {
       "id": 47,
@@ -36696,6 +36696,19 @@
       "where": "scratch-sw-4880",
       "labels": [],
       "epic": "performance",
+      "body": "",
+      "created": "2026-11-26",
+      "updated": "2026-11-26",
+      "commits": []
+    },
+    {
+      "id": 4881,
+      "title": "[Opus] Kernel evaluator: nat_add::reread (rule E) still forces through nested machines when a forced part reaches a branch that rereads; turn its walk (above, walked, unread) into frames; also float::run in unfold_now forces with plain force (SW-4878 findings); Fable soundness review",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "epic": "elaborator-kernel",
       "body": "",
       "created": "2026-11-26",
       "updated": "2026-11-26",
