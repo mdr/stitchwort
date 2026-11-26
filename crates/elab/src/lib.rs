@@ -3898,16 +3898,17 @@ impl Elaborator {
             // The kernel checks the long term the group built, so the
             // source expression is still here to explain it (D2844).
             let d = if d.code == "E-RESOURCE" {
-                match members
+                let chain = members
                     .iter()
                     .flat_map(|(_, _, equations)| equations.iter())
                     .find_map(|decl| match decl {
                         Decl::Equation {
                             rhs: Some(expr), ..
-                        } => crate::numbers::chain_note(expr),
+                        } => Some(expr),
                         _ => None,
-                    }) {
-                    Some(note) => d.with_note(note),
+                    });
+                match chain {
+                    Some(expr) => crate::numbers::long_chain_note(expr, d),
                     None => d,
                 }
             } else {

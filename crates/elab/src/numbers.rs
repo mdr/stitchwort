@@ -985,7 +985,7 @@ fn left_chain(expr: &Expr) -> Option<(BinOp, usize)> {
 
 /// A note about a long left-nested chain of `+`, `-` or `*` (D2844), or
 /// `None` if `expr` isn't one or isn't long.
-pub(crate) fn chain_note(expr: &Expr) -> Option<String> {
+fn chain_note(expr: &Expr) -> Option<String> {
     let (op, terms) = left_chain(expr)?;
     if terms <= 1_000 {
         return None;
@@ -1000,9 +1000,19 @@ pub(crate) fn chain_note(expr: &Expr) -> Option<String> {
     })
 }
 
+/// Whether `e` already carries a note from [`chain_note`].
+fn has_chain_note(e: &Diagnostic) -> bool {
+    e.notes.iter().any(|n| {
+        n.starts_with("this sum has ")
+            || n.starts_with("this product has ")
+            || n.starts_with("this chain has ")
+    })
+}
+
 /// Adds the note from [`chain_note`] when `e` ran out of stack on `expr`.
-fn long_chain_note(expr: &Expr, e: Diagnostic) -> Diagnostic {
-    if e.code != "E-RESOURCE" {
+/// An error that passes back up through nested chains keeps one note.
+pub(crate) fn long_chain_note(expr: &Expr, e: Diagnostic) -> Diagnostic {
+    if e.code != "E-RESOURCE" || has_chain_note(&e) {
         return e;
     }
     match chain_note(expr) {

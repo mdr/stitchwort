@@ -248,7 +248,7 @@ fn long_chain_notes() {
                 "{op}: {}",
                 e.message
             );
-            assert!(e.notes.iter().any(|n| n == note), "{op}: {:?}", e.notes);
+            assert_eq!(e.notes.iter().filter(|n| *n == note).count(), 1, "{op}");
         }
     });
 }
