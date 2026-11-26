@@ -36674,12 +36674,12 @@
     {
       "id": 4879,
       "title": "[Sonnet] Measure peak heap of a 2,000,000-link thin stuck-sum chain in the browser after SW-4865 (Fable estimates several hundred MB to ~1 GB); if it runs out of wasm memory rather than E-RESOURCE, lower the pending-read cap (anything above ~200,000 refuses nothing a configured stack reached)",
-      "status": "doing",
+      "status": "review",
       "agent": "Sonnet",
       "where": "",
       "labels": [],
       "epic": "elaborator-kernel",
-      "body": "",
+      "body": "Measured natively: a 2,000,000-link chain of stuck sums checked OK (no E-RESOURCE), 2.6 GB max RSS (about 1.3 KB a link), 7 s. Over the 500 MB bar, so pending ReadSecond frames are capped at 200,000 (E-RESOURCE past it); test a_chain_of_sums_past_the_pending_read_cap_is_refused fails without the cap. Node/wasm run not done.",
       "created": "2026-11-26",
       "updated": "2026-11-26",
       "commits": []
