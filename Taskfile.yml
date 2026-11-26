@@ -874,6 +874,24 @@ tasks:
         ignore_error: true
       - python3 -I dev/stack-peak {{.PROBE_SW}} {{.PROBE_TARGET}}/peak.txt
 
+  stack:wasm:
+    desc: 'What the browser needs to check a namespace: wasm stack peak and V8 stack by bisection (args after --: [--dir aoc] [--all] NAMESPACE...)'
+    summary: |
+      Builds the playground's WebAssembly as web/build.sh does (with the stack
+      probe on, the guard lifted and names kept) into target/stack-wasm, and
+      for each namespace, checked as the language server does (navigation on,
+      library replayed from a cache), prints the deepest the stack in linear
+      memory got (KiB), and the smallest Node `--stack-size` (V8's own call
+      stack, what a browser worker limits) at which it checks, for V8's
+      default tiers and `--liftoff-only`; on an overflow, the functions most
+      on the stack there. `--all` takes every namespace of the project and
+      writes target/stack-wasm/report.tsv. Needs wabt's wasm-objdump (the dev
+      shell has it). Two to three minutes a namespace; the first run
+      builds (a few minutes). `task stack:peak` is the native check, which
+      doesn't run navigation and isn't the browser. docs/testing.md, "Stack".
+    cmds:
+      - python3 -I dev/stack-wasm {{.CLI_ARGS}}
+
   profile:native:
     desc: 'Profile the native executables of bench/compare programs: samply top functions by Stitchwort definition, and counts of runtime calls (args after --: program names, --top N, --focus FUNCTION, --group PREFIX, --by-instruction [--bodies N], --no-counts)'
     summary: |

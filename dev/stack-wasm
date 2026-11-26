@@ -1,0 +1,274 @@
+#!/usr/bin/env python3
+"""What the browser's own stack must hold to check a namespace (SW-4869).
+
+    task stack:wasm -- [--dir aoc] [--top N] [--tsv FILE] NAMESPACE...
+    task stack:wasm -- [--dir aoc] --all
+
+Checks each namespace as the playground's language server does (navigation on,
+the library replayed from a check cache, no stack guard), in the shipped
+WebAssembly (web/build.sh's build: wasm-bindgen, `wasm-opt -Oz`), run in Node,
+which has Chrome's engine (V8), and prints a line per namespace:
+
+  wasm KiB     the deepest the stack in linear memory got (what the page's
+               guard counts, `stack::probe`);
+  engine KB    the smallest `node --stack-size` at which it checks, found by
+               bisection (to 8 KB): V8's own call stack, which is what a
+               browser worker's limit (about 480 KB in Chrome 158) really is.
+               Given for V8's default tiers and for `--liftoff-only`, the
+               worst case (cold code, every local on the stack);
+
+and, below the line, where the stack goes: when the check overflows (one step
+under the figure), the functions most often on the stack at the overflow, with
+the bytes each takes there in linear memory and an estimate of what Liftoff
+charges the engine stack (8 bytes a local plus 48). The frames come from the
+module's disassembly (`wasm-objdump`, wabt). The TSV (default
+target/stack-wasm/report.tsv) has one row per namespace.
+
+The build and the library cache are made on the first run and kept in
+target/stack-wasm/ (rebuilt when the sources change). docs/testing.md, "Stack".
+"""
+
+import argparse
+import collections
+import json
+import os
+import re
+import shutil
+import subprocess
+import sys
+import time
+
+ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+WORK = os.path.join(ROOT, "target", "stack-wasm")
+SITE = os.path.join(WORK, "site")
+CACHE = os.path.join(SITE, "library.cache")
+FRAMES = os.path.join(WORK, "frames.tsv")
+WASM = os.path.join(SITE, "stitchwort_web_bg.wasm")
+RUNNER = os.path.join(ROOT, "dev", "stack-wasm.mjs")
+# Node's main thread has the shell's stack (8 MB); a bigger --stack-size crashes it.
+LIMIT_KB = 6000
+LOW_KB = 128
+STEP_KB = 8
+TIERS = [("default", []), ("liftoff", ["--liftoff-only"])]
+
+
+def run(cmd, env=None, **kw):
+    full = dict(os.environ, **(env or {}))
+    return subprocess.run(cmd, env=full, cwd=ROOT, check=True, **kw)
+
+
+def build():
+    """The playground's module, as web/build.sh builds it, with the stack probe
+    on and the guard lifted (so the need is measured, not the guard), and the
+    names kept (wasm-opt -g) for the trace."""
+    env = {
+        "CARGO_TARGET_DIR": WORK,
+        "STITCHWORT_STACK_PROBE": "1",
+        "STITCHWORT_GUARD": "6000000",
+    }
+    run(["nice", "-n", "15", "cargo", "build", "-p", "stitchwort-web",
+         "--target", "wasm32-unknown-unknown", "--release"], env)
+    built = os.path.join(WORK, "wasm32-unknown-unknown", "release", "stitchwort_web.wasm")
+    sources = [built, os.path.join(ROOT, "web", "build.sh")]
+    stamp = os.path.join(SITE, "stamp")
+    os.makedirs(SITE, exist_ok=True)
+    if os.path.exists(stamp) and os.path.getmtime(stamp) >= max(map(os.path.getmtime, sources)):
+        return
+    for f in (CACHE, FRAMES):
+        if os.path.exists(f):
+            os.remove(f)
+    raw = os.path.join(SITE, "raw")
+    run(["wasm-bindgen", "--target", "web", "--no-typescript", "--out-dir", raw, built])
+    shutil.copy(os.path.join(raw, "stitchwort_web.js"), SITE)
+    run(["wasm-opt", "-Oz", "-g", "--enable-bulk-memory", "--enable-nontrapping-float-to-int",
+         os.path.join(raw, "stitchwort_web_bg.wasm"), "-o", WASM])
+    shutil.rmtree(raw)
+    run(["web/bundle-std.sh", ".", SITE], stdout=subprocess.DEVNULL)
+    run(["web/bundle-projects.sh", ".", SITE], stdout=subprocess.DEVNULL)
+    open(stamp, "w").close()
+
+
+def node(flags, args, trace=None):
+    """One run; the JSON line it prints, or a crash record if it died."""
+    env = dict(os.environ, TRACE=trace) if trace else os.environ
+    cmd = ["nice", "-n", "15", "node", *flags, RUNNER, SITE, *args]
+    out = subprocess.run(cmd, env=env, cwd=ROOT, capture_output=True, text=True).stdout
+    for line in out.splitlines():
+        if line.startswith("{"):
+            return json.loads(line)
+    return {"kind": "crash", "err": "no result (the process died)", "reachedKiB": 0}
+
+
+def library_cache():
+    if os.path.exists(CACHE):
+        return
+    r = node([f"--stack-size={LIMIT_KB}"], ["cache", CACHE])
+    if r["kind"] != "cache":
+        sys.exit(f"stack-wasm: building the library cache failed: {r}")
+
+
+def frames():
+    """function index -> (bytes it takes from the stack in linear memory, its
+    locals, name), read from the prologues of the module's disassembly."""
+    if not os.path.exists(FRAMES):
+        if not shutil.which("wasm-objdump"):
+            return None
+        fn = re.compile(r"^([0-9a-f]+) func\[(\d+)\] <(.*)>:$")
+        loc = re.compile(r"local\[(\d+)(?:\.\.(\d+))?\] type=(\w+)")
+        rows = []
+        cur = None
+        proc = subprocess.Popen(["wasm-objdump", "-d", WASM], stdout=subprocess.PIPE,
+                                text=True, errors="replace")
+        for line in proc.stdout:
+            m = fn.match(line)
+            if m:
+                cur = {"i": int(m.group(2)), "name": m.group(3), "frame": 0, "locals": 0,
+                       "n": 0, "state": 0, "k": 0}
+                rows.append(cur)
+                continue
+            if cur is None:
+                continue
+            cur["n"] += 1
+            if cur["n"] > 40:
+                continue
+            m = loc.search(line)
+            if m:
+                cur["locals"] = int(m.group(2) or m.group(1)) + 1
+                continue
+            if cur["frame"]:
+                continue
+            body = line.split("|")[-1].strip() if "|" in line else ""
+            s = cur["state"]
+            if s == 0 and body.startswith("global.get 0"):
+                cur["state"] = 1
+            elif s == 1 and body.startswith("i32.const"):
+                cur["k"], cur["state"] = int(body.split()[1]), 2
+            elif s == 2 and body.startswith("i32.sub"):
+                cur["frame"] = cur["k"]
+            elif s == 2 and body.startswith("i32.add") and cur["k"] < 0:
+                cur["frame"] = -cur["k"]
+            else:
+                cur["state"] = 1 if body.startswith("global.get 0") else 0
+        proc.wait()
+        with open(FRAMES, "w") as f:
+            for r in rows:
+                print(r["i"], r["frame"], r["locals"], r["name"], sep="\t", file=f)
+    table = {}
+    for line in open(FRAMES):
+        i, frame, nloc, name = line.rstrip("\n").split("\t", 3)
+        table[int(i)] = (int(frame), int(nloc), name)
+    return table
+
+
+def short(name):
+    name = re.sub(r"\[[0-9a-f]{16}\]", "", name)
+    return name.replace("stitchwort_web.wasm.", "")[:100]
+
+
+def top_frames(trace, table, top):
+    count = collections.Counter()
+    for line in open(trace):
+        i = int(line.split("\t")[0])
+        if i >= 0:
+            count[i] += 1
+    rows = []
+    for i, c in count.items():
+        frame, nloc, name = table.get(i, (0, 0, "?"))
+        rows.append((c * (nloc * 8 + 48), c, frame, nloc, name))
+    wasm = sum(c * f for _, c, f, _, _ in rows) // 1024
+    est = sum(r[0] for r in rows) // 1024
+    lines = [f"    frames {sum(count.values())}; on the trace: {wasm} KiB of wasm stack, "
+             f"Liftoff estimate {est} KiB"]
+    for e, c, f, nloc, name in sorted(rows, reverse=True)[:top]:
+        lines.append(f"    {c:6} x {f:5} B wasm, {nloc:3} locals, ~{e / 1024:6.1f} KiB engine  {short(name)}")
+    return lines
+
+
+def need(project, ns, flags):
+    """(smallest stack-size in KB at which it checks, the result there), or
+    (None, last result) if it doesn't at LIMIT_KB. Also returns the stack just
+    below, where the trace is taken."""
+    args = ["check", CACHE, project, ns]
+    top = node([f"--stack-size={LIMIT_KB}", *flags], args)
+    if top["kind"] != "ok":
+        return None, None, top
+    # Double from LOW_KB until it checks, then bisect the last interval: most
+    # namespaces need little, and every probe is a whole check.
+    lo, hi = 0, LOW_KB
+    while hi < LIMIT_KB and node([f"--stack-size={hi}", *flags], args)["kind"] != "ok":
+        lo, hi = hi, min(hi * 2, LIMIT_KB)
+    while hi - lo > STEP_KB:
+        mid = (lo + hi) // 2
+        if node([f"--stack-size={mid}", *flags], args)["kind"] == "ok":
+            hi = mid
+        else:
+            lo = mid
+    return hi, lo, top
+
+
+def namespaces(project):
+    base = os.path.join(SITE, "projects", project)
+    manifest = json.load(open(os.path.join(base, "manifest.json")))
+    out = []
+    for p in manifest["files"]:
+        m = re.match(r"src/(.*)\.sw$", p)
+        if m:
+            out.append(m.group(1).replace("/", "."))
+    return sorted(out)
+
+
+def main():
+    ap = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawTextHelpFormatter)
+    ap.add_argument("--dir", default="aoc", help="the playground project (aoc, rogue, sf, book)")
+    ap.add_argument("--all", action="store_true", help="every namespace of the project")
+    ap.add_argument("--top", type=int, default=6, help="frames to list on an overflow")
+    ap.add_argument("--tsv", default=os.path.join(WORK, "report.tsv"))
+    ap.add_argument("namespaces", nargs="*")
+    a = ap.parse_args()
+    if not a.namespaces and not a.all:
+        ap.error("name a namespace, or --all")
+    build()
+    library_cache()
+    table = frames()
+    if table is None:
+        print("stack-wasm: wasm-objdump not found (wabt: the dev shell, or `nix shell nixpkgs#wabt`): "
+              "no frame lists", file=sys.stderr)
+    todo = a.namespaces or namespaces(a.dir)
+    os.makedirs(os.path.dirname(a.tsv), exist_ok=True)
+    tsv = open(a.tsv, "w")
+    print("namespace\tresult\twasm_kib\tengine_kb\tengine_liftoff_kb\tseconds", file=tsv, flush=True)
+    for ns in todo:
+        started = time.time()
+        result, wasm = "ok", None
+        figures, details = {}, []
+        for tier, flags in TIERS:
+            hi, lo, first = need(a.dir, ns, flags)
+            if wasm is None:
+                wasm = first["reachedKiB"]
+            if hi is None:
+                result = first["kind"]
+                if first["kind"] == "error":
+                    details.append(f"    {first['detail']}")
+                figures[tier] = f">{LIMIT_KB}" if first["kind"] == "crash" else "-"
+                break
+            figures[tier] = str(hi)
+            if table:
+                trace = os.path.join(WORK, f"trace-{tier}.tsv")
+                if os.path.exists(trace):
+                    os.remove(trace)
+                node([f"--stack-size={lo}", *flags], ["check", CACHE, a.dir, ns], trace=trace)
+                if os.path.exists(trace):
+                    details.append(f"  {tier} tier, just under {hi} KB (overflow at {lo}):")
+                    details += top_frames(trace, table, a.top)
+        secs = round(time.time() - started)
+        line = (f"{ns}: {result}; wasm stack {wasm} KiB; engine stack "
+                f"{figures.get('default', '-')} KB (default tiers), {figures.get('liftoff', '-')} KB (liftoff only); {secs} s")
+        print(line, flush=True)
+        for d in details:
+            print(d, flush=True)
+        print(ns, result, wasm, figures.get("default", "-"), figures.get("liftoff", "-"), secs,
+              sep="\t", file=tsv, flush=True)
+    print(f"TSV: {a.tsv}")
+
+
+main()
