@@ -36469,15 +36469,18 @@
     {
       "id": 4867,
       "title": "[DeepSeek] Docs: crates/web/build.rs's guard comment and docs/reviews/SW-4857-playground-stack.md's table need a note that the Day05 and Day22 rows measured the hover printer, not checking; docs/testing.md 'Stack': native stack:peak doesn't cover navigation or the browser (SW-4863)",
-      "status": "doing",
+      "status": "done",
       "agent": "DeepSeek",
       "where": "scratch-sw-4867",
       "labels": [],
       "epic": "docs-tutorials",
-      "body": "",
+      "body": "Model result: deepseek, worked (one year wrong, fixed in review), about 10 min (est. 25).",
       "created": "2026-11-26",
       "updated": "2026-11-26",
-      "commits": []
+      "commits": [
+        "b9511538c",
+        "9808616f4"
+      ]
     },
     {
       "id": 4868,
@@ -36534,7 +36537,7 @@
     {
       "id": 4872,
       "title": "[DeepSeek] Taskfile says test:browser takes about 35 s (it takes ~13 min); docs/testing.md: how to force an overflow in the language server for a test (SW-4862's served-worker trick), and that the override must match at the start of a line (SW-4862 friction)",
-      "status": "doing",
+      "status": "done",
       "agent": "DeepSeek",
       "where": "scratch-sw-4867",
       "labels": [],
@@ -36542,7 +36545,10 @@
       "body": "",
       "created": "2026-11-26",
       "updated": "2026-11-26",
-      "commits": []
+      "commits": [
+        "b9511538c",
+        "9808616f4"
+      ]
     }
   ]
 }
