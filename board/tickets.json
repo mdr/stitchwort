@@ -36840,15 +36840,18 @@
     {
       "id": 4888,
       "title": "[DeepSeek] Fuzz oracle 3 false positive: match kernel rejections to diagnostics by location as well as (code, message), or skip rejections the elaborator recovered from (fuzz_elab.rs, BAD_KERNEL_CODES); case 3980 of seed 0x2611260c",
-      "status": "doing",
+      "status": "done",
       "agent": "DeepSeek",
       "where": "",
       "labels": [],
       "epic": "elaborator-kernel",
-      "body": "Overmind 26 Nov: oracle false positive. Minimal: S/fuzz/min/a-min.sw (Overmind scratchpad). The kernel rejection is a trial the elaborator recovers from (anyColour's mutated arm; CLI reports checked without 'three'); the visible error is the unrelated elaborator mismatch at 'three'. Oracle 3 pairs rejections with diagnostics on (code, message) only (fuzz_elab.rs BAD_KERNEL_CODES). Fix: match on location too, or drop recovered rejections.",
+      "body": "Overmind 26 Nov: oracle false positive. Minimal: S/fuzz/min/a-min.sw (Overmind scratchpad). The kernel rejection is a trial the elaborator recovers from (anyColour's mutated arm; CLI reports checked without 'three'); the visible error is the unrelated elaborator mismatch at 'three'. Oracle 3 pairs rejections with diagnostics on (code, message) only (fuzz_elab.rs BAD_KERNEL_CODES). Fix: match on location too, or drop recovered rejections.\n\nRejections record a location (kernel label span, else the declaration); oracle 3 matches code, message and location. Tests oracle_3_ignores_unrelated_messages (failed before), oracle_3_pairs_a_rejection_with_its_own_diagnostic. Model result: deepseek, worked, 12 min (est. 30).",
       "created": "2026-11-26",
       "updated": "2026-11-26",
-      "commits": []
+      "commits": [
+        "f7a21c156",
+        "15eaf4d90"
+      ]
     },
     {
       "id": 4889,
