@@ -467,17 +467,21 @@ fn register_shaped(g: &mut Kernel, id: DefId, native: Native) -> Result<()> {
     }
     let builtins = g.env.builtins();
     let second = if let Some(have) = builtins.natives.get(&id) {
-        format!(
-            "`{}` is bound to `{}` already",
+        Some(format!(
+            "`{}` has a native already (`{}`'s)",
             g.def(id).name(),
             have.name()
-        )
-    } else if builtins.native_defs.contains_key(&native) {
-        format!("`{}` is bound to a definition already", native.name())
+        ))
     } else {
-        String::new()
+        builtins.native_defs.get(&native).map(|existing| {
+            format!(
+                "the native for `{}` is bound to `{}` already",
+                native.name(),
+                g.def(*existing).name()
+            )
+        })
     };
-    if !second.is_empty() {
+    if let Some(second) = second {
         return Err(Diagnostic::error("E-BUILTIN", second).with_label(span, "a second binding"));
     }
     let builtins = g.env.builtins_mut();

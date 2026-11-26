@@ -3674,10 +3674,11 @@ impl Elaborator {
             self.scope.insert(&key, Global::Def(ids[0]), n.span, false);
             match stitchwort_core::partial::define_primitive(&mut self.kernel, ids[0], prim) {
                 Ok(()) => {
-                    if let Some(b) = registry::bind_def(&mut self.kernel, ids[0])
-                        && let Err(d) = registry::check_shape(&mut self.kernel, ids[0], b)
-                    {
-                        out.push((*item, d));
+                    if let Some(b) = registry::bind_def(&mut self.kernel, ids[0]) {
+                        debug_assert!(stitchwort_core::pins::pin(b).is_none(), "{b:?}");
+                        if let Err(d) = registry::check_shape(&mut self.kernel, ids[0], b) {
+                            out.push((*item, d));
+                        }
                     }
                 }
                 Err(d) => out.push((*item, d)),
@@ -3694,10 +3695,11 @@ impl Elaborator {
             self.scope.insert(&key, Global::Def(ids[0]), n.span, false);
             match stitchwort_core::float::define_primitive(&mut self.kernel, ids[0], op) {
                 Ok(()) => {
-                    if let Some(b) = registry::bind_def(&mut self.kernel, ids[0])
-                        && let Err(d) = registry::check_shape(&mut self.kernel, ids[0], b)
-                    {
-                        out.push((*item, d));
+                    if let Some(b) = registry::bind_def(&mut self.kernel, ids[0]) {
+                        debug_assert!(stitchwort_core::pins::pin(b).is_none(), "{b:?}");
+                        if let Err(d) = registry::check_shape(&mut self.kernel, ids[0], b) {
+                            out.push((*item, d));
+                        }
                     }
                 }
                 Err(d) => out.push((*item, d)),
