@@ -36845,8 +36845,8 @@
     {
       "id": 4889,
       "title": "[Opus] Design note (docs/proposals/): the elaborator's effects pre-pass makes checking nested applications quadratic (SW-4885: check_special → effects::may_perform_at → call_performs walks the whole argument chain at every level; ~98% of samples at 5,500 levels; 4,000 levels 2.4 s). Options: (a) pass a stamped 'doesn't perform' answer to the argument's check, (b) a per-declaration memo keyed by expression with a local-context change counter, (c) decide effects from elaborated types instead of the syntactic pre-pass (end state). Pick the end state, with the invariants a memo must keep (meta solutions can turn doesn't-perform into performs); pin with SW-4885's visits probe (scratchpad SW-4885/probe-test.patch)",
-      "status": "backlog",
-      "agent": "",
+      "status": "doing",
+      "agent": "Opus",
       "where": "",
       "labels": [],
       "epic": "effects-native",
@@ -36858,9 +36858,9 @@
     {
       "id": 4890,
       "title": "[DeepSeek] Nesting limits differ: the CLI's 64 MiB thread stack (crates/cli/src/main.rs ~1130) caps nesting at ~6,000 levels natively while the browser with SW-4870's chain checked 14,000; and docs/testing.md should say deep-nesting tests need Session::for_stack (SW-4885 findings). Docs only, plus a note of the CLI figure in docs/proposals/deep-input.md if it lists limits",
-      "status": "backlog",
-      "agent": "",
-      "where": "",
+      "status": "doing",
+      "agent": "DeepSeek",
+      "where": "scratch-sw-4890",
       "labels": [],
       "epic": "docs-tutorials",
       "body": "",
