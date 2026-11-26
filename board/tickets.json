@@ -36930,7 +36930,7 @@
     {
       "id": 4894,
       "title": "[Sonnet] Regression: browser test 'an error is underlined, its message shows on hover…' fails on main after SW-4884 (times out waiting for the message; the new SW-4884 test fails too) on a fresh web/build.sh at 2498b6043; passed on main's build before (SW-4870 note). Find whether SW-4884's pointer replay or something else broke it",
-      "status": "doing",
+      "status": "review",
       "agent": "Sonnet",
       "where": "",
       "labels": [],

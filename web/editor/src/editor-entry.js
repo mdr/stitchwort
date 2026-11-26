@@ -101,7 +101,8 @@ function serverMarks() {
 
 /**
  * Where the pointer last was over each view (gone once it left). The editor looks for a hover
- * only after the pointer moves, so a tooltip hidden under a still pointer stays hidden;
+ * only after the pointer moves, so a tooltip hidden under a still pointer stays hidden, and it
+ * looks in the element the pointer last moved over, which a redraw may have replaced;
  * `replayPointer` repeats the last move to ask again.
  */
 const pointerAt = new WeakMap();
@@ -876,6 +877,9 @@ export class Editor {
       ranges.push(Decoration.widget({ widget: new Hint(label), side: 1 }).range(offset(h.position)));
     }
     view.dispatch({ effects: setMarks.of(Decoration.set(ranges, true)) });
+    // The new colours rebuild the text's elements, and the hover looks up the element the pointer last
+    // moved over: a stale one is a hover that never opens.
+    replayPointer(view);
   }
 
   // ---- Format and code actions ------------------------------------------------
