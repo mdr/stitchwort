@@ -35465,15 +35465,18 @@
     {
       "id": 4808,
       "title": "[DeepSeek] SW-4608 review: add a 'how to rerun' snippet (the nix shells for lean, rocq with its stdlib, hyperfine; the exact commands for part 2b and the empty files), and make docs/reviews/SW-4608/parse_timings.py accept a --timings=all run without STITCHWORT_STEP_PHASES (SW-4806 friction)",
-      "status": "doing",
+      "status": "done",
       "agent": "DeepSeek",
       "where": "scratch-sw-4808",
       "labels": [],
       "epic": "performance",
-      "body": "Started 12:20 26 Nov; expected: 20 min.",
+      "body": "Started 12:20 26 Nov; expected: 20 min.\n\nModel result: deepseek, worked, 8 min (est. 20).",
       "created": "2026-11-25",
       "updated": "2026-11-26",
-      "commits": []
+      "commits": [
+        "22bbdcdbd",
+        "5601eddcb"
+      ]
     },
     {
       "id": 4809,
