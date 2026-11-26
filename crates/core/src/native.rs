@@ -815,6 +815,28 @@ pub enum Outcome {
     /// than that: the evaluator adds them once it has it, so a rest that
     /// still computes is never left as a call that has to be unfolded.
     Succs(BigUint, Vec<Elim>),
+    /// `k + add m n` (`k > 0`), with `add` stuck on `m`: what R3 and R4 make
+    /// of `add m n` is for the evaluator to work out ([`add_stuck`] does it
+    /// by recursion), as reading `n` forces it, and `n` can be a chain of
+    /// such sums, which the machine reads with its own stack, not Rust's.
+    AddStuck { k: BigUint, m: Value, n: Value },
+}
+
+/// The value of [`Outcome::AddStuck`] `k`, `m`, `n` for `add` `id`, forcing
+/// with `force`: `k` more than what R3 and R4 make of `add m n`
+/// ([`crate::nat_add::stuck`]), or than `add m n` if they make nothing.
+pub fn add_stuck(
+    g: &Ev,
+    id: DefId,
+    k: BigUint,
+    m: Value,
+    n: Value,
+    force: Force,
+) -> budget::Result<Value> {
+    Ok(match crate::nat_add::stuck(g, id, &m, &n, force)? {
+        Some((k2, rest)) => from_view(k + k2, Some(rest)),
+        None => from_view(k, Some(crate::nat_add::call(id, m, n))),
+    })
 }
 
 /// Shortcuts for numbers with unknowns in them, each a number of steps of
@@ -838,7 +860,7 @@ fn run_partial(
     match (native, args) {
         // `add (Succ m) n = Succ (add m n)`, so `add (k + m) n = k + add m n`;
         // and then `add m n`, stuck on `m`, is what R3 and R4 make of it
-        // (`nat_add.rs`), if they're on.
+        // (`nat_add.rs`), if they're on, which the evaluator reads.
         (Native::Add, [m, n]) => {
             let (k, base) = view(m)?;
             Ok(match base {
@@ -849,12 +871,11 @@ fn run_partial(
                 // The case tree gets stuck, and the evaluator applies R3
                 // and R4 there.
                 Some(_) if k.is_zero() => None,
-                Some(base) => Some(Outcome::Done(
-                    match crate::nat_add::stuck(g, id, &base, n, force)? {
-                        Some((k2, rest)) => from_view(k + k2, Some(rest)),
-                        None => from_view(k, Some(crate::nat_add::call(id, base, (*n).clone()))),
-                    },
-                )),
+                Some(base) => Some(Outcome::AddStuck {
+                    k,
+                    m: base,
+                    n: (*n).clone(),
+                }),
             })
         }
         // `op (Succ m) (Succ n) = op m n`: take off the shared `Succ`s.

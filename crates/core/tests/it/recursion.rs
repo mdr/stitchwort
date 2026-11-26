@@ -59,7 +59,6 @@ const ALLOWED: &[&str] = &[
     "crates/core/src/value.rs:field_type",
     "crates/core/src/value.rs:matches_at_once",
     "crates/core/src/value.rs:quick",
-    "crates/core/src/value.rs:resume",
     "crates/core/src/value.rs:stuck_on_variable",
     "crates/core/src/value.rs:unfold_folded",
     "crates/core/src/value.rs:unfold_once",

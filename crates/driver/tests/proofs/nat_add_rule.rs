@@ -436,3 +436,95 @@ fn stuck_sums_are_printed_as_written() {
         );
     }
 }
+
+/// A sum whose second argument is a glued call computing another such sum,
+/// 100,000 deep, is read by R3 and R4 in constant stack: the machine forces
+/// each link on its own heap stack (`Frame::ReadSecond` in `value.rs`)
+/// rather than starting another machine per link, which took about 3 KiB
+/// of stack a link (SW-4865; 2021 day 11's proofs have a 100-link chain).
+/// `chain` reaches R3 and R4 where `add`'s case tree is stuck on `x`;
+/// `succChain`, through `add`'s native, which takes the `Succ` off `x + 1`
+/// first (`native::Outcome::AddStuck`).
+#[test]
+fn reading_a_long_chain_of_sums_takes_constant_stack() {
+    const SMALL: usize = 4 << 20;
+    with_stack(SMALL, || {
+        let mut session = Session::for_stack(SMALL);
+        let ok = session.load(
+            "chain.sw",
+            "def chain: Nat → Nat → Nat\n  | Zero, x => 0\n  | Succ k, x => x + chain k x\n\n\
+             theorem long (x: Nat): chain 100000 x + 0 = chain 100000 x := byComputing\n\n\
+             theorem longer (x: Nat): x + (chain 100000 x + 1) = Succ (x + chain 100000 x) := byComputing\n\n\
+             def succChain: Nat → Nat → Nat\n  | Zero, x => 0\n  | Succ k, x => (x + 1) + succChain k x\n\n\
+             theorem succLong (x: Nat): succChain 100000 x + 0 = succChain 100000 x := byComputing\n",
+        );
+        assert!(ok.is_ok(), "{ok:?}");
+    });
+}
+
+/// The definition whose name ends in `name`.
+fn find(g: &stitchwort_core::Ev, name: &str) -> DefId {
+    DefId(
+        g.env
+            .defs()
+            .iter()
+            .position(|d| d.name().ends_with(name))
+            .unwrap_or_else(|| panic!("no `{name}`")),
+    )
+}
+
+/// Reading a sum's second argument can stop to force a glued call part way
+/// through, with `Succ`s counted already and some taken off the first
+/// argument (`outer`): `(x + 1) + g 40 x` reads `g 40 x` as
+/// `Succ (wrap (g 39 x) x)` and stops at the glued `wrap` call, which is
+/// such a sum in turn. The machine, glued and not, computes what the
+/// reference evaluator does.
+#[test]
+fn a_read_keeps_its_count_across_a_forced_call() {
+    with_stack(STACK, || {
+        let mut session = Session::for_stack(STACK);
+        let ok = session.load(
+            "wrap.sw",
+            "def wrap (r: Nat) (x: Nat): Nat := (x + 1) + r\n\n\
+             def g: Nat → Nat → Nat\n  | Zero, x => 0\n  | Succ k, x => Succ (wrap (g k x) x)\n\n\
+             def top (x: Nat): Nat := (x + 1) + g 40 x\n",
+        );
+        assert!(ok.is_ok(), "{ok:?}");
+        let g = &session.elab.ev();
+        let body = Term::app(Term::Def(find(g, "top")), Term::Var(0));
+        let env = [Value::var(0)];
+        let expected = shown(g, 1, &reference::eval(g, &env, &body).expect("no limits"));
+        for glue in [true, false] {
+            let was = g.machine.glue.replace(glue);
+            let value = value::eval(g, &env, &body).expect("no limits");
+            g.machine.glue.set(was);
+            assert_eq!(shown(g, 1, &value), expected, "glued {glue}");
+        }
+    });
+}
+
+/// The depth limit counts a forcing that a read of a sum's second argument
+/// waits for on its own, as when that forcing was a machine of its own: a
+/// recursion `outer` deep whose innermost sum reads a recursion `count`
+/// deep is within a limit that the two together are over.
+#[test]
+fn a_read_counts_its_forcing_against_the_depth_limit_on_its_own() {
+    with_stack(STACK, || {
+        let program = |outer: u32, count: u32| {
+            format!(
+                "def count: Nat → Nat\n  | Zero => 0\n  | Succ k => 1 + count k\n\n\
+                 def outer: Nat → Nat → Nat\n  | Zero, x => x + count {count}\n  | Succ k, x => 1 + outer k x\n\n\
+                 theorem t (x: Nat): outer {outer} x = x + {} := byComputing\n",
+                outer + count
+            )
+        };
+        let first_error = |text: String| {
+            let mut session = Session::for_stack(STACK);
+            session.elab.options.limits.frames = 3_000;
+            session.load("depth.sw", &text).err().map(|ds| ds[0].code)
+        };
+        assert_eq!(first_error(program(1_000, 1_000)), None);
+        // One recursion as deep as the two together is over the limit.
+        assert_eq!(first_error(program(2_000, 0)), Some("E-RESOURCE"));
+    });
+}
