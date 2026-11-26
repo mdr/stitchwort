@@ -628,7 +628,6 @@ impl<'e> Ctx<'e> {
     /// the one they restore, so a pop followed by a different push is never
     /// taken for the context before it. The display names ([`Ctx::names`]),
     /// the bindings' kinds and the goal are not part of it.
-    #[allow(dead_code)] // Read by the effects pre-pass's memo (SW-4892).
     pub(crate) fn identity(&self) -> u64 {
         self.identity
     }
@@ -2836,6 +2835,7 @@ pub(crate) struct Piped {
 
 pub fn infer(cx: &mut Ctx, expr: &Expr) -> Result<(Term, Value)> {
     cx.g().machine.budget.nesting(PASS)?;
+    let _memo = crate::performs_memo::scope(cx.e, expr);
     let span = expr.span();
     with_span(cx, span, |cx| {
         let (term, ty) = infer_inner(cx, expr)?;
@@ -2851,6 +2851,7 @@ pub fn infer(cx: &mut Ctx, expr: &Expr) -> Result<(Term, Value)> {
 /// docs/proposals/effect-polymorphism.md).
 pub(crate) fn infer_unrun(cx: &mut Ctx, expr: &Expr) -> Result<(Term, Value)> {
     cx.g().machine.budget.nesting(PASS)?;
+    let _memo = crate::performs_memo::scope(cx.e, expr);
     let span = expr.span();
     with_span(cx, span, |cx| {
         let (term, ty) = infer_value(cx, expr)?;
@@ -6610,6 +6611,7 @@ pub(crate) fn note_binder_step(
 
 pub fn check(cx: &mut Ctx, expr: &Expr, expected: &Value) -> Result<Term> {
     cx.g().machine.budget.nesting(PASS)?;
+    let _memo = crate::performs_memo::scope(cx.e, expr);
     let span = expr.span();
     // A probe notes the goal before the check, which may fail.
     cx.e.note_probe(cx, span, expected, true);

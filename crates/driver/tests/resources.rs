@@ -858,3 +858,52 @@ fn running_out_of_stack_at_any_point_only_ever_means_no_answer() {
         }
     });
 }
+
+/// Visits of the checker's passes (`Budget::total_visits`) for
+/// `def t … := head (head (… bottom))` at `depth` levels.
+fn nested_call_visits(defs: &str, head: &str, signature: &str, bottom: &str, depth: usize) -> u64 {
+    let nested = format!(
+        "{}{bottom}{}",
+        format!("{head} (").repeat(depth),
+        ")".repeat(depth)
+    );
+    let source = format!("{defs}\ndef t{signature} := {nested}\n");
+    with_stack(256 << 20, move || {
+        let mut session = Session::for_stack(256 << 20);
+        let before = session.elab.kernel.machine.budget.total_visits();
+        let c = codes(session.load("nested.sw", &source));
+        assert!(c.is_empty(), "{c:?}");
+        session.elab.kernel.machine.budget.total_visits() - before
+    })
+}
+
+/// Checking `f (f (… 0))` asks the effects pre-pass about each argument
+/// once: its answers are remembered for the declaration
+/// (docs/proposals/effects-prepass-cost.md, option B). Asked afresh at each
+/// level, the visits grew as the square of the depth, 3.6 times from 200
+/// levels to 400 (SW-4885).
+#[test]
+fn nested_calls_check_in_visits_linear_in_their_depth() {
+    let ask = "ability Ask where\n  ask: () → {Ask} Nat\ndef g (x: Nat): Nat := x";
+    let counts: Vec<_> = [
+        ("def f (x: Nat): Nat := x", "f", ": Nat", "0"),
+        ("def same (x: a): a := x", "same", ": Nat", "0"),
+        (ask, "g", "(): {Ask} Nat", "ask()"),
+    ]
+    .into_iter()
+    .map(|(defs, head, signature, bottom)| {
+        let base = nested_call_visits(defs, head, signature, bottom, 0);
+        let d200 = nested_call_visits(defs, head, signature, bottom, 200) - base;
+        let d400 = nested_call_visits(defs, head, signature, bottom, 400) - base;
+        eprintln!("nested {head}: {d200}, {d400} visits at depths 200, 400");
+        (head, d200, d400)
+    })
+    .collect();
+    for (head, d200, d400) in counts {
+        // Linear work doubles from 200 levels to 400, quadratic quadruples.
+        assert!(
+            d400 * 2 < d200 * 5,
+            "{head}: {d200}, {d400} visits at depths 200, 400"
+        );
+    }
+}

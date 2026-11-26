@@ -2339,17 +2339,57 @@ pub fn may_perform(cx: &Ctx, expr: &Expr) -> Result<bool> {
 /// the guard (SW-3128). The other forms are kept out of line, in
 /// [`compound_performs`] and [`call_performs`], so a level's frame stays
 /// small.
+///
+/// The answers are remembered for the declaration ([`crate::performs_memo`]),
+/// so asking about a part of an expression already asked about is a
+/// lookup.
 pub fn may_perform_at(cx: &Ctx, expr: &Expr, expected: Option<&Value>) -> Result<bool> {
+    walk(cx, expr, expected, false)
+}
+
+/// [`may_perform_at`], where `live` says that `expr` is a part of an
+/// expression the memo may record answers for.
+fn walk(cx: &Ctx, expr: &Expr, expected: Option<&Value>, live: bool) -> Result<bool> {
+    let mut memo = crate::performs_memo::Walk::start(cx, expr, live);
+    let performs = walk_from(cx, expr, expected, &mut memo);
+    if let Ok(performs) = performs {
+        memo.record(cx, performs);
+    }
+    performs
+}
+
+fn walk_from(
+    cx: &Ctx,
+    expr: &Expr,
+    expected: Option<&Value>,
+    memo: &mut crate::performs_memo::Walk,
+) -> Result<bool> {
     let (mut expr, mut expected) = (expr, expected);
+    let live = memo.live;
+    let may_perform = |cx: &Ctx, expr: &Expr| walk(cx, expr, None, live);
     loop {
         cx.g().machine.budget.nesting(crate::check::PASS)?;
+        let literal = performs_by_expected(expr);
+        if let Some(known) = memo.known(cx, expr, expected.is_some(), literal) {
+            if crate::performs_memo::shadow() {
+                let found = crate::performs_memo::without(cx, || walk(cx, expr, expected, false))?;
+                assert_eq!(
+                    known,
+                    found,
+                    "the effects memo's answer for the expression at {:?} differs from the \
+                     pre-pass's (STITCHWORT_SHADOW_MEMO)",
+                    expr.span()
+                );
+            }
+            return Ok(known);
+        }
         expr = match expr {
             Expr::Interpolated(text, _) => {
                 expr = text;
                 continue;
             }
-            Expr::Var(_) | Expr::App(..) => return call_performs(cx, expr, 0),
-            Expr::Binary(BinOp::Eq, ..) => return compound_performs(cx, expr, expected),
+            Expr::Var(_) | Expr::App(..) => return call_performs(cx, expr, 0, live),
+            Expr::Binary(BinOp::Eq, ..) => return compound_performs(cx, expr, expected, live),
             Expr::Binary(_, a, b) => {
                 // The operators down the left, then the operand at the
                 // bottom and the right operands from the bottom up.
@@ -2400,16 +2440,17 @@ pub fn may_perform_at(cx: &Ctx, expr: &Expr, expected: Option<&Value>) -> Result
                 }
                 otherwise
             }
-            _ => return compound_performs(cx, expr, expected),
+            _ => return compound_performs(cx, expr, expected, live),
         };
         expected = None;
     }
 }
 
 /// [`may_perform_at`] for the forms with more to work out than their parts:
-/// pipes, `=`, matches, compounds and fields.
+/// pipes, `=`, matches, compounds and fields. `live` is [`walk`]'s.
 #[inline(never)]
-fn compound_performs(cx: &Ctx, expr: &Expr, expected: Option<&Value>) -> Result<bool> {
+fn compound_performs(cx: &Ctx, expr: &Expr, expected: Option<&Value>, live: bool) -> Result<bool> {
+    let may_perform = |cx: &Ctx, expr: &Expr| walk(cx, expr, None, live);
     let any = |items: &mut dyn Iterator<Item = &Expr>| -> Result<bool> {
         for item in items {
             if may_perform(cx, item)? {
@@ -2446,7 +2487,7 @@ fn compound_performs(cx: &Ctx, expr: &Expr, expected: Option<&Value>) -> Result<
                 || match &**f {
                     Expr::Lam(names, body, _) => names.len() == 1 && may_perform(cx, body)?,
                     Expr::TypedLam(_, Mode::Explicit, _, body, _) => may_perform(cx, body)?,
-                    f => call_performs(cx, f, 1)?,
+                    f => call_performs(cx, f, 1, live)?,
                 }
         }
         // An operand of `=` that is a computation is passed (D1140 (a)).
@@ -2485,9 +2526,10 @@ fn compound_performs(cx: &Ctx, expr: &Expr, expected: Option<&Value>) -> Result<
 
 /// Whether the call `expr` (a variable, or an application) may perform
 /// operations, given `extra` more arguments (the value piped in by `|>`).
-/// Out of line for the reason in [`may_perform_at`].
+/// Out of line for the reason in [`may_perform_at`]. `live` is [`walk`]'s.
 #[inline(never)]
-fn call_performs(cx: &Ctx, expr: &Expr, extra: usize) -> Result<bool> {
+fn call_performs(cx: &Ctx, expr: &Expr, extra: usize, live: bool) -> Result<bool> {
+    let may_perform = |cx: &Ctx, expr: &Expr| walk(cx, expr, None, live);
     let mut args = Vec::new();
     let mut head = expr;
     while let Expr::App(f, a) = head {
@@ -2522,7 +2564,7 @@ fn call_performs(cx: &Ctx, expr: &Expr, extra: usize) -> Result<bool> {
             {
                 continue;
             }
-            may_perform_at(cx, value, ty.as_ref())?
+            walk(cx, value, ty.as_ref(), live)?
         } else {
             may_perform(cx, value)?
                 && !match param_type(written)? {
@@ -2789,6 +2831,7 @@ fn comp_check_in(
     as_written: bool,
 ) -> Result<Term> {
     cx.g().machine.budget.nesting(crate::check::PASS)?;
+    let _memo = crate::performs_memo::scope(cx.e, expr);
     match expr {
         Expr::Interpolated(text, _) => comp_check_in(cx, text, row, t, as_written),
         Expr::LocalDefs { defs, body, .. } => {

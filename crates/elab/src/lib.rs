@@ -67,6 +67,7 @@ mod module;
 mod named;
 mod nav;
 mod no_effect;
+mod performs_memo;
 mod proof_chain;
 mod rewrite_then;
 pub use dot::DUMMY as COMPLETION_DUMMY;

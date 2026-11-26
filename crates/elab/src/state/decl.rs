@@ -145,6 +145,9 @@ pub(crate) struct Decl {
     /// `List.map`'s): those are elaborated as plain calls first, and the row
     /// is settled by unification (`check::pure_first`).
     pub(crate) bare_rows_pure: Cell<bool>,
+    /// The effects pre-pass's answers for the declaration
+    /// (`crate::performs_memo`).
+    pub(crate) performs_memo: RefCell<crate::performs_memo::Memo>,
     /// Above zero while an application is elaborated again after failing,
     /// with an argument that is a list of numbers checked after the
     /// arguments after it, so they can say its element type
@@ -440,6 +443,7 @@ impl Decl {
             holds_put_off,
             in_place_trial,
             bare_rows_pure,
+            performs_memo,
             late_literals,
             condition,
             not_coerced,
@@ -503,6 +507,7 @@ impl Decl {
             ("holds_put_off", !holds_put_off.get()),
             ("in_place_trial", in_place_trial.get() == 0),
             ("bare_rows_pure", !bare_rows_pure.get()),
+            ("performs_memo", performs_memo.borrow().is_empty()),
             ("late_literals", late_literals.get() == 0),
             ("condition", condition.get() == 0),
             ("not_coerced", not_coerced.borrow().is_empty()),
