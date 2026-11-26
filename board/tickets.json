@@ -36191,8 +36191,8 @@
     {
       "id": 4852,
       "title": "[Sonnet] Playground: a smaller stack guard in WebKit (Safari, and every iOS browser) chosen at run time, so a deep program gets E-RESOURCE there instead of crashing the worker (D3749; Safari overflows at about 297 KiB, SW-4849)",
-      "status": "backlog",
-      "agent": "",
+      "status": "doing",
+      "agent": "Sonnet",
       "where": "",
       "labels": [],
       "epic": "editor-playground",
