@@ -7,12 +7,11 @@
 //! as the general `decode` does, and if anything about the input isn't
 //! exactly what it expects (a wrong type, a missing or inherited property, a
 //! hole, a getter that throws), or the input is nested deeper than
-//! `MAX_DEPTH` or has more than `MAX_WORK` values (shared values, a cycle), it
-//! throws, and `decodeFast` runs the general `decode` on the input to say
-//! where and why, or to accept it with its own bookkeeping: shared values
-//! decoded once, cycles refused, any depth. So what is refused, and how, is
-//! the general decoder's alone. The encoder gives up the same way, and its
-//! fallback is the general `encode`.
+//! `MAX_DEPTH`, it throws, and `decodeFast` runs the general `decode` on the
+//! input to say where and why, or to accept it with its own bookkeeping:
+//! shared values decoded once, cycles refused, any depth. So what is refused,
+//! and how, is the general decoder's alone. The encoder gives up the same way,
+//! and its fallback is the general `encode`.
 
 use std::fmt::Write;
 

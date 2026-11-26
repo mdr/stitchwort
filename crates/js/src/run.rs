@@ -184,12 +184,14 @@ pub fn generate_program_with(
     js.push_str(effect.runtime());
     js.push('\n');
     for id in crate::dependency_order(&codegen, &used) {
-        js.push_str(&codegen.def(id).map_err(|e| {
-            Diagnostic::from(e).with_label(g.def(id).span(), "while generating JavaScript for this")
-        })?);
+        js.push_str(
+            &codegen.def(id).map_err(|e| {
+                e.with_label(g.def(id).span(), "while generating JavaScript for this")
+            })?,
+        );
     }
     let mut env = Vec::new();
-    let main_js = codegen.expr(main, &mut env).map_err(Diagnostic::from)?;
+    let main_js = codegen.expr(main, &mut env)?;
     let _ = writeln!(
         js,
         "\n// `main()`, as `stitchwort run` runs it.\nconst MAIN = () => {main_js};"
