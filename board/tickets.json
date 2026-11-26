@@ -36574,9 +36574,9 @@
     {
       "id": 4874,
       "title": "[DeepSeek] crates/elab/src/nav.rs's other pretty::term calls (hover signatures, constructor fields) print unbounded: use pretty::term_shortened or a depth-bounded print that keeps long signatures whole up to a larger cap (SW-4868 finding)",
-      "status": "backlog",
-      "agent": "",
-      "where": "",
+      "status": "doing",
+      "agent": "DeepSeek",
+      "where": "scratch-sw-4874",
       "labels": [],
       "epic": "editor-playground",
       "body": "",
