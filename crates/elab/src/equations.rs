@@ -91,6 +91,7 @@ use stitchwort_syntax::{Diagnostic, Span};
 
 use crate::check::{Ctx, Saved};
 use crate::decreasing::{Binder, lams, pis, split_pis};
+use crate::module::GUARD_LEMMAS;
 use crate::term_util::apps;
 use crate::{Elaborator, Global, Result, kernel};
 
@@ -4708,6 +4709,7 @@ impl Elaborator {
     fn branch_lib(&self) -> R<BranchLib> {
         let g = &self.ev();
         let r = &g.env.registry();
+        let lemmas = &*GUARD_LEMMAS;
         let none = || Stop::Skip("the core's logic isn't loaded yet".into());
         let def = |key: &str| self.lookup_def(&format!("Std.{key}")).ok_or_else(none);
         let (bool_, true_) = r.ctor(Builtin::True).ok_or_else(none)?;
@@ -4742,17 +4744,17 @@ impl Elaborator {
             to_bool_lemmas: (|| {
                 Some((
                     r.data(Builtin::Decidable)?,
-                    r.def(Builtin::ToBoolOfNot)?,
-                    r.def(Builtin::Refute)?,
+                    self.lookup_def(&lemmas.to_bool_of_not.text)?,
+                    self.lookup_def(&lemmas.refute.text)?,
                 ))
             })(),
-            dec_true: r.def(Builtin::DecTrue),
+            dec_true: self.lookup_def(&lemmas.dec_true.text),
             and_data: r.data(Builtin::And).ok_or_else(none)?,
             and_dec: self.lookup_def("Std.Decidable.and"),
             not_not: (|| {
                 Some((
-                    self.lookup_def("Std.Decidable.notNotOf")?,
-                    self.lookup_def("Std.Decidable.not")?,
+                    self.lookup_def(&lemmas.not_not_of.text)?,
+                    self.lookup_def(&lemmas.not.text)?,
                 ))
             })(),
         })

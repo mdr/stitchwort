@@ -13,7 +13,7 @@ use stitchwort_syntax::{Diagnostic, Span};
 
 pub use k::*;
 
-use crate::state::{Tables, Unit};
+use crate::state::{ScopedCell, Tables, Unit};
 use crate::timings::kernel_call;
 
 type Result<T> = std::result::Result<T, Diagnostic>;
@@ -103,10 +103,8 @@ pub fn take_rejections() -> Vec<(&'static str, String)> {
 /// `f` with gluing off: for the kernel's inference, which `rewrite` and
 /// matching use on the elaborator's terms.
 pub fn without_glue<T>(g: &Ev, f: impl FnOnce() -> T) -> T {
-    let was = g.machine.glue.replace(false);
-    let out = f();
-    g.machine.glue.set(was);
-    out
+    let _off = ScopedCell::set(&g.machine.glue, false);
+    f()
 }
 
 pub fn define_def(g: &mut Kernel, tables: &Tables, id: DefId, body: &Term) -> Result<()> {
