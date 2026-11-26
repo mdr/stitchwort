@@ -1,5 +1,5 @@
 {
-  "next": 4847,
+  "next": 4848,
   "tickets": [
     {
       "id": 47,
@@ -6333,16 +6333,16 @@
     {
       "id": 1970,
       "title": "[DeepSeek] Depth error wording: the pass name 'equations' reads as 'nested too deeply for the equations'",
-      "status": "backlog",
-      "agent": "",
-      "where": "",
+      "status": "doing",
+      "agent": "DeepSeek",
+      "where": "scratch-sw-1970",
       "labels": [
         "robustness"
       ],
       "epic": "test-infra",
-      "body": "From docs/proposals/deep-input.md. Stage 9. 30 min.\n\nAudit note (22 Nov): 22 Nov 2026 audit: No commit or ticket addresses it.\n",
+      "body": "From docs/proposals/deep-input.md. Stage 9. 30 min.\n\nAudit note (22 Nov): 22 Nov 2026 audit: No commit or ticket addresses it.\n\nStarted 12:26 26 Nov with SW-2020; expected: 30 min.",
       "created": "2026-11-07",
-      "updated": "2026-11-22",
+      "updated": "2026-11-26",
       "commits": []
     },
     {
@@ -6812,16 +6812,16 @@
     {
       "id": 2020,
       "title": "[DeepSeek] Long + - * chains: the depth error suggests [...].sum",
-      "status": "backlog",
-      "agent": "",
-      "where": "",
+      "status": "doing",
+      "agent": "DeepSeek",
+      "where": "scratch-sw-1970",
       "labels": [
         "errors"
       ],
       "epic": "diagnostics",
-      "body": "From docs/proposals/long-chains.md. D2844. 30 min.\n\nAudit note (22 Nov): 22 Nov 2026 audit: No commit addresses it.\n",
+      "body": "From docs/proposals/long-chains.md. D2844. 30 min.\n\nAudit note (22 Nov): 22 Nov 2026 audit: No commit addresses it.\n\nStarted 12:26 26 Nov with SW-1970; expected: 30 min.",
       "created": "2026-11-07",
-      "updated": "2026-11-22",
+      "updated": "2026-11-26",
       "commits": []
     },
     {
@@ -35407,15 +35407,18 @@
     {
       "id": 4804,
       "title": "[Sonnet] STITCHWORT_CACHE_DEBUG prints only a namespace's digest as hex, so 'why did this namespace miss' needs hand-comparing hashes: print the digest's inputs (or one line per dependency digest) under the debug flag (SW-4777 finding)",
-      "status": "doing",
+      "status": "done",
       "agent": "DeepSeek",
       "where": "scratch-sw-4846",
       "labels": [],
       "epic": "elaborator-kernel",
-      "body": "Started 12:15 26 Nov with SW-4846/4804 together; expected: 30 min.",
+      "body": "Started 12:15 26 Nov with SW-4846/4804 together; expected: 30 min.\n\nModel result: deepseek, worked, about 25 min (est. 30), together with SW-4846.",
       "created": "2026-11-25",
       "updated": "2026-11-26",
-      "commits": []
+      "commits": [
+        "3f8407bb6",
+        "eb2378218"
+      ]
     },
     {
       "id": 4805,
@@ -36061,13 +36064,29 @@
     {
       "id": 4846,
       "title": "[DeepSeek] STITCHWORT_CACHE_DEBUG says nothing about the core cache: print 'check cache: the core: a hit' (or the miss reason) as for namespaces (SW-4845 finding)",
-      "status": "doing",
+      "status": "done",
       "agent": "DeepSeek",
       "where": "scratch-sw-4846",
       "labels": [],
       "epic": "performance",
-      "body": "Started 12:15 26 Nov with SW-4846/4804 together; expected: 30 min.",
+      "body": "Started 12:15 26 Nov with SW-4846/4804 together; expected: 30 min.\n\nModel result: deepseek, worked, about 25 min (est. 30), together with SW-4804.",
       "created": "2026-11-25",
+      "updated": "2026-11-26",
+      "commits": [
+        "3f8407bb6",
+        "eb2378218"
+      ]
+    },
+    {
+      "id": 4847,
+      "title": "[DeepSeek] clippy needless_lifetimes in crates/driver/src/live/term_diff.rs:777 fails cargo clippy --all-targets -D warnings (SW-4846 finding)",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "epic": "test-infra",
+      "body": "",
+      "created": "2026-11-26",
       "updated": "2026-11-26",
       "commits": []
     }
