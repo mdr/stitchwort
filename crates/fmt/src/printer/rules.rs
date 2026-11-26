@@ -1245,7 +1245,9 @@ impl<'a> Rules<'a> {
             && bar > 0
             && !inside[..bar].iter().any(|&el| self.is_tok(el, &Tok::Comma))
         {
-            let space = self.space_el(children[open], inside[0]);
+            // A block's lines must share a column, so its first can't follow
+            // the opener: it starts the line below at 2 (SW-4853).
+            let block = Self::kind(inside[0]) == Some(NodeKind::Block);
             // A trailing comment on the base belongs to the `{ r |` line,
             // so it prints after the bar, not between the base and it
             // (SW-3487).
@@ -1257,7 +1259,15 @@ impl<'a> Rules<'a> {
             let base = self.join(&inside[..=bar]);
             self.defer_trailing = saved;
             let comment = comment_at.map(|i| self.trailing(i)).unwrap_or_default();
-            prefix = Doc::concat([prefix, space, base, Doc::concat(comment)]);
+            prefix = if block {
+                Doc::concat([
+                    prefix,
+                    Doc::nest(2, Doc::concat([Doc::HardLine, base, Doc::concat(comment)])),
+                ])
+            } else {
+                let space = self.space_el(children[open], inside[0]);
+                Doc::concat([prefix, space, base, Doc::concat(comment)])
+            };
             inside = &inside[bar + 1..];
         }
         // Items between commas. The last has no comma after it (tidy pass
