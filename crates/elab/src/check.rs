@@ -897,6 +897,7 @@ impl<'e> Ctx<'e> {
 
     /// `Ok(false)` if `a` and `b` can't be made equal; an error if it ran out
     /// of resources finding out.
+    #[track_caller]
     pub fn unify(&self, a: &Value, b: &Value) -> Result<bool> {
         Ok(unify(&self.u(), self.level(), a, b)?)
     }
@@ -11613,5 +11614,54 @@ mod tests {
             elaborate("(x => x: [a: Type] → a → a)").as_deref(),
             Ok("[a: Type] → a → a")
         );
+    }
+
+    /// SW-4676: a proof pair unified through [`Ctx::unify`], directly or
+    /// through [`crate::undo::unify`], is counted at the line that asked for
+    /// the comparison, not at either wrapper's own.
+    #[test]
+    fn proof_counts_name_the_unify_caller_not_the_wrapper() {
+        stitchwort_core::proof_counts::force_on_for_tests();
+        // `byComputing` proves `p = q` by unifying the two proofs through
+        // `undo::unify`, whose comparison runs in a closure.
+        elaborate("[a: Prop] (p q: a) => (byComputing: p = q)").expect("checks");
+        let e = Elaborator::new();
+        let p = Value::var_marked(0, ProofMark::Proof);
+        let q = Value::var_marked(1, ProofMark::Proof);
+        let cx = Ctx::from_parts(
+            &e,
+            vec![p.clone(), q.clone()],
+            vec![Value::Sort(Sort::Prop); 2],
+            vec!["p".into(), "q".into()],
+            span(),
+        );
+        let direct_line = line!() + 1;
+        let _ = cx.unify(&p, &q).expect("unifies");
+        let report = stitchwort_core::proof_counts::report().expect("counts are on");
+        let this_file = file!();
+        let source = include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/src/check.rs"));
+        let line = source
+            .lines()
+            .position(|l| l.contains("Ok(unify(&self.u(), self.level(), a, b)?)"))
+            .map(|i| i + 1)
+            .expect("the wrapper's forwarding line");
+        let wrapper = format!("{this_file}:{line}");
+        let direct = format!("{this_file}:{direct_line}");
+        let rows: Vec<&str> = report
+            .lines()
+            .filter(|l| l.contains("  unify  elab  "))
+            .collect();
+        assert!(!rows.is_empty(), "no unify caller recorded:\n{report}");
+        assert!(
+            rows.iter().any(|r| r.ends_with(&direct)),
+            "no pair recorded at the direct call ({direct}):\n{report}"
+        );
+        for row in rows {
+            assert!(
+                !row.ends_with(&wrapper),
+                "recorded at the wrapper ({wrapper}):\n{report}"
+            );
+            assert!(!row.contains("undo.rs:"), "recorded in undo.rs:\n{report}");
+        }
     }
 }

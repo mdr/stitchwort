@@ -83,6 +83,13 @@ static COUNTS: Mutex<Option<Counts>> = Mutex::new(None);
 /// 0 before the variable is read, then 1 for off and 2 for on.
 static STATE: AtomicU8 = AtomicU8::new(0);
 
+/// Turns counting on for a test that can't set the environment before the
+/// first read of [`on`].
+#[doc(hidden)]
+pub fn force_on_for_tests() {
+    STATE.store(2, Relaxed);
+}
+
 /// Whether `STITCHWORT_PROOF_COUNTS=1`.
 #[inline]
 pub fn on() -> bool {
