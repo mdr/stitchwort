@@ -1663,8 +1663,11 @@ pub fn settle_let_lambda(cx: &Ctx, value: &Expr, ty: Value) -> Result<Value> {
     let g = cx.g();
     let mut level = cx.level();
     let mut rest = force(&g, ty.clone())?;
-    while let Value::Pi(_, _, _, cod, _) = rest {
-        rest = force(&g, cod.apply(&g, Value::var(level))?)?;
+    while let Value::Pi(_, _, dom, cod, _) = rest {
+        rest = force(
+            &g,
+            cod.apply(&g, Value::var_marked(level, cx.mark_of_type(&dom)))?,
+        )?;
         level += 1;
     }
     let Some((row, _)) = comp_parts_at(cx, level, &rest)? else {
@@ -2040,7 +2043,7 @@ fn pi_slots(cx: &Ctx, mut ty: Value) -> Result<Vec<ParamSlot>> {
                     explicit: !icit.is_implicit(),
                     ty: (*dom).clone(),
                 });
-                ty = cod.apply(&g, Value::var(level))?;
+                ty = cod.apply(&g, Value::var_marked(level, cx.mark_of_type(&dom)))?;
                 level += 1;
             }
             _ => return Ok(out),
@@ -3834,7 +3837,7 @@ fn thunk_hint(cx: &Ctx, arg: &Expr, param: Option<&Value>, e: Diagnostic) -> Dia
     if !matches!(dom, Value::Data(d, _) if d == unit) {
         return e;
     }
-    let Ok(cod) = cod.apply(&g, Value::var(cx.level())) else {
+    let Ok(cod) = cod.apply(&g, cx.fresh_var(&dom)) else {
         return e;
     };
     if !matches!(written_results(cx, &cod), Ok(Some(_))) {

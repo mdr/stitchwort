@@ -415,7 +415,6 @@ fn shape(
                 let Value::Pi(_, icit, dom, cod, _) = force(&g, ty)? else {
                     return Ok(Shape::Kept(term.clone()));
                 };
-                let level = cx.level();
                 let part = match force(&g, (*dom).clone())? {
                     // A proposition or type: looked into.
                     Value::Sort(_) => shape(cx, outer, arg, binders, operands)?,
@@ -425,7 +424,7 @@ fn shape(
                     _ => Shape::Kept(arg.clone()),
                 };
                 ty = match part {
-                    Shape::Operand(_) => cod.apply(&g, Value::var(level))?,
+                    Shape::Operand(_) => cod.apply(&g, cx.fresh_var(&dom))?,
                     _ => cod.apply_lazy(&g, || eval(&g, outer, arg))?,
                 };
                 built = Shape::App(Box::new(built), Box::new(part), icit);

@@ -1257,10 +1257,10 @@ fn emit(
         };
         ty = cod.apply(&g, cx.eval(arg)?)?;
     }
-    let Value::Pi(_, _, _, cod, _) = force(&g, ty)? else {
+    let Value::Pi(_, _, dom, cod, _) = force(&g, ty)? else {
         return Err(shape());
     };
-    ty = cod.apply(&g, Value::var(cx.level()))?;
+    ty = cod.apply(&g, cx.fresh_var(&dom))?;
     if !sides.is_empty() {
         let Value::Pi(_, _, dom, cod, _) = force(&g, ty)? else {
             return Err(shape());
@@ -1285,7 +1285,7 @@ fn emit(
             }
             meaning = force(&g, params[1].clone())?;
         }
-        ty = cod.apply(&g, Value::var(cx.level()))?;
+        ty = cod.apply(&g, cx.fresh_var(&dom))?;
     }
     // A goal stuck on an unknown solved since (`?1 x`, in a field projection,
     // say) computes once read again.
