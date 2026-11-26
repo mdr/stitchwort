@@ -36422,7 +36422,7 @@
     },
     {
       "id": 4864,
-      "title": "[DeepSeek] bench check_work::checking_does_not_compute_unneeded_values fails on main since today's merges: the 'if' case's steps grow with the input (1,381,244 at 2,000 elements, 2,011,244 at 20,000). Find the merge (likely SW-4856/4858/4860 opening operations, or SW-1889's Unchanged change) and whether it's a real recomputation or steps now counted that weren't",
+      "title": "[DeepSeek] Bench regressions on main from today's merges: check_work's 'if' case steps grow with input (1,381,244 → 2,011,244); baseline: check-closed-if-less steps +543%, extract-js steps +11%, check-list-* allocations +21-36%, peak heap +25-350% on check-number-*/check-text-literal/check-nested-apps. Bisect today's merges and fix or report",
       "status": "doing",
       "agent": "DeepSeek",
       "where": "scratch-sw-4864",
