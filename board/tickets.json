@@ -1,5 +1,5 @@
 {
-  "next": 4873,
+  "next": 4874,
   "tickets": [
     {
       "id": 47,
@@ -36435,7 +36435,7 @@
       "where": "scratch-sw-4864",
       "labels": [],
       "epic": "performance",
-      "body": "",
+      "body": "DeepSeek bisect (not today's merges): check-closed-if-less +543% and check_work's 'if <' growth from SW-4674 (rule I marks: mark_of_type forced a call type such as cost < 5, computing cost); fix 33b81254e in scratch-sw-4864 reads the sort off the definition's declared type; awaiting Fable soundness review. List allocations +21-36% from SW-4671 (proof-mark storage; steps unchanged), peak heap on small benchmarks from SW-4814 (prelude cache kept), extract-js steps +11% from SW-4671/4674: feature costs, baseline update to follow. Why unseen for 3 days: nothing runs the bench crate's tests (not in the quick tier nor any verifier).",
       "created": "2026-11-26",
       "updated": "2026-11-26",
       "commits": []
@@ -36553,6 +36553,19 @@
         "b9511538c",
         "9808616f4"
       ]
+    },
+    {
+      "id": 4873,
+      "title": "[DeepSeek] The bench crate's tests (check_work, baseline counts_have_not_regressed) run in no tier or check: SW-4674's +543% step regression went unseen 23-26 Nov. Add them to Overmind's rolling check (or the quick tier), given the baseline test takes ~140 s (SW-4864)",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "epic": "test-infra",
+      "body": "",
+      "created": "2026-11-26",
+      "updated": "2026-11-26",
+      "commits": []
     }
   ]
 }
