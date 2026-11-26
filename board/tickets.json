@@ -5482,17 +5482,20 @@
     {
       "id": 1894,
       "title": "[DeepSeek] rt small fixes: profiler timer failure (F7), uniqueness checks in two native helpers and the hole fill in release (F9), validator rejects an arm binding a field twice (F10)",
-      "status": "doing",
+      "status": "done",
       "agent": "DeepSeek",
       "where": "scratch-sw-1894",
       "labels": [
         "rt"
       ],
       "epic": "effects-native",
-      "body": "From docs/reviews/code-review-rt.md (F7, F9, F10). 45 min.\n\nAudit note (22 Nov): Audit 22 Nov: all three still true. F7: crates/rt/src/profile.rs:296-299 still sets the flag once with no timer; F10: crates/rt/src/validate.rs:253-255 checks only that a field is in range, not bound once; F9: sw_free_emptied/sw_empty_cell have no debug uniqueness check (native_abi.rs). profile.rs and validate.rs untouched since 7 Nov apart from SW-2502/SW-2391.\n",
+      "body": "From docs/reviews/code-review-rt.md (F7, F9, F10). 45 min.\n\nAudit note (22 Nov): Audit 22 Nov: all three still true. F7: crates/rt/src/profile.rs:296-299 still sets the flag once with no timer; F10: crates/rt/src/validate.rs:253-255 checks only that a field is in range, not bound once; F9: sw_free_emptied/sw_empty_cell have no debug uniqueness check (native_abi.rs). profile.rs and validate.rs untouched since 7 Nov apart from SW-2502/SW-2391.\n\nF7 fallback to EachEntry with test; F9 debug asserts + fill hole check now assert! in release; F10 validator rejects a field bound twice (rt it::validate, failed before). Model result: deepseek, worked, about 25 min (est. 40).",
       "created": "2026-11-07",
       "updated": "2026-11-26",
-      "commits": []
+      "commits": [
+        "288223cae",
+        "e808c7416"
+      ]
     },
     {
       "id": 1895,
