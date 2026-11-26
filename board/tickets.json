@@ -1,5 +1,5 @@
 {
-  "next": 4887,
+  "next": 4888,
   "tickets": [
     {
       "id": 47,
@@ -36804,6 +36804,19 @@
         "024a23e48",
         "e3f2336a3"
       ]
+    },
+    {
+      "id": 4887,
+      "title": "[Opus] Fuzz batch 12, oracle 6: four checks held over 2 GB of heap without E-RESOURCE: 'theorem countBig: count 6000000 = 3000000 := byComputing' (count n = Succ (count n)), count 2^128, a decreasing innerN at 2^128, grow 2^128 (Leaf x) in a parameter type (cases 2606, 4655, 4662, 1604). Suspect SW-4865/SW-4878's heap-held segments (each counted to 2,000,000 frames); Overmind is checking c3f9c13d4 (before them)",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "epic": "elaborator-kernel",
+      "body": "",
+      "created": "2026-11-26",
+      "updated": "2026-11-26",
+      "commits": []
     }
   ]
 }
