@@ -33338,14 +33338,14 @@
     {
       "id": 4676,
       "title": "[DeepSeek] Add #[track_caller] to the elaborator Ctx::unify wrapper (crates/elab/src/check.rs ~879) so STITCHWORT_PROOF_COUNTS names its real callers (SW-4671 finding)",
-      "status": "backlog",
-      "agent": "",
-      "where": "",
+      "status": "doing",
+      "agent": "DeepSeek",
+      "where": "scratch-sw-4676",
       "labels": [],
       "epic": "elaborator-kernel",
-      "body": "",
+      "body": "Started 12:20 26 Nov; expected: 15 min.",
       "created": "2026-11-23",
-      "updated": "2026-11-23",
+      "updated": "2026-11-26",
       "commits": []
     },
     {
@@ -33395,9 +33395,9 @@
       "where": "",
       "labels": [],
       "epic": "elaborator-kernel",
-      "body": "",
+      "body": "Started 12:20 26 Nov on Sonnet; expected: 30 min.",
       "created": "2026-11-23",
-      "updated": "2026-11-23",
+      "updated": "2026-11-26",
       "commits": []
     },
     {
@@ -35407,14 +35407,14 @@
     {
       "id": 4804,
       "title": "[Sonnet] STITCHWORT_CACHE_DEBUG prints only a namespace's digest as hex, so 'why did this namespace miss' needs hand-comparing hashes: print the digest's inputs (or one line per dependency digest) under the debug flag (SW-4777 finding)",
-      "status": "backlog",
-      "agent": "",
-      "where": "",
+      "status": "doing",
+      "agent": "DeepSeek",
+      "where": "scratch-sw-4846",
       "labels": [],
       "epic": "elaborator-kernel",
-      "body": "",
+      "body": "Started 12:15 26 Nov with SW-4846/4804 together; expected: 30 min.",
       "created": "2026-11-25",
-      "updated": "2026-11-25",
+      "updated": "2026-11-26",
       "commits": []
     },
     {
@@ -35465,14 +35465,14 @@
     {
       "id": 4808,
       "title": "[DeepSeek] SW-4608 review: add a 'how to rerun' snippet (the nix shells for lean, rocq with its stdlib, hyperfine; the exact commands for part 2b and the empty files), and make docs/reviews/SW-4608/parse_timings.py accept a --timings=all run without STITCHWORT_STEP_PHASES (SW-4806 friction)",
-      "status": "backlog",
-      "agent": "",
-      "where": "",
+      "status": "doing",
+      "agent": "DeepSeek",
+      "where": "scratch-sw-4808",
       "labels": [],
       "epic": "performance",
-      "body": "",
+      "body": "Started 12:20 26 Nov; expected: 20 min.",
       "created": "2026-11-25",
-      "updated": "2026-11-25",
+      "updated": "2026-11-26",
       "commits": []
     },
     {
@@ -36058,14 +36058,14 @@
     {
       "id": 4846,
       "title": "[DeepSeek] STITCHWORT_CACHE_DEBUG says nothing about the core cache: print 'check cache: the core: a hit' (or the miss reason) as for namespaces (SW-4845 finding)",
-      "status": "backlog",
-      "agent": "",
-      "where": "",
+      "status": "doing",
+      "agent": "DeepSeek",
+      "where": "scratch-sw-4846",
       "labels": [],
       "epic": "performance",
-      "body": "",
+      "body": "Started 12:15 26 Nov with SW-4846/4804 together; expected: 30 min.",
       "created": "2026-11-25",
-      "updated": "2026-11-25",
+      "updated": "2026-11-26",
       "commits": []
     }
   ]
