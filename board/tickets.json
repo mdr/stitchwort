@@ -1,5 +1,5 @@
 {
-  "next": 4868,
+  "next": 4871,
   "tickets": [
     {
       "id": 47,
@@ -36415,7 +36415,7 @@
       "where": "",
       "labels": [],
       "epic": "editor-playground",
-      "body": "D3750 (Matt, 17:35 26 Nov): 'Don't necessarily propose only the cheapest change ... we're interested in the best end state ... should we be doing something differently?' Fable at Matt's suggestion.\n\nRuns on Fable (fable-lane); the board has no Fable agent name.\n\ndocs/reviews/SW-4863-playground-stack-end-state.md. Cause: Day05/Day22 overflow in the hover printer (term_within prints in full; not_unfolded unbounded), not checking; Day11 a 100-link stuck-sum chain in the kernel; wasm-opt -Oz undoes the frame splits. With the printer bounded (probe), all six namespaces check in Chrome. Steps: , , SW-4865, SW-4866, , SW-4867. Model result: fable, worked, 40 min (est. 90).",
+      "body": "D3750 (Matt, 17:35 26 Nov): 'Don't necessarily propose only the cheapest change ... we're interested in the best end state ... should we be doing something differently?' Fable at Matt's suggestion.\n\nRuns on Fable (fable-lane); the board has no Fable agent name.\n\ndocs/reviews/SW-4863-playground-stack-end-state.md. Cause: Day05/Day22 overflow in the hover printer (term_within prints in full; not_unfolded unbounded), not checking; Day11 a 100-link stuck-sum chain in the kernel; wasm-opt -Oz undoes the frame splits. With the printer bounded (probe), all six namespaces check in Chrome. Steps: , , SW-4865, SW-4866, , SW-4867. Model result: fable, worked, 40 min (est. 90).\n\nSteps 1-2: SW-4868; step 3: SW-4869; step 4: SW-4865; step 5: SW-4866; step 6: SW-4870; docs: SW-4867 (the earlier note's step list was cut short).",
       "created": "2026-11-26",
       "updated": "2026-11-26",
       "commits": [
@@ -36470,6 +36470,45 @@
       "where": "",
       "labels": [],
       "epic": "docs-tutorials",
+      "body": "",
+      "created": "2026-11-26",
+      "updated": "2026-11-26",
+      "commits": []
+    },
+    {
+      "id": 4868,
+      "title": "[Sonnet] Playground stack steps 1-2 (SW-4863): bound the term printer by what it shows (pretty::term_within prints in full before measuring, then reprints 10 deep; nav::not_unfolded has no limit; a type nested past the limit shows … inside), and keep the inline(never) frame splits in the shipped wasm (wasm-opt -ocimfs=30 in web/build.sh); measure Day05/Day22 in Chrome after",
+      "status": "doing",
+      "agent": "Sonnet",
+      "where": "",
+      "labels": [],
+      "epic": "editor-playground",
+      "body": "",
+      "created": "2026-11-26",
+      "updated": "2026-11-26",
+      "commits": []
+    },
+    {
+      "id": 4869,
+      "title": "[Sonnet] task stack:wasm from SW-4863's scratch scripts (Node --stack-size bisection, overflow trace, wasm-objdump join; scratchpad/SW-4863/n, frames.py): per-namespace engine-stack need of the shipped wasm; then Overmind runs it over all of AoC and the guards are set from the list (SW-4863 step 3)",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "epic": "editor-playground",
+      "body": "",
+      "created": "2026-11-26",
+      "updated": "2026-11-26",
+      "commits": []
+    },
+    {
+      "id": 4870,
+      "title": "[Sonnet] Prototype the JSPI chain of stacks for the playground's checking calls (SW-4863 step 6: Chrome 1,000,000 levels vs 2,658, Firefox 24x; waits for Matt's D)",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "epic": "editor-playground",
       "body": "",
       "created": "2026-11-26",
       "updated": "2026-11-26",
