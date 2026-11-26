@@ -221,6 +221,7 @@ impl Elaborator {
         }
         match &replay {
             CoreReplay::Hit(_) => {
+                debug("the core: loaded from its entry");
                 self.session.cache_stats.core_hits += 1;
                 if recheck {
                     self.session.cache_stats.core_rechecked += 1;

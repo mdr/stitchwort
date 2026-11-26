@@ -130,6 +130,16 @@ pub struct NamespaceKeyReport {
     pub digest: Option<Key>,
 }
 
+/// A project namespace's entry name and key, with the parts the key is
+/// built from, for `STITCHWORT_CACHE_DEBUG`.
+pub(crate) struct NamespaceCacheKey {
+    pub(crate) unit: String,
+    pub(crate) key: Key,
+    /// One readable line per part of the key, printed indented under the
+    /// namespace's line when it has to be elaborated.
+    pub(crate) inputs: Vec<String>,
+}
+
 /// Where entries are kept, by unit (a library file) and key.
 pub trait Store {
     /// The compiler build, part of every entry's stamp: its version and a
@@ -1027,7 +1037,8 @@ impl Elaborator {
     /// and key, its files and library files exist, and the files it
     /// included are as they were.
     pub fn plan_namespace(&mut self, ns: &str, closure: &[String]) -> Option<Vec<Diagnostic>> {
-        let (unit, key) = self.namespace_cache_key(Some(ns), Some(closure), true)?;
+        let NamespaceCacheKey { unit, key, .. } =
+            self.namespace_cache_key(Some(ns), Some(closure), true)?;
         self.session
             .namespace_keys
             .insert(ns.to_string(), NamespaceKey { key, digest: None });
@@ -1229,7 +1240,7 @@ impl Elaborator {
         namespace: Option<&str>,
         closure: Option<&[String]>,
         planning: bool,
-    ) -> Option<(String, Key)> {
+    ) -> Option<NamespaceCacheKey> {
         if !self.cache_usable() || self.unit.loading_prelude || !self.library_stack_is_empty() {
             return None;
         }
@@ -1241,7 +1252,13 @@ impl Elaborator {
             return None;
         }
         let source = self.session.namespace_sources.get(ns)?;
+        let debugging = cache_debug();
         let mut h = blake3::Hasher::new();
+        let mut inputs = if debugging {
+            vec![format!("source {}", hex(source))]
+        } else {
+            Vec::new()
+        };
         let mut part = |bytes: &[u8]| {
             h.update(&(bytes.len() as u64).to_le_bytes());
             h.update(bytes);
@@ -1254,10 +1271,11 @@ impl Elaborator {
         for dependency in closure {
             part(dependency.as_bytes());
             let known = self.session.namespace_keys.get(dependency)?;
-            match known.digest {
+            let digest = match known.digest {
                 Some(digest) => {
                     part(b"digest");
                     part(&digest);
+                    debugging.then(|| format!("digest {}", hex(&digest)))
                 }
                 // A plan only leaves out a namespace whose dependencies
                 // will be as their entries say.
@@ -1265,23 +1283,35 @@ impl Elaborator {
                 None => {
                     part(b"text");
                     part(&known.key);
+                    debugging.then(|| format!("text {}", hex(&known.key)))
                 }
-            }
+            };
             // What `import D (..)` brings, from a pre-pass over `D`'s
             // syntax: no entry holds it, so no digest covers it.
-            match self.session.project_names.get(dependency) {
+            let names = match self.session.project_names.get(dependency) {
                 Some(names) => {
                     part(b"names");
                     part(&(names.len() as u64).to_le_bytes());
                     for name in names {
                         part(name.as_bytes());
                     }
+                    debugging.then(|| format!("imported names {}", names.len()))
                 }
-                None => part(b"no names"),
+                None => {
+                    part(b"no names");
+                    debugging.then(|| "no imported names".to_string())
+                }
+            };
+            if let (Some(digest), Some(names)) = (digest, names) {
+                inputs.push(format!("{dependency}: {digest}, {names}"));
             }
         }
         let nav = self.nav_tag();
-        Some((format!("ns.{ns}{nav}"), *h.finalize().as_bytes()))
+        Some(NamespaceCacheKey {
+            unit: format!("ns.{ns}{nav}"),
+            key: *h.finalize().as_bytes(),
+            inputs,
+        })
     }
 
     /// Elaborates project namespace `ns`, or loads it from its entry for
@@ -1292,9 +1322,9 @@ impl Elaborator {
         ns: &str,
         files: &[SourceUnit],
         closure: &[String],
-        unit: &str,
-        key: &Key,
+        cache_key: &NamespaceCacheKey,
     ) -> (Vec<Diagnostic>, bool) {
+        let NamespaceCacheKey { unit, key, inputs } = cache_key;
         if self.interface_pass_of(ns) {
             return (self.interface_pass(ns, files, closure, unit, key), false);
         }
@@ -1393,6 +1423,9 @@ impl Elaborator {
         // seen for the first time (a dependency with an error has no digest,
         // so it is keyed by its source instead) is still a fresh check.
         debug(&format!("{ns}: elaborated"));
+        for input in inputs {
+            debug(&format!("  {input}"));
+        }
         self.session.cache_stats.namespace_misses += 1;
         self.unit.include_trace.borrow_mut().clear();
         self.unit.namespace_capture = Some(Capture {
@@ -2783,8 +2816,12 @@ fn hex(key: &Key) -> String {
     key.iter().map(|b| format!("{b:02x}")).collect()
 }
 
+fn cache_debug() -> bool {
+    stitchwort_core::env_flag::env_flag("STITCHWORT_CACHE_DEBUG")
+}
+
 fn debug(what: &str) {
-    if stitchwort_core::env_flag::env_flag("STITCHWORT_CACHE_DEBUG") {
+    if cache_debug() {
         eprintln!("check cache: {what}");
     }
 }
