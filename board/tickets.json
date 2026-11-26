@@ -5827,17 +5827,20 @@
     {
       "id": 1928,
       "title": "[DeepSeek] Glue and timing guards (kernel::without_glue manual save/restore)",
-      "status": "doing",
+      "status": "done",
       "agent": "DeepSeek",
       "where": "scratch-sw-1928",
       "labels": [
         "elab"
       ],
       "epic": "elaborator-kernel",
-      "body": "From docs/reviews/code-review-elab-rest.md (ticket 4). F12, F23; with SW-1901 if not done. 30 min.\n\nAudit note (22 Nov): Audit 22 Nov: still open: crates/elab/src/kernel.rs:105 without_glue is still a manual helper.\n",
+      "body": "From docs/reviews/code-review-elab-rest.md (ticket 4). F12, F23; with SW-1901 if not done. 30 min.\n\nAudit note (22 Nov): Audit 22 Nov: still open: crates/elab/src/kernel.rs:105 without_glue is still a manual helper.\n\nwithout_glue uses ScopedCell; timing frames are guards that truncate on drop; report clears its rows. SW-1901 (NO_ETA into Attempt) still open. Model result: deepseek, worked, about 25 min (est. 30).",
       "created": "2026-11-07",
       "updated": "2026-11-26",
-      "commits": []
+      "commits": [
+        "ba0eb2f45",
+        "80da295e2"
+      ]
     },
     {
       "id": 1929,
@@ -5917,17 +5920,20 @@
     {
       "id": 1934,
       "title": "[DeepSeek] Branch-equation lemma list: one list and a resolve test",
-      "status": "doing",
+      "status": "done",
       "agent": "DeepSeek",
       "where": "scratch-sw-1928",
       "labels": [
         "elab"
       ],
       "epic": "elaborator-kernel",
-      "body": "From docs/reviews/code-review-elab-rest.md (ticket 10). F22. 30 min.\n\nAudit note (22 Nov): Audit 22 Nov: still open; no commit names it.\n",
+      "body": "From docs/reviews/code-review-elab-rest.md (ticket 10). F22. 30 min.\n\nAudit note (22 Nov): Audit 22 Nov: still open; no commit names it.\n\nGUARD_LEMMAS is the one list; test every_guard_lemma_resolves_after_the_library_loads. Model result: deepseek, worked, with SW-1928.",
       "created": "2026-11-07",
       "updated": "2026-11-26",
-      "commits": []
+      "commits": [
+        "6b2c7a7fe",
+        "80da295e2"
+      ]
     },
     {
       "id": 1935,
