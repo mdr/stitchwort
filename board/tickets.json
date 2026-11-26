@@ -5418,17 +5418,21 @@
     {
       "id": 1889,
       "title": "[DeepSeek] Unchanged.seen without removals (address-keyed, changes allocation counts with heap layout), and a debug_assert for F18",
-      "status": "doing",
+      "status": "done",
       "agent": "DeepSeek",
       "where": "scratch-sw-1889",
       "labels": [
         "kernel"
       ],
       "epic": "elaborator-kernel",
-      "body": "From docs/reviews/code-review-core.md (F11, F18). 30 min.\n\nAudit note (22 Nov): Audit 22 Nov: still open; no commit names it.\n",
+      "body": "From docs/reviews/code-review-core.md (F11, F18). 30 min.\n\nAudit note (22 Nov): Audit 22 Nov: still open; no commit names it.\n\nFable review (paper): verdict-neutral; first version's clear-all lost linearity (O(K·|S|)); fixed with seen + per-value current sets, never removing. F18 asserts hold on every path. Model result: deepseek, needed fixes (clear-all performance trap, from the review), about 35 min (est. 30).",
       "created": "2026-11-07",
       "updated": "2026-11-26",
-      "commits": []
+      "commits": [
+        "9a329d7ac",
+        "3a7624306",
+        "8bb574890"
+      ]
     },
     {
       "id": 1890,
