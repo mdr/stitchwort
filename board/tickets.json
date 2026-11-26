@@ -1,5 +1,5 @@
 {
-  "next": 4848,
+  "next": 4849,
   "tickets": [
     {
       "id": 47,
@@ -33390,15 +33390,18 @@
     {
       "id": 4680,
       "title": "[Sonnet] Mark the remaining elaborator variables: about 15 sites bind unmarked variables with Value::var(cx.level()) (omega, ring, facts, auto, effects); unmarked costs completeness under rule I (SW-4674 finding; list in docs/reviews/SW-4674-notes.md)",
-      "status": "review",
+      "status": "done",
       "agent": "Sonnet",
       "where": "",
       "labels": [],
       "epic": "elaborator-kernel",
-      "body": "Started 12:20 26 Nov on Sonnet; expected: 30 min.",
+      "body": "Started 12:20 26 Nov on Sonnet; expected: 30 min.\n\n12 of 15 sites marked; left: omega.rs Mem/Any probe (no domain in hand), effects.rs ops_ending/res_ending (row variables), read-only signature walks. Model result: sonnet, worked, 25 min (est. 30).",
       "created": "2026-11-23",
       "updated": "2026-11-26",
-      "commits": []
+      "commits": [
+        "63b63de63",
+        "c1f39c846"
+      ]
     },
     {
       "id": 4681,
@@ -36085,6 +36088,19 @@
       "where": "",
       "labels": [],
       "epic": "test-infra",
+      "body": "",
+      "created": "2026-11-26",
+      "updated": "2026-11-26",
+      "commits": []
+    },
+    {
+      "id": 4848,
+      "title": "[DeepSeek] Ctx::var_at(level, &dom): one helper for Value::var_marked(level, cx.mark_of_type(dom)) in the elaborator's signature walks (effects.rs, auto.rs, facts.rs) (SW-4680 finding)",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "epic": "elaborator-kernel",
       "body": "",
       "created": "2026-11-26",
       "updated": "2026-11-26",
