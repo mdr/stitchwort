@@ -1,5 +1,5 @@
 {
-  "next": 4898,
+  "next": 4899,
   "tickets": [
     {
       "id": 47,
@@ -36906,15 +36906,19 @@
     {
       "id": 4892,
       "title": "[Opus] Effects pre-pass memo (docs/proposals/effects-prepass-cost.md, option B, step 2, after SW-4891): memo of may_perform answers per declaration keyed by expression, context identity and flags, valid while no pre-existing meta is solved; STITCHWORT_SHADOW_MEMO=1 recomputes on each hit and panics on a difference; linear-growth test from SW-4885's probe (visits at 200 and 400 levels under 2.5x); probe effectful chains too. Then Overmind runs shadow mode over examples, std and AoC before it's trusted",
-      "status": "review",
+      "status": "done",
       "agent": "Opus",
       "where": "",
       "labels": [],
       "epic": "performance",
-      "body": "",
+      "body": "Orchestrator review: undo_since bumps meta_epoch (memo empties); metas dropped without trail undo are caught by the stamp (a recreated number below entry.metas that's solved invalidates). Overmind to run STITCHWORT_SHADOW_MEMO=1 over examples, std, AoC (D3755). Finding SW-4898. Model result: opus, worked, 32 min (est. 60).",
       "created": "2026-11-26",
       "updated": "2026-11-26",
-      "commits": []
+      "commits": [
+        "f2d253ebd",
+        "5ee60921a",
+        "c84505ea3"
+      ]
     },
     {
       "id": 4893,
@@ -36980,6 +36984,19 @@
     {
       "id": 4897,
       "title": "[Sonnet] A failing byComputing comparison of count N holds ~415 bytes a link against ~300 when it succeeds (SW-4887 measurements, docs/proposals/memory-limit.md); find what the extra ~100 bytes is (profile first)",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "epic": "performance",
+      "body": "",
+      "created": "2026-11-26",
+      "updated": "2026-11-26",
+      "commits": []
+    },
+    {
+      "id": 4898,
+      "title": "[Opus] Nested calls f (f (… 0)) still check in superlinear time after SW-4892's memo (elaboration 5.8 / 21.7 / 97 ms at 1,000 / 2,000 / 4,000 levels, ~4x per doubling) while guard visits are exactly linear: profile at ~8,000 levels (Session::for_stack or the CLI) and find the uncounted cost; fix only if small with results unchanged",
       "status": "backlog",
       "agent": "",
       "where": "",
