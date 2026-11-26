@@ -5973,17 +5973,20 @@
     {
       "id": 1939,
       "title": "[DeepSeek] Tactics: mechanical tidy-ups from the tactics code review (F13-F15, docs/reviews/code-review-elab-tactics.md)",
-      "status": "doing",
+      "status": "done",
       "agent": "DeepSeek",
       "where": "scratch-sw-1939",
       "labels": [
         "tactics"
       ],
       "epic": "proof-automation",
-      "body": "From docs/reviews/code-review-elab-tactics.md (F13-F15). 30-45 min.\n\nAudit note (22 Nov): Audit 22 Nov: from the tactics review (F13-F15); no commit mentions SW-1939.\n",
+      "body": "From docs/reviews/code-review-elab-tactics.md (F13-F15). 30-45 min.\n\nAudit note (22 Nov): Audit 22 Nov: from the tactics review (F13-F15); no commit mentions SW-1939.\n\nModel result: deepseek, worked, about 25 min (est. 35).",
       "created": "2026-11-07",
       "updated": "2026-11-26",
-      "commits": []
+      "commits": [
+        "154579f74",
+        "142d9e7bd"
+      ]
     },
     {
       "id": 1940,
@@ -36278,15 +36281,19 @@
     {
       "id": 4856,
       "title": "[DeepSeek] Budget: a stack guard reached outside an operation should fail in test builds (it silently does nothing); first make core's test helpers (Prelude::new, arrow, with_refl, the kernel tests) and any other crate's start a Budget::operation, then add the assert (SW-1966 tried it: many core tests run the checker outside an operation)",
-      "status": "doing",
+      "status": "done",
       "agent": "DeepSeek",
       "where": "scratch-sw-4856",
       "labels": [],
       "epic": "elaborator-kernel",
-      "body": "",
+      "body": "Assert under test/test-bypass; ~500 test setups open an operation; production fixes: pretty.rs public printers, Session::search, search_at and check_project_namespace now open an operation when none is running (the language server's project check had no working stack guard). Model result: deepseek, needed fixes (production printers first left unguarded), about 50 min (est. 40).",
       "created": "2026-11-26",
       "updated": "2026-11-26",
-      "commits": []
+      "commits": [
+        "1bd780e2c",
+        "a18c6bdb0",
+        "9f4b671c6"
+      ]
     },
     {
       "id": 4857,
