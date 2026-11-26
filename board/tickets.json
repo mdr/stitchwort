@@ -6727,16 +6727,16 @@
     {
       "id": 2012,
       "title": "[DeepSeek] Arity error through definitions: the note names the definition that unfolded",
-      "status": "backlog",
-      "agent": "",
-      "where": "",
+      "status": "doing",
+      "agent": "DeepSeek",
+      "where": "scratch-sw-2012",
       "labels": [
         "errors"
       ],
       "epic": "diagnostics",
       "body": "From docs/research/aoc-friction-synthesis.md. 3 days. 30 min.\n\nAudit note (22 Nov): 22 Nov 2026 audit: No commit addresses it (its source SW-758 is done).\n",
       "created": "2026-11-07",
-      "updated": "2026-11-22",
+      "updated": "2026-11-26",
       "commits": []
     },
     {
@@ -36148,15 +36148,18 @@
     {
       "id": 4850,
       "title": "[DeepSeek] nesting::long_chain_notes fails on main: at 2,000 terms the parser runs out first (no chain note) on main's build, though it passed in the lane's clone; the test depends on which pass hits its stack limit first. Make it robust (SW-2020 follow-up)",
-      "status": "doing",
+      "status": "done",
       "agent": "DeepSeek",
       "where": "scratch-sw-4850",
       "labels": [],
       "epic": "diagnostics",
-      "body": "",
+      "body": "Unit tests of chain_note in numbers.rs; the driver test parses with a roomy stack, then checks under guard(320). Model result: deepseek, worked, about 25 min (est. 20).",
       "created": "2026-11-26",
       "updated": "2026-11-26",
-      "commits": []
+      "commits": [
+        "37eea7ea6",
+        "ce388fc7b"
+      ]
     }
   ]
 }
