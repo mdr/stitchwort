@@ -14,7 +14,10 @@
 //! snapshots and the benchmark run without it (D286).
 
 use std::path::{Path, PathBuf};
+use std::rc::Rc;
+use std::sync::{Arc, Mutex};
 
+use stitchwort_driver::check_cache::{EntrySink, LayeredStore, LibraryBundle, StoreLog};
 use stitchwort_driver::driver::{Session, all_tier, par_map, tier_sample, with_stack};
 use stitchwort_driver::project::{DiskFiles, Target};
 use stitchwort_driver::render::render;
@@ -781,6 +784,137 @@ fn fresh_and_cached(dir: &Path, cache: &Path) -> Stats {
         first_difference(&fresh.dump, &cached.dump)
     );
     cached.stats
+}
+
+type CollectedEntries = Arc<Mutex<Vec<(String, String, [u8; 32], Vec<u8>)>>>;
+
+/// Runs `source` with the store `make_store` gives the session, on the test's
+/// stack (the store is made there too, since `LayeredStore` isn't `Send`).
+fn run_with_store(source: &Source, make_store: impl FnOnce() -> LayeredStore + Send) -> Run {
+    with_stack(STACK, || {
+        let mut session = Session::for_stack(STACK);
+        session.elab.set_check_cache(Rc::new(make_store()));
+        finish_run(session, source)
+    })
+}
+
+/// SW-4871: a store with a sink collects the entries a check writes, and a
+/// fresh store restores them: checking again replays every namespace (the
+/// log has `Found`, never `Missing` or `Wrote`) and gives the same result.
+/// An entry whose namespace's text then changes is not replayed.
+#[test]
+fn a_sink_collects_entries_that_a_fresh_store_restores() {
+    use stitchwort_driver::check_cache::StoreEvent::{Found, Missing, Wrote};
+
+    let dir = temp_project("restore", ABC);
+    let source = Source::Project("p".to_string(), dir.clone());
+    let collected: CollectedEntries = Arc::default();
+    let sink = {
+        let collected = collected.clone();
+        EntrySink(Arc::new(
+            move |root: &str, unit: &str, key: &[u8; 32], entry: &[u8]| {
+                collected.lock().unwrap().push((
+                    root.to_string(),
+                    unit.to_string(),
+                    *key,
+                    entry.to_vec(),
+                ));
+            },
+        ))
+    };
+
+    // The first store checks the project and its sink keeps what it wrote.
+    let first_log: StoreLog = Default::default();
+    let cold = run_with_store(&source, || {
+        LayeredStore::new(Arc::new(LibraryBundle::default()))
+            .with_sink("p", sink)
+            .logging(first_log.clone())
+    });
+    for name in ["A", "B", "C"] {
+        assert!(
+            first_log
+                .lock()
+                .unwrap()
+                .iter()
+                .any(|(unit, event)| { unit.as_str() == format!("ns.{name}") && *event == Wrote }),
+            "{name}: {:?}",
+            first_log.lock().unwrap()
+        );
+    }
+    let entries = collected.lock().unwrap().clone();
+    assert_eq!(entries.len(), 3, "{entries:?}");
+    assert!(entries.iter().all(|(root, ..)| root == "p"), "{entries:?}");
+
+    // A fresh store restores them: every namespace is found, none written.
+    let warm_log: StoreLog = Default::default();
+    let warm = run_with_store(&source, || {
+        let store = LayeredStore::new(Arc::new(LibraryBundle::default())).logging(warm_log.clone());
+        for (_, unit, key, entry) in &entries {
+            store.restore(unit, key, entry);
+        }
+        store
+    });
+    assert_eq!(
+        warm.dump,
+        cold.dump,
+        "restoring the entries changed the result: {}",
+        first_difference(&cold.dump, &warm.dump)
+    );
+    let log = warm_log.lock().unwrap();
+    for name in ["A", "B", "C"] {
+        assert!(
+            log.iter()
+                .any(|(unit, event)| { unit.as_str() == format!("ns.{name}") && *event == Found }),
+            "{name}: {log:?}"
+        );
+    }
+    assert!(
+        !log.iter()
+            .any(|(_, event)| *event == Missing || *event == Wrote),
+        "a restored entry was elaborated again: {log:?}"
+    );
+
+    // A changed namespace has another key, so its old entry is not replayed;
+    // the result is what a fresh run of the edited project gives.
+    write_file(
+        &dir,
+        "src/A.sw",
+        "namespace A\n\ndef one: Nat := \"oops\"\n\ntest \"one\" := one == 1\n",
+    );
+    let changed_log: StoreLog = Default::default();
+    let changed = run_with_store(&source, || {
+        let store =
+            LayeredStore::new(Arc::new(LibraryBundle::default())).logging(changed_log.clone());
+        for (_, unit, key, entry) in &entries {
+            store.restore(unit, key, entry);
+        }
+        store
+    });
+    let fresh = run(&source, false, None);
+    assert_eq!(
+        changed.dump,
+        fresh.dump,
+        "a changed namespace replayed its old entry: {}",
+        first_difference(&fresh.dump, &changed.dump)
+    );
+    let log = changed_log.lock().unwrap();
+    assert!(
+        log.iter()
+            .any(|(unit, event)| unit.as_str() == "ns.A" && *event == Missing),
+        "A's old entry was not looked for: {log:?}"
+    );
+    assert!(
+        !log.iter()
+            .any(|(unit, event)| unit.as_str() == "ns.A" && *event == Found),
+        "A's old entry was replayed: {log:?}"
+    );
+    assert!(
+        log.iter()
+            .any(|(unit, event)| unit.as_str() == "ns.C" && *event == Found),
+        "C should still be replayed: {log:?}"
+    );
+
+    let _ = std::fs::remove_dir_all(&dir);
 }
 
 #[test]
