@@ -1019,7 +1019,9 @@ pub fn is_proof(g: &Ev, v: &Value) -> ProofMark {
 /// Whether values of type `ty` are proofs, read off `ty` without a
 /// checker: an equation, a data type's sort, a function type's codomain
 /// (under a variable at `fresh` and above), or a stuck type's head type
-/// applied to its arguments until it is a sort. `types` gives a context
+/// applied to its arguments until it is a sort. A call is read from its
+/// definition's declared type without unfolding it; when that doesn't
+/// decide, the call is unfolded as before. `types` gives a context
 /// variable's type, when known. [`ProofMark::Unknown`] for anything else
 /// (an unknown, a projection or cast in the type, a type's sort still to
 /// be solved): the elaborator marks its variables with this, and an
@@ -1032,6 +1034,15 @@ pub fn mark_of_type(
 ) -> Result<ProofMark> {
     let mut ty = ty.clone();
     for depth in 0..32 {
+        // Read a call's result sort off its definition's type, without
+        // forcing the call: forcing a type such as `cost < 5` would compute
+        // `cost`, which nothing here needs (SW-4864).
+        if let Value::Neutral(Head::Def(id), spine) | Value::Call(id, spine, _) = &ty
+            && let Ok(mark @ (ProofMark::Proof | ProofMark::NotProof)) =
+                mark_of_head(g, g.def(*id).ty_value.clone(), spine)
+        {
+            return Ok(mark);
+        }
         let (head_ty, spine) = match force(g, ty)? {
             Value::Eq(..) => return Ok(ProofMark::Proof),
             Value::Data(d, _) => return Ok(ProofMark::of_sort(g.data(d).sort)),
@@ -1049,22 +1060,28 @@ pub fn mark_of_type(
             }
             _ => return Ok(ProofMark::Unknown),
         };
-        let mut t = head_ty;
-        for elim in spine.iter() {
-            let Elim::App(arg, _) = elim else {
-                return Ok(ProofMark::Unknown);
-            };
-            t = match force(g, t)? {
-                Value::Pi(_, _, _, cod, _) => cod.apply(g, arg.clone())?,
-                _ => return Ok(ProofMark::Unknown),
-            };
-        }
-        return Ok(match force(g, t)? {
-            Value::Sort(s) => ProofMark::of_sort(s),
-            _ => ProofMark::Unknown,
-        });
+        return mark_of_head(g, head_ty, &spine);
     }
     Ok(ProofMark::Unknown)
+}
+
+/// The mark of a value of type `head_ty` applied to `spine` (the arguments of
+/// a call or a variable's type).
+fn mark_of_head(g: &Ev, head_ty: Value, spine: &Spine) -> Result<ProofMark> {
+    let mut t = head_ty;
+    for elim in spine.iter() {
+        let Elim::App(arg, _) = elim else {
+            return Ok(ProofMark::Unknown);
+        };
+        t = match force(g, t)? {
+            Value::Pi(_, _, _, cod, _) => cod.apply(g, arg.clone())?,
+            _ => return Ok(ProofMark::Unknown),
+        };
+    }
+    Ok(match force(g, t)? {
+        Value::Sort(s) => ProofMark::of_sort(s),
+        _ => ProofMark::Unknown,
+    })
 }
 
 /// Whether field `i` of the one constructor of `d` (a type with eta) is a
