@@ -36882,12 +36882,12 @@
     {
       "id": 4891,
       "title": "[Sonnet] Context refactor for the effects memo (docs/proposals/effects-prepass-cost.md, option B, step 1): make the elaborator's local-context fields private and route the ~70 direct changes in ~20 files through methods that maintain a context identity (new on every binding and narrowing, restored on going back to a saved point). Behaviour unchanged: results, messages and hashes identical",
-      "status": "doing",
+      "status": "review",
       "agent": "Sonnet",
       "where": "",
       "labels": [],
       "epic": "performance",
-      "body": "",
+      "body": "Progress: Ctx's env, types, names, written, scope, kinds, lets are now Frozen<T> (read through Deref, written only in check.rs); methods save_values/restore_values/narrow/set_values/set_type/set_written_scope/rename/set_shown_names*; identity in Ctx and Mark (plus an epoch so a reset past an un-undone narrowing gets a fresh identity). Tests pass (elab lib 197, hash_stability 14, examples 4).",
       "created": "2026-11-26",
       "updated": "2026-11-26",
       "commits": []

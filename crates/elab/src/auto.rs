@@ -176,8 +176,7 @@ impl Elaborator {
                     continue;
                 }
                 let mut cx = Ctx::from_parts(self, ob.env, ob.types, ob.names, ob.span);
-                cx.written = ob.written;
-                cx.scope = ob.scope;
+                cx.set_written_scope(ob.written, ob.scope);
                 cx.auto_call = ob.call.clone();
                 let placeholder = cx.eval(&ob.meta)?;
                 if !matches!(
@@ -260,8 +259,7 @@ impl Elaborator {
                 ob.names.clone(),
                 span,
             );
-            cx.written = ob.written.clone();
-            cx.scope = ob.scope.clone();
+            cx.set_written_scope(ob.written.clone(), ob.scope.clone());
             cx.auto_call = ob.call.clone();
             let placeholder = cx.eval(&meta)?;
             if !matches!(

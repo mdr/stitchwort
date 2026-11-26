@@ -254,14 +254,16 @@ mod tests {
     /// added here multiplies its cost across the whole recursion: an
     /// unboxed `Option<ProbePending>` once raised a benchmark's peak heap
     /// from 1.9 MB to 2.6 MB. A new field must be boxed, or this bound
-    /// raised with a reason. (The size is for a 64-bit target.)
+    /// raised with a reason. (The size is for a 64-bit target.) 216: the
+    /// context's `Mark` carries its identity and epoch (SW-4891), 16 bytes
+    /// that don't scale with anything.
     #[cfg(target_pointer_width = "64")]
     #[test]
     fn snapshot_size_is_bounded() {
         let size = std::mem::size_of::<Snapshot>();
         assert!(
-            size <= 200,
-            "Snapshot grew to {size} bytes, over the 200-byte bound: box the new field, or raise the bound with a reason"
+            size <= 216,
+            "Snapshot grew to {size} bytes, over the 216-byte bound: box the new field, or raise the bound with a reason"
         );
     }
 

@@ -1122,15 +1122,13 @@ pub(crate) fn refined_guard(
             )?
             .pop()
             .expect("one value in, one out");
-            let saved_env = std::mem::replace(&mut cx.env, env);
-            let saved_types = std::mem::replace(&mut cx.types, refined);
+            let saved_values = cx.narrow(env, refined);
             let saved_copies = std::mem::replace(&mut cx.guard_copies, copies.clone());
             let case_mark = cx.mark();
             let result = arm(cx, holds, &case_goal, equation);
             cx.reset(case_mark);
             cx.guard_copies = saved_copies;
-            cx.env = saved_env;
-            cx.types = saved_types;
+            cx.restore_values(saved_values);
             match result {
                 Ok(term) => cases[usize::from(holds)] = Some(term),
                 Err(e) if crate::undo::fatal(&e) || g.machine.budget.exhausted().is_some() => {
@@ -1235,8 +1233,7 @@ fn refined_in_place(
             )?
             .pop()
             .expect("one value in, one out");
-            let saved_env = std::mem::replace(&mut cx.env, env);
-            let saved_types = std::mem::replace(&mut cx.types, refined);
+            let saved_values = cx.narrow(env, refined);
             let case_mark = cx.mark();
             let result = (|| -> Result<Term> {
                 let equation = Term::Eq(
@@ -1251,8 +1248,7 @@ fn refined_in_place(
                 Ok(Term::let_(GUARD_EQUATION.into(), ty_term, Term::Refl, body))
             })();
             cx.reset(case_mark);
-            cx.env = saved_env;
-            cx.types = saved_types;
+            cx.restore_values(saved_values);
             match result {
                 Ok(term) => cases[ctor] = Some(term),
                 Err(e) if crate::undo::fatal(&e) || g.machine.budget.exhausted().is_some() => {
@@ -1650,7 +1646,8 @@ impl crate::queue::Check for WaitingMatch {
         let goal = cx.eval(&cx.quote_folded(&self.goal)?)?;
         for l in 0..base {
             let ty = cx.quote_folded(&cx.types[l])?;
-            cx.types[l] = cx.eval(&ty)?;
+            let value = cx.eval(&ty)?;
+            cx.set_type(l, value);
         }
         let mut exprs = self.exprs.clone();
         for s in &mut exprs {

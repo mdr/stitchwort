@@ -70,32 +70,71 @@ impl<'a> NoteSide<'a> {
     }
 }
 
+/// The part of a [`Ctx`]'s binding state that only `Ctx`'s methods change,
+/// so that each change keeps [`Ctx::identity`] right: read through
+/// `Deref`, never written outside this module.
+pub struct Frozen<T>(Vec<T>);
+
+impl<T> std::ops::Deref for Frozen<T> {
+    type Target = Vec<T>;
+    fn deref(&self) -> &Vec<T> {
+        &self.0
+    }
+}
+
+impl<'a, T> IntoIterator for &'a Frozen<T> {
+    type Item = &'a T;
+    type IntoIter = std::slice::Iter<'a, T>;
+    fn into_iter(self) -> Self::IntoIter {
+        self.0.iter()
+    }
+}
+
+/// The next identity [`Ctx::identity`] hands out. One counter for all
+/// contexts, so identities from different contexts (a saved one resumed
+/// later) never collide.
+static NEXT_IDENTITY: std::sync::atomic::AtomicU64 = std::sync::atomic::AtomicU64::new(1);
+
+fn fresh_identity() -> u64 {
+    NEXT_IDENTITY.fetch_add(1, std::sync::atomic::Ordering::Relaxed)
+}
+
 pub struct Ctx<'e> {
     pub e: &'e Elaborator,
+    /// Names the variables, types, scope and local definitions as they are
+    /// now: fresh on every new binding and every wholesale change of them,
+    /// and restored by [`Ctx::reset`] and by putting a saved narrowing back,
+    /// so equal identities mean equal contexts ([`Ctx::identity`]).
+    identity: u64,
+    /// The identity given by the last wholesale change of the values, types,
+    /// scope or written types (not by a push or a truncation): a
+    /// [`Ctx::reset`] can bring back its mark's identity only if this is
+    /// still what the mark saw.
+    epoch: u64,
     /// What each variable evaluates to (inside a case branch, the matched
     /// variable is the constructor value).
-    pub env: Vec<Value>,
-    pub types: Vec<Value>,
+    pub env: Frozen<Value>,
+    pub types: Frozen<Value>,
     /// Display names, for error messages.
-    pub names: Vec<Name>,
+    pub names: Frozen<Name>,
     /// Each variable's type as written, where known: a term in the context
     /// of the variables before it. Dot notation finds a namespace from it
     /// (docs/proposals/namespaces.md §4.8), since `types` may have unfolded
     /// a nickname like `Price = Nat`.
-    pub written: Vec<Option<crate::dot::Written>>,
+    pub written: Frozen<Option<crate::dot::Written>>,
     /// Names that can be referred to, and the level each refers to.
-    pub(crate) scope: Vec<(String, usize)>,
+    pub(crate) scope: Frozen<(String, usize)>,
     /// How each variable was bound: an implicit or `auto` parameter keeps
     /// its kind when a local definition captures it
     /// (docs/proposals/syntax-conveniences.md §2.1).
-    pub kinds: Vec<Icit>,
+    pub kinds: Frozen<Icit>,
     /// Local definitions in scope (`local.rs`), each shadowing the names
     /// bound before it and shadowed by those bound after.
     locals: Vec<LocalName>,
     /// For each variable bound by a transparent `let` ([`Ctx::define`]), its
     /// type and value as written in the core term, so a lifted helper can
     /// re-create the `let` (docs/proposals/let.md §A.4).
-    pub lets: Vec<Option<Rc<LetDef>>>,
+    pub lets: Frozen<Option<Rc<LetDef>>>,
     /// The type of the definition body being checked, as written, with the
     /// number of variables in scope where it makes sense. A failed `byComputing`
     /// shows the sides of an `=` as they were written, if this is the type.
@@ -245,6 +284,7 @@ pub(crate) struct Saved {
 
 /// What [`Saved`] keeps of the context, but for its span.
 struct SavedContext {
+    identity: u64,
     env: Vec<Value>,
     types: Vec<Value>,
     names: Vec<Name>,
@@ -261,20 +301,29 @@ struct SavedContext {
     cases: Option<Rc<crate::cases::Run>>,
 }
 
+impl Values {
+    /// The values the variables had.
+    pub(crate) fn env(&self) -> &[Value] {
+        &self.env
+    }
+}
+
 impl Saved {
     /// The context saved, again.
     pub(crate) fn ctx<'e>(&self, e: &'e Elaborator) -> Ctx<'e> {
         let c = &*self.context;
         Ctx {
             e,
-            env: c.env.clone(),
-            types: c.types.clone(),
-            names: c.names.clone(),
-            written: c.written.clone(),
-            scope: c.scope.clone(),
-            kinds: c.kinds.clone(),
+            identity: c.identity,
+            epoch: c.identity,
+            env: Frozen(c.env.clone()),
+            types: Frozen(c.types.clone()),
+            names: Frozen(c.names.clone()),
+            written: Frozen(c.written.clone()),
+            scope: Frozen(c.scope.clone()),
+            kinds: Frozen(c.kinds.clone()),
             locals: c.locals.clone(),
-            lets: c.lets.clone(),
+            lets: Frozen(c.lets.clone()),
             goal: c.goal.clone(),
             written_goal: None,
             order: c.order.clone(),
@@ -326,9 +375,9 @@ impl SavedContext {
             && cx.scrutinees.is_empty()
             && self.reify_display.is_none()
             && cx.reify_display.is_none()
-            && self.kinds == cx.kinds
-            && self.names == cx.names
-            && self.scope == cx.scope
+            && self.kinds == cx.kinds.0
+            && self.names == cx.names.0
+            && self.scope == cx.scope.0
             && self.order == cx.order
             && match (&self.goal, &cx.goal) {
                 (None, None) => true,
@@ -382,6 +431,18 @@ pub struct Mark {
     level: usize,
     scope: usize,
     locals: usize,
+    identity: u64,
+    epoch: u64,
+}
+
+/// The values and types of a [`Ctx`]'s variables as they were, with the
+/// context's identity then, to put back with [`Ctx::restore_values`] after
+/// a narrowing.
+pub(crate) struct Values {
+    env: Vec<Value>,
+    types: Vec<Value>,
+    identity: u64,
+    epoch: u64,
 }
 
 /// A message shows a few hundred characters, so a value that unfolds to
@@ -404,16 +465,19 @@ const TEXT_FALLBACK_LABEL: &str = "the type of the matched value wasn't known ye
 
 impl<'e> Ctx<'e> {
     pub fn new(e: &'e Elaborator, span: Span) -> Self {
+        let identity = fresh_identity();
         Ctx {
             e,
-            env: Vec::new(),
-            types: Vec::new(),
-            names: Vec::new(),
-            written: Vec::new(),
-            scope: Vec::new(),
-            kinds: Vec::new(),
+            identity,
+            epoch: identity,
+            env: Frozen(Vec::new()),
+            types: Frozen(Vec::new()),
+            names: Frozen(Vec::new()),
+            written: Frozen(Vec::new()),
+            scope: Frozen(Vec::new()),
+            kinds: Frozen(Vec::new()),
             locals: Vec::new(),
-            lets: Vec::new(),
+            lets: Frozen(Vec::new()),
             goal: None,
             written_goal: None,
             order: Vec::new(),
@@ -444,16 +508,19 @@ impl<'e> Ctx<'e> {
         let written = vec![None; env.len()];
         let kinds = vec![Icit::Explicit; env.len()];
         let lets = vec![None; env.len()];
+        let identity = fresh_identity();
         Ctx {
             e,
-            env,
-            types,
-            names,
-            written,
-            scope: Vec::new(),
-            kinds,
+            identity,
+            epoch: identity,
+            env: Frozen(env),
+            types: Frozen(types),
+            names: Frozen(names),
+            written: Frozen(written),
+            scope: Frozen(Vec::new()),
+            kinds: Frozen(kinds),
             locals: Vec::new(),
-            lets,
+            lets: Frozen(lets),
             goal: None,
             written_goal: None,
             order: Vec::new(),
@@ -485,14 +552,15 @@ impl<'e> Ctx<'e> {
         let context = match last {
             Some(last) if last.context.is(self) => last.context.clone(),
             _ => Rc::new(SavedContext {
-                env: self.env.clone(),
-                types: self.types.clone(),
-                names: self.names.clone(),
-                written: self.written.clone(),
-                scope: self.scope.clone(),
-                kinds: self.kinds.clone(),
+                identity: self.identity,
+                env: self.env.0.clone(),
+                types: self.types.0.clone(),
+                names: self.names.0.clone(),
+                written: self.written.0.clone(),
+                scope: self.scope.0.clone(),
+                kinds: self.kinds.0.clone(),
                 locals: self.locals.clone(),
-                lets: self.lets.clone(),
+                lets: self.lets.0.clone(),
                 goal: self.goal.clone(),
                 order: self.order.clone(),
                 tree_start: self.tree_start,
@@ -531,19 +599,118 @@ impl<'e> Ctx<'e> {
             level: self.level(),
             scope: self.scope.len(),
             locals: self.locals.len(),
+            identity: self.identity,
+            epoch: self.epoch,
         }
     }
 
     pub fn reset(&mut self, mark: Mark) {
-        self.env.truncate(mark.level);
-        self.types.truncate(mark.level);
-        self.names.truncate(mark.level);
-        self.written.truncate(mark.level);
-        self.kinds.truncate(mark.level);
-        self.lets.truncate(mark.level);
+        self.env.0.truncate(mark.level);
+        self.types.0.truncate(mark.level);
+        self.names.0.truncate(mark.level);
+        self.written.0.truncate(mark.level);
+        self.kinds.0.truncate(mark.level);
+        self.lets.0.truncate(mark.level);
         self.guard_facts.retain(|&l| l < mark.level);
-        self.scope.truncate(mark.scope);
+        self.scope.0.truncate(mark.scope);
         self.locals.truncate(mark.locals);
+        self.identity = if self.epoch == mark.epoch {
+            mark.identity
+        } else {
+            fresh_identity()
+        };
+    }
+
+    /// Names the variables, types, scope and local definitions as they are
+    /// now: two contexts, or one at two times, with the same identity have
+    /// the same ones. A new binding and every change of them gets a fresh
+    /// identity, and [`Ctx::reset`] and [`Ctx::restore_values`] bring back
+    /// the one they restore, so a pop followed by a different push is never
+    /// taken for the context before it. The display names ([`Ctx::names`]),
+    /// the bindings' kinds and the goal are not part of it.
+    #[allow(dead_code)] // Read by the effects pre-pass's memo (SW-4892).
+    pub(crate) fn identity(&self) -> u64 {
+        self.identity
+    }
+
+    /// The values and types of the variables, to put back with
+    /// [`Ctx::restore_values`].
+    pub(crate) fn save_values(&self) -> Values {
+        Values {
+            env: self.env.0.clone(),
+            types: self.types.0.clone(),
+            identity: self.identity,
+            epoch: self.epoch,
+        }
+    }
+
+    /// Puts back what [`Ctx::save_values`] or [`Ctx::narrow`] kept,
+    /// with the identity the context had then.
+    pub(crate) fn restore_values(&mut self, saved: Values) {
+        self.env.0 = saved.env;
+        self.types.0 = saved.types;
+        self.identity = saved.identity;
+        self.epoch = saved.epoch;
+    }
+
+    /// Replaces the variables' values and types (a case split's refinement
+    /// of them), under a fresh identity.
+    pub(crate) fn set_values(&mut self, env: Vec<Value>, types: Vec<Value>) {
+        self.env.0 = env;
+        self.types.0 = types;
+        self.change_wholesale();
+    }
+
+    /// [`Ctx::set_values`], returning what it replaced.
+    pub(crate) fn narrow(&mut self, env: Vec<Value>, types: Vec<Value>) -> Values {
+        let saved = Values {
+            env: std::mem::replace(&mut self.env.0, env),
+            types: std::mem::replace(&mut self.types.0, types),
+            identity: self.identity,
+            epoch: self.epoch,
+        };
+        self.change_wholesale();
+        saved
+    }
+
+    /// The type of the variable at `level`, read again after metavariables
+    /// were solved.
+    pub(crate) fn set_type(&mut self, level: usize, ty: Value) {
+        self.types.0[level] = ty;
+        self.change_wholesale();
+    }
+
+    /// Puts back the display names a caller took (`cx.names.clone()`),
+    /// after it renamed or hid some.
+    pub(crate) fn set_shown_names(&mut self, names: Vec<Name>) {
+        self.names.0 = names;
+    }
+
+    /// Shows the variable at `level` as `name`.
+    pub(crate) fn rename(&mut self, level: usize, name: Name) {
+        self.names.0[level] = name;
+    }
+
+    /// Puts back the first `n` display names from `names`.
+    pub(crate) fn set_shown_names_before(&mut self, n: usize, names: &[Name]) {
+        self.names.0[..n].clone_from_slice(&names[..n]);
+    }
+
+    /// Sets the types written and the names in scope to those a waiting
+    /// obligation kept, under a fresh identity.
+    pub(crate) fn set_written_scope(
+        &mut self,
+        written: Vec<Option<crate::dot::Written>>,
+        scope: Vec<(String, usize)>,
+    ) {
+        self.written.0 = written;
+        self.scope.0 = scope;
+        self.change_wholesale();
+    }
+
+    fn change_wholesale(&mut self) {
+        self.identity = fresh_identity();
+        self.epoch = self.identity;
     }
 
     /// Whether a variable of type `ty`, here, is a proof
@@ -575,7 +742,7 @@ impl<'e> Ctx<'e> {
 
     /// Binds a variable that can be referred to by `name`.
     pub fn bind(&mut self, name: &str, ty: Value) {
-        self.scope.push((name.to_string(), self.level()));
+        self.scope.0.push((name.to_string(), self.level()));
         self.bind_hidden(name.into(), ty);
     }
 
@@ -583,12 +750,13 @@ impl<'e> Ctx<'e> {
     pub fn bind_hidden(&mut self, name: Name, ty: Value) {
         self.forget_text_fixed_from(self.level());
         let mark = self.mark_of_type(&ty);
-        self.env.push(Value::var_marked(self.level(), mark));
-        self.types.push(ty);
-        self.names.push(name);
-        self.written.push(None);
-        self.kinds.push(Icit::Explicit);
-        self.lets.push(None);
+        self.env.0.push(Value::var_marked(self.level(), mark));
+        self.types.0.push(ty);
+        self.names.0.push(name);
+        self.written.0.push(None);
+        self.kinds.0.push(Icit::Explicit);
+        self.lets.0.push(None);
+        self.identity = fresh_identity();
     }
 
     /// Binds `name` (or, with `None`, a variable that can't be referred to,
@@ -628,14 +796,17 @@ impl<'e> Ctx<'e> {
         };
         self.forget_text_fixed_from(self.level());
         if let Some(name) = name {
-            self.scope.push((name.to_string(), self.level()));
+            self.scope.0.push((name.to_string(), self.level()));
         }
-        self.env.push(v);
-        self.types.push(ty);
-        self.names.push(shown);
-        self.written.push(None);
-        self.kinds.push(Icit::Explicit);
-        self.lets.push(Some(Rc::new(LetDef { ty: ty_term, value })));
+        self.env.0.push(v);
+        self.types.0.push(ty);
+        self.names.0.push(shown);
+        self.written.0.push(None);
+        self.kinds.0.push(Icit::Explicit);
+        self.lets
+            .0
+            .push(Some(Rc::new(LetDef { ty: ty_term, value })));
+        self.identity = fresh_identity();
         Ok(())
     }
 
@@ -669,8 +840,9 @@ impl<'e> Ctx<'e> {
 
     /// Records that the latest variable is an implicit or `auto` parameter.
     pub(crate) fn set_kind(&mut self, icit: Icit) {
-        if let Some(last) = self.kinds.last_mut() {
+        if let Some(last) = self.kinds.0.last_mut() {
             *last = icit;
+            self.identity = fresh_identity();
         }
     }
 
@@ -684,6 +856,7 @@ impl<'e> Ctx<'e> {
             base: self.level(),
             ty,
         });
+        self.identity = fresh_identity();
     }
 
     /// The local definition `name` refers to, if it does: one bound after
@@ -779,25 +952,29 @@ impl<'e> Ctx<'e> {
     /// Records the type the latest variable was declared with, as written: a
     /// term in the context of the variables before it.
     pub(crate) fn set_written(&mut self, ty: crate::dot::Written) {
-        if let Some(last) = self.written.last_mut() {
+        if let Some(last) = self.written.0.last_mut() {
             *last = Some(ty);
+            self.identity = fresh_identity();
         }
     }
 
     /// Makes `name` refer to an existing variable.
     pub fn alias(&mut self, name: &str, level: usize) {
-        self.scope.push((name.to_string(), level));
+        self.scope.0.push((name.to_string(), level));
+        self.identity = fresh_identity();
     }
 
     /// The names made since `mark` ([`Ctx::alias`], [`Ctx::bind`]) taken out
     /// of scope, for [`Ctx::restore_names`] to put back.
     pub(crate) fn suspend_names(&mut self, from: usize, to: usize) -> Vec<(String, usize)> {
-        self.scope.drain(from..to).collect()
+        self.identity = fresh_identity();
+        self.scope.0.drain(from..to).collect()
     }
 
     /// Puts back names [`Ctx::suspend_names`] took out, at `at`.
     pub(crate) fn restore_names(&mut self, at: usize, names: Vec<(String, usize)>) {
-        self.scope.splice(at..at, names);
+        self.scope.0.splice(at..at, names);
+        self.identity = fresh_identity();
     }
 
     /// Where the next name goes, for [`Ctx::suspend_names`].
@@ -815,8 +992,9 @@ impl<'e> Ctx<'e> {
             .map(|(n, _)| n.clone())
             .collect();
         for n in names {
-            self.scope.push((n, new));
+            self.scope.0.push((n, new));
         }
+        self.identity = fresh_identity();
     }
 
     /// The variable `name` refers to, unless it's a local definition bound
@@ -6138,11 +6316,11 @@ pub(crate) fn implicit_arg_for_call(
             .obligations
             .borrow_mut()
             .push(crate::auto::Obligation {
-                env: cx.env.clone(),
-                types: cx.types.clone(),
-                names: cx.names.clone(),
-                written: cx.written.clone(),
-                scope: cx.scope.clone(),
+                env: cx.env.0.clone(),
+                types: cx.types.0.clone(),
+                names: cx.names.0.clone(),
+                written: cx.written.0.clone(),
+                scope: cx.scope.0.clone(),
                 goal: ty.clone(),
                 meta: meta.clone(),
                 span: cx.span,
@@ -11535,6 +11713,50 @@ mod tests {
             size <= 208,
             "Held grew to {size} bytes, over the 208-byte bound: box the new field, or raise the bound with a reason"
         );
+    }
+
+    /// The context's identity (what a memo of answers about it is keyed
+    /// by): every binding and every narrowing gets a new one, and going
+    /// back to a saved point brings back the saved one, so a pop followed by
+    /// a different push is never taken for the context before it.
+    #[test]
+    fn a_context_identity_is_new_for_each_change_and_restored_by_going_back() {
+        let e = Elaborator::new();
+        let type0 = || Value::Sort(Sort::Type(0));
+        let mut cx = Ctx::new(&e, span());
+        let empty = cx.identity();
+        let mark = cx.mark();
+        cx.bind("a", type0());
+        let with_a = cx.identity();
+        assert_ne!(empty, with_a);
+        cx.reset(mark);
+        assert_eq!(cx.identity(), empty);
+        // The same length of context, bound differently: not the same.
+        cx.bind("b", type0());
+        assert_ne!(cx.identity(), with_a);
+        assert_ne!(cx.identity(), empty);
+        cx.bind("c", type0());
+        let with_bc = cx.identity();
+        // A narrowing is a new context; putting it back restores the old.
+        let saved = cx.narrow(cx.env.clone(), cx.types.clone());
+        let narrowed = cx.identity();
+        assert_ne!(narrowed, with_bc);
+        let inside = cx.mark();
+        cx.bind("d", type0());
+        cx.reset(inside);
+        assert_eq!(cx.identity(), narrowed);
+        cx.restore_values(saved);
+        assert_eq!(cx.identity(), with_bc);
+        // A reset past a narrowing that wasn't undone can't bring back the
+        // identity from before it.
+        let before = cx.mark();
+        cx.set_values(cx.env.clone(), cx.types.clone());
+        let narrowed = cx.identity();
+        cx.reset(before);
+        assert_ne!(cx.identity(), with_bc);
+        assert_ne!(cx.identity(), narrowed);
+        // Equal contexts rebuilt from a saved one keep its identity.
+        assert_eq!(cx.save().ctx(&e).identity(), cx.identity());
     }
 
     /// A case split can refine an earlier variable's type to mention a

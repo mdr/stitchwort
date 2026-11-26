@@ -6467,7 +6467,7 @@ fn hide_unnamed_variables(cx: &mut Ctx) {
             && &**name != "_"
             && cx.name_of_level(level).is_none()
         {
-            cx.names[level] = format!("{name}✝").into();
+            cx.rename(level, format!("{name}✝").into());
         }
     }
 }
@@ -6547,7 +6547,7 @@ fn check_leaf_in(
         Ok(lets) => lets,
         Err(e) => {
             cx.reset(mark);
-            cx.names = saved_names;
+            cx.set_shown_names(saved_names);
             cx.order = saved_order;
             return Err(e);
         }
@@ -6631,7 +6631,7 @@ fn check_leaf_in(
     cx.e.goals.borrow_mut().alternative_binders = saved_binders;
     arm_display::leave_arm(cx, shown_arm);
     cx.reset(mark);
-    cx.names = saved_names;
+    cx.set_shown_names(saved_names);
     cx.order = saved_order;
     if let Ok(body) = &result
         && text_lets.is_empty()
@@ -7193,7 +7193,7 @@ fn check_guard<'a>(
         Ok(lets) => lets,
         Err(e) => {
             cx.reset(mark);
-            cx.names = saved_names;
+            cx.set_shown_names(saved_names);
             cx.order = saved_order;
             return Err(e);
         }
@@ -7249,7 +7249,7 @@ fn check_guard<'a>(
     let mut rest = check::CheckedBranch {
         run: |cx: &mut Ctx, expected: &Value| {
             let names: Vec<_> = cx.names[..lets_from].to_vec();
-            cx.names[..lets_from].clone_from_slice(&saved_names[..lets_from]);
+            cx.set_shown_names_before(lets_from, &saved_names);
             let hidden = cx.suspend_names(aliased.start, aliased.end);
             let moved = refined(cx, otherwise);
             // What the refinement named (copies, by the names that referred
@@ -7273,7 +7273,7 @@ fn check_guard<'a>(
                 cx.restore_names(aliased.start, made);
             }
             cx.restore_names(aliased.start, hidden);
-            cx.names[..lets_from].clone_from_slice(&names);
+            cx.set_shown_names_before(lets_from, &names);
             result
         },
         hides_proof: true,
@@ -7305,7 +7305,7 @@ fn check_guard<'a>(
             .with_note("run it before the `match` with `let`, or test it inside the arm")
         });
     cx.reset(mark);
-    cx.names = saved_names;
+    cx.set_shown_names(saved_names);
     cx.order = saved_order;
     result.map(|body| around_lets(text_lets, body))
 }
@@ -7641,8 +7641,7 @@ fn check_tree(cx: &mut Ctx, tree: &Tree, goal: &Value) -> Result<Term> {
                 )?
                 .pop()
                 .expect("one value in, one out");
-                let saved_env = std::mem::replace(&mut cx.env, env);
-                let saved_types = std::mem::replace(&mut cx.types, refined);
+                let saved_values = cx.narrow(env, refined);
                 let mut field_env = params.clone();
                 for ((_, field_ty), (name, field)) in
                     ctor.fields.iter().zip(names.iter().zip(&fields))
@@ -7677,8 +7676,7 @@ fn check_tree(cx: &mut Ctx, tree: &Tree, goal: &Value) -> Result<Term> {
                 drop(saved_split);
                 cx.e.decl.leaf_log.borrow_mut().path.pop();
                 cx.reset(mark);
-                cx.env = saved_env;
-                cx.types = saved_types;
+                cx.restore_values(saved_values);
                 match result {
                     Ok(body) => out.push(Branch {
                         names: names.clone(),
@@ -7754,16 +7752,14 @@ fn check_tree(cx: &mut Ctx, tree: &Tree, goal: &Value) -> Result<Term> {
                 )?
                 .pop()
                 .expect("one value in, one out");
-                let saved_env = std::mem::replace(&mut cx.env, env);
-                let saved_types = std::mem::replace(&mut cx.types, refined);
+                let saved_values = cx.narrow(env, refined);
                 cx.e.decl.leaf_log.borrow_mut().path.push(arm_index as u32);
                 let saved_split =
                     arm_display::enter_split(cx, &split_start, *x, &value, cx.level());
                 let result = check_tree(cx, subtree, &arm_goal);
                 drop(saved_split);
                 cx.e.decl.leaf_log.borrow_mut().path.pop();
-                cx.env = saved_env;
-                cx.types = saved_types;
+                cx.restore_values(saved_values);
                 match result {
                     Ok(body) => out.push(NumArm {
                         value: Rc::new(key.clone()),
@@ -7811,14 +7807,12 @@ fn check_tree(cx: &mut Ctx, tree: &Tree, goal: &Value) -> Result<Term> {
                     )?
                     .pop()
                     .expect("one value in, one out");
-                    let saved_env = std::mem::replace(&mut cx.env, env);
-                    let saved_types = std::mem::replace(&mut cx.types, refined);
+                    let saved_values = cx.narrow(env, refined);
                     let saved_split =
                         arm_display::enter_split(cx, &split_start, *x, &value, cx.level());
                     let result = check_tree(cx, default, &default_goal);
                     drop(saved_split);
-                    cx.env = saved_env;
-                    cx.types = saved_types;
+                    cx.restore_values(saved_values);
                     result
                 }
                 _ => check_tree(cx, default, goal),

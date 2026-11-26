@@ -660,17 +660,15 @@ pub(crate) fn check_case(
             .map(|(name, (field, _))| name.clone().unwrap_or_else(|| field.clone()))
             .collect();
         let mark = cx.mark();
-        let saved_env = cx.env.clone();
-        let saved_types = cx.types.clone();
+        let saved = cx.save_values();
         cx.e.decl.leaf_log.borrow_mut().path.push(c as u32);
-        let split = (&split_start, &saved_env[..]);
+        let split = (&split_start, saved.env());
         let result = case_branch(
             cx, x, d, c, args, &names, subtree, &goal, span, &scrutinee, split,
         );
         cx.e.decl.leaf_log.borrow_mut().path.pop();
         cx.reset(mark);
-        cx.env = saved_env;
-        cx.types = saved_types;
+        cx.restore_values(saved);
         match result {
             Ok(body) => out.push(Branch {
                 names: names.clone(),
@@ -933,8 +931,7 @@ fn enter(
     let mut types: Vec<Value> = done.by_ref().take(base).collect();
     types.extend_from_slice(&scope.types[base..]);
     let goal = done.next().expect("the goal");
-    cx.env = env;
-    cx.types = types;
+    cx.set_values(env, types);
     Ok(Entered::Solved(goal))
 }
 
@@ -959,8 +956,7 @@ pub(crate) fn empty_case(
     for (c, ctor) in data.ctors().iter().enumerate() {
         let names: Vec<Name> = ctor.fields.iter().map(|(x, _)| x.clone()).collect();
         let mark = cx.mark();
-        let saved_env = cx.env.clone();
-        let saved_types = cx.types.clone();
+        let saved = cx.save_values();
         let entered = enter(cx, level, d, c, &args, &names, Value::Sort(Sort::Prop));
         // For `()`, a stuck constructor is an error: it may be possible.
         let stuck = match (&entered, stuck_at) {
@@ -970,8 +966,7 @@ pub(crate) fn empty_case(
             _ => None,
         };
         cx.reset(mark);
-        cx.env = saved_env;
-        cx.types = saved_types;
+        cx.restore_values(saved);
         if let Some(stuck) = stuck {
             return Err(stuck);
         }
