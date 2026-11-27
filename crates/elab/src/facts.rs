@@ -1900,12 +1900,24 @@ pub(crate) fn is_record_of_proofs(cx: &Ctx, d: DataId) -> bool {
 
 /// Whether a value of type `ty` is a fact: a proof, or a function giving
 /// one.
+///
+/// A function's type is judged by its conclusion, under its binders given
+/// variables past the context. Most conclusions are judged by their shape;
+/// one only the kernel can judge (`Small x` for a `Small` stuck on `x`)
+/// can't be read back in the context while it mentions those variables, so
+/// then the whole type is, whose sort is its conclusion's (`Prop` is
+/// impredicative, docs/core.md).
 pub(crate) fn is_fact(cx: &Ctx, ty: &Value) -> Result<bool> {
     let g = cx.g();
-    Ok(match force(&g, ty.clone())? {
+    let mut conclusion = force(&g, ty.clone())?;
+    let mut k = cx.level();
+    while let Value::Pi(_, _, _, cod, _) = conclusion {
+        conclusion = force(&g, cod.apply(&g, Value::var(k))?)?;
+        k += 1;
+    }
+    Ok(match conclusion {
         Value::Eq(..) => true,
         Value::Data(d, _) => g.data(d).sort() == Sort::Prop,
-        Value::Pi(_, _, _, cod, _) => is_fact(cx, &cod.apply(&g, Value::var(cx.level() + 64))?)?,
         Value::Sort(_) | Value::Ctor(..) | Value::Nat(_) | Value::Lam(..) => false,
         Value::Neutral(Head::Var(l, _, _), spine) if spine.is_empty() => {
             matches!(
@@ -1916,11 +1928,19 @@ pub(crate) fn is_fact(cx: &Ctx, ty: &Value) -> Result<bool> {
                 Value::Sort(Sort::Prop)
             )
         }
-        Value::Neutral(Head::Var(..), _) => {
+        applied @ Value::Neutral(Head::Var(..), _) => {
             // `g x` for `g: Nat → Prop`.
-            is_prop_family_application(cx, ty)?
+            is_prop_family_application(cx, &applied)?
         }
-        other => crate::cases::is_proposition(cx, &other)?,
+        other => {
+            let binders = k - cx.level();
+            let under = crate::check::quote_folded(&g, k, &other)?;
+            if (0..binders).any(|i| under.mentions(i)) {
+                crate::cases::is_proposition(cx, ty)?
+            } else {
+                crate::cases::is_proposition(cx, &other)?
+            }
+        }
     })
 }
 
