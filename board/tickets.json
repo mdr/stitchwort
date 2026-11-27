@@ -21831,7 +21831,7 @@
     {
       "id": 4953,
       "title": "search cache stage 1 (docs/proposals/search-cache.md): read the project through the scan cache in search, audit and load_main instead of parsing every file",
-      "status": "doing",
+      "status": "review",
       "agent": "",
       "where": "",
       "labels": [
