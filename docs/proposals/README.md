@@ -290,6 +290,7 @@ status line now says the wrong thing; the details are in
 | [formatter-properties.md](formatter-properties.md) | Formatter properties: which are worth proving | proposed: D3662 | SW-3626 |
 | [formatter-style.md](formatter-style.md) | The formatter's style sheet | built: `crates/fmt/src/printer/` | SW-3194 |
 | [goal-at-any-point.md](goal-at-any-point.md) | The goal at any point of a proof | proposed: D3496 | SW-2715 |
+| [editor-test-shortcuts.md](editor-test-shortcuts.md) | Running tests from the keyboard in VS Code: rerun last, run a project, run on save | proposed: three decisions | SW-4939 |
 | [goals-panel.md](goals-panel.md) | The Goals panel: what a goal shows, compared with other provers | proposed: D3497, D3499 | SW-2921 |
 | [helpful-errors.md](helpful-errors.md) | Helpful compiler errors | proposed: D3642 | SW-3539 |
 | [proving-with-stitchwort-outline.md](proving-with-stitchwort-outline.md) | *Proving with Stitchwort*, an outline | proposed: D3520 | SW-2891 |
