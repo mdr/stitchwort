@@ -28,7 +28,8 @@ use stitchwort_core::ProofMark;
 use stitchwort_core::value::{Elim, Head, Value, eval, force};
 use stitchwort_core::{DataId, DefId, Ev, Icit, Limits, Term};
 use stitchwort_syntax::ast::Expr;
-use stitchwort_syntax::{Diagnostic, Span};
+use stitchwort_syntax::stack::StackLimit;
+use stitchwort_syntax::{DEFAULT_STACK, Diagnostic, Span};
 
 use crate::Elaborator;
 use crate::check::{Ctx, infer};
@@ -1125,23 +1126,28 @@ fn abilities_note(expr: &Expr, d: Diagnostic) -> Diagnostic {
         return d;
     };
     // Through the forms a type is written with.
-    fn hole_applied(e: &Expr, at: Span) -> bool {
+    fn hole_applied(e: &Expr, at: Span, stack: StackLimit) -> bool {
+        if stack.exceeded() {
+            return false;
+        }
         match e {
             Expr::App(f, a) => {
                 (matches!(**f, Expr::Hole(_)) && e.span() == at)
-                    || hole_applied(f, at)
-                    || hole_applied(a, at)
+                    || hole_applied(f, at, stack)
+                    || hole_applied(a, at, stack)
             }
             Expr::Arrow(a, b)
             | Expr::Tuple(a, b, _)
             | Expr::Binary(_, a, b)
-            | Expr::Ann(a, b, _) => hole_applied(a, at) || hole_applied(b, at),
-            Expr::Pi { dom, cod, .. } => hole_applied(dom, at) || hole_applied(cod, at),
-            Expr::Effect(_, t) => hole_applied(t, at),
+            | Expr::Ann(a, b, _) => hole_applied(a, at, stack) || hole_applied(b, at, stack),
+            Expr::Pi { dom, cod, .. } => {
+                hole_applied(dom, at, stack) || hole_applied(cod, at, stack)
+            }
+            Expr::Effect(_, t) => hole_applied(t, at, stack),
             _ => false,
         }
     }
-    if !hole_applied(expr, at) {
+    if !hole_applied(expr, at, StackLimit::from_here(DEFAULT_STACK / 2)) {
         return d;
     }
     d.with_note(

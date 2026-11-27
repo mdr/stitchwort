@@ -22,7 +22,8 @@ use stitchwort_elab::search::{
     Candidate, Found, Hit, Item, Kind, Mode, Opts, Pattern, SearchTier, Stats, Via,
 };
 use stitchwort_syntax::ast::{BinOp, Expr};
-use stitchwort_syntax::{Diagnostic, FileId, SourceMap, Span};
+use stitchwort_syntax::stack::StackLimit;
+use stitchwort_syntax::{DEFAULT_STACK, Diagnostic, FileId, SourceMap, Span};
 
 use crate::driver::Session;
 
@@ -532,18 +533,25 @@ fn is_zero(n: &usize) -> bool {
     *n == 0
 }
 
-/// Whether a pattern writes a row anywhere (`{Fail} Nat`).
+/// Whether a pattern writes a row anywhere (`{Fail} Nat`), or is nested past
+/// the stack (which is then searched as written).
 fn has_row(e: &Expr) -> bool {
-    match e {
-        Expr::Effect(..) => true,
-        Expr::App(a, b)
-        | Expr::Arrow(a, b)
-        | Expr::Tuple(a, b, _)
-        | Expr::Binary(_, a, b)
-        | Expr::Ann(a, b, _) => has_row(a) || has_row(b),
-        Expr::Pi { dom, cod, .. } => has_row(dom) || has_row(cod),
-        _ => false,
+    fn go(e: &Expr, stack: StackLimit) -> bool {
+        if stack.exceeded() {
+            return true;
+        }
+        match e {
+            Expr::Effect(..) => true,
+            Expr::App(a, b)
+            | Expr::Arrow(a, b)
+            | Expr::Tuple(a, b, _)
+            | Expr::Binary(_, a, b)
+            | Expr::Ann(a, b, _) => go(a, stack) || go(b, stack),
+            Expr::Pi { dom, cod, .. } => go(dom, stack) || go(cod, stack),
+            _ => false,
+        }
     }
+    go(e, StackLimit::from_here(DEFAULT_STACK / 2))
 }
 
 /// A function pattern with `{_}` on the result of each arrow chain, its
@@ -551,9 +559,15 @@ fn has_row(e: &Expr) -> bool {
 /// ?b) → List ?a → {_} List ?b`); `None` for a pattern that isn't a
 /// function type.
 fn open_results(e: &Expr) -> Option<Expr> {
-    fn result(e: &Expr) -> Expr {
+    // Past the stack the rest of the pattern is left as written.
+    fn result(e: &Expr, stack: StackLimit) -> Expr {
+        if stack.exceeded() {
+            return e.clone();
+        }
         match e {
-            Expr::Arrow(a, b) => Expr::Arrow(Box::new(inside(a)), Box::new(result(b))),
+            Expr::Arrow(a, b) => {
+                Expr::Arrow(Box::new(inside(a, stack)), Box::new(result(b, stack)))
+            }
             Expr::Pi {
                 name,
                 implicit,
@@ -565,8 +579,8 @@ fn open_results(e: &Expr) -> Option<Expr> {
                 name: name.clone(),
                 implicit: *implicit,
                 auto: *auto,
-                dom: Box::new(inside(dom)),
-                cod: Box::new(result(cod)),
+                dom: Box::new(inside(dom, stack)),
+                cod: Box::new(result(cod, stack)),
                 span: *span,
             },
             other => {
@@ -582,13 +596,14 @@ fn open_results(e: &Expr) -> Option<Expr> {
             }
         }
     }
-    fn inside(e: &Expr) -> Expr {
+    fn inside(e: &Expr, stack: StackLimit) -> Expr {
         match e {
-            Expr::Arrow(..) | Expr::Pi { .. } => result(e),
+            Expr::Arrow(..) | Expr::Pi { .. } => result(e, stack),
             other => other.clone(),
         }
     }
-    matches!(e, Expr::Arrow(..) | Expr::Pi { .. }).then(|| result(e))
+    let stack = StackLimit::from_here(DEFAULT_STACK / 2);
+    matches!(e, Expr::Arrow(..) | Expr::Pi { .. }).then(|| result(e, stack))
 }
 
 #[derive(Serialize, Debug, Default)]
