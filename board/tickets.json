@@ -7285,17 +7285,22 @@
     {
       "id": 2163,
       "title": "[Sonnet] Cold std stage 4: ship a prebuilt std cache with installed binaries, built by the flake, trusted as the playground's std.cache is",
-      "status": "review",
+      "status": "done",
       "agent": "",
       "where": "",
       "labels": [
         "nix"
       ],
       "epic": "dev-loop-speed",
-      "body": "From docs/proposals/cold-std-check.md. Waits on D3120 (Matt). 90 min.\n\nD3120 — Matt, 7 Nov 2026: \"I have no issues shipping a pre-built cache to speed things up. That seems totally reasonable. I mean, if you're trusting the binary, you might as well trust the cache, right?\"\n\nAudit note (22 Nov): 22 Nov 2026 audit: Still true: D3120 (Matt) says yes to a shipped cache; nothing built.\n\nLane (Sonnet): built for the CLI's mode. flake installRuntime runs 'stitchwort dev std-cache' -> share/stitchwort/std.cache (15 MB, 3.3 MB gzipped; 107 entries); CheckCache reads it (resealed with the folder's salt, elab::cache::reseal) when its folder has no std entry; stamped with this build's fingerprint, so another build's file is not read. Cold search --in Std in an empty folder: 37 s -> 1.7 s. Editor modes (+nav+ty, +nav) not in the file yet: follow-up. nix build .#stitchwort-bin 11 min from cold deps.",
+      "body": "From docs/proposals/cold-std-check.md. Waits on D3120 (Matt). 90 min.\n\nD3120 — Matt, 7 Nov 2026: \"I have no issues shipping a pre-built cache to speed things up. That seems totally reasonable. I mean, if you're trusting the binary, you might as well trust the cache, right?\"\n\nAudit note (22 Nov): 22 Nov 2026 audit: Still true: D3120 (Matt) says yes to a shipped cache; nothing built.\n\nLane (Sonnet): built for the CLI's mode. flake installRuntime runs 'stitchwort dev std-cache' -> share/stitchwort/std.cache (15 MB, 3.3 MB gzipped; 107 entries); CheckCache reads it (resealed with the folder's salt, elab::cache::reseal) when its folder has no std entry; stamped with this build's fingerprint, so another build's file is not read. Cold search --in Std in an empty folder: 37 s -> 1.7 s. Editor modes (+nav+ty, +nav) not in the file yet: follow-up. nix build .#stitchwort-bin 11 min from cold deps.\nDone (Sonnet, Fable-reviewed: fine after the symlink fix): stitchwort dev std-cache OUT writes a LibraryBundle (fails unless every entry replays); flake installs share/stitchwort/std.cache (15 MB, 3.3 MB gz, 107 entries); CheckCache reads it for std.* units the folder lacks, beside the canonical executable, only for this compiler string; cache::reseal (doc hidden). Fable fixes: canonical exe path + symlink test, recheck test, docs. Cold, empty folder: search --in Std 37.1 s -> 1.74 s; check of a one-line file 0.88 -> 0.37 s. nix build from cold deps 11 min 20 s (std-cache step ~28 s). Editor modes not in the bundle: SW-4960. On main: 6 installed/bundle/digest tests pass, wasm builds. Model result: sonnet, needed fixes (Fable: symlinked exe path), 22+4 min (est. 45).\n",
       "created": "2026-11-07",
       "updated": "2026-11-27",
-      "commits": []
+      "commits": [
+        "9d5a15ae4",
+        "e6806a0a5",
+        "4814f30ec",
+        "31b3ed5ab"
+      ]
     },
     {
       "id": 2165,
