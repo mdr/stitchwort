@@ -1,5 +1,5 @@
 {
-  "next": 4969,
+  "next": 4970,
   "tickets": [
     {
       "id": 47,
@@ -22085,6 +22085,21 @@
       "labels": [],
       "epic": "docs-tutorials",
       "body": "[DeepSeek] From SW-4962 (27 Nov): a lane guessed And.intro, Exists.intro, Eq.symm, .first.",
+      "created": "2026-11-27",
+      "updated": "2026-11-27",
+      "commits": []
+    },
+    {
+      "id": 4969,
+      "title": "search: a pattern of 10,000 chained arrows ran past 100 s (killed); check whether a deep chain is slow rather than failing cleanly",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [
+        "perf"
+      ],
+      "epic": "proof-search",
+      "body": "[Sonnet] From SW-4964 (27 Nov); 10,000 nested parentheses around ?a fail cleanly (exit 2). Reproduce with a timeout first.",
       "created": "2026-11-27",
       "updated": "2026-11-27",
       "commits": []
