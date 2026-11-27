@@ -1,5 +1,5 @@
 {
-  "next": 4935,
+  "next": 4936,
   "tickets": [
     {
       "id": 47,
@@ -21540,6 +21540,21 @@
       "labels": [],
       "epic": "aoc-2020",
       "body": "[DeepSeek] Found by Matt's `stitchwort search '() → {Parse Char} Int'` (27 Nov): Aoc.Year2020.Day08.argument (Day08.sw:57) and Std.Parse.int (std/Parse/Chars.sw:59) are both `() → {Parse Char} Int`, both a sign and a whole number. Check they accept the same text, replace argument with Parse.int, keep the day's proofs and tests passing (check Aoc.Year2020.Day08 only).\n",
+      "created": "2026-11-27",
+      "updated": "2026-11-27",
+      "commits": []
+    },
+    {
+      "id": 4935,
+      "title": "stitchwort search takes about 1.7 s warm and 24 s cold for a std-only query (check of a one-line file: 0.34 s): profile and speed it up (indexes, caches)",
+      "status": "doing",
+      "agent": "",
+      "where": "",
+      "labels": [
+        "perf"
+      ],
+      "epic": "proof-search",
+      "body": "[Opus] Matt, 27 Nov 2026: \"searching is relatively slow. Is there any way we can optimize searching? Use some indexes, caches, that kind of thing?\" His run: `stitchwort search --in Std '() → {Parse Char} Int'`, 2.7 s.\n\nMeasured by the orchestrator on Speedwell (release CLI at main, one run each): the first search after today's merges took 23.9 s (cold: presumably std's check cache rebuilt); warm, the same search 1.7 s and `search --in Std 'Nat → Nat → Nat'` 1.8 s, against 0.34 s for `check` of a one-line file. So about 1.4 s a warm search is search's own work, and a cold one far more.\n\nProfile first (warm and cold, std-only and in a project such as aoc/), change only a measured hotspot, measure again. Related backlog: SW-1491 (search_at_text loads all of std eagerly for every search), SW-2161, SW-2163 (prebuilt std cache).\n",
       "created": "2026-11-27",
       "updated": "2026-11-27",
       "commits": []
