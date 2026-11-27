@@ -21340,7 +21340,7 @@
     {
       "id": 4922,
       "title": "Self-hosted formatter prints unparseable text for an own-line comment between an expression let's := and its value (exit 0): match the Rust formatter's SW-4917 layout or refuse the input",
-      "status": "backlog",
+      "status": "doing",
       "agent": "",
       "where": "",
       "labels": [
