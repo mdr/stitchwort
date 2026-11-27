@@ -1,5 +1,5 @@
 {
-  "next": 4970,
+  "next": 4971,
   "tickets": [
     {
       "id": 47,
@@ -21892,12 +21892,12 @@
     {
       "id": 4955,
       "title": "search cache stage 2r: Fable review of stage 2's trust argument and cache key",
-      "status": "backlog",
+      "status": "done",
       "agent": "",
       "where": "",
       "labels": [],
       "epic": "proof-search",
-      "body": "[Fable, paper] After SW-4954. Est. 20 min.",
+      "body": "[Fable, paper] After SW-4954. Est. 20 min.\nDone (Fable, 27 Nov): SW-4954 sound. Findings: 1 stores that drop eqs. units still encode them (LSP/playground regression), 2 never-replayable segments rewritten each run, 3 equations_lookup guard comment, 4 hand-copied pre-checks may drift, 5 replay does not refuse non-equation content, 6 cached skips can freeze a stack-headroom decision (no false theorem), 7 proof-free replay (SW-4970). 1, 2, 3, 5 (and 4 if small) sent back to the SW-4954 lane. Unchecked: hermetic generation (assumed, as D1660), encode_pass internals, LSP rewinds.\n",
       "created": "2026-11-27",
       "updated": "2026-11-27",
       "commits": []
@@ -22108,6 +22108,19 @@
       ],
       "epic": "proof-search",
       "body": "[Sonnet] From SW-4964 (27 Nov); 10,000 nested parentheses around ?a fail cleanly (exit 2). Reproduce with a timeout first.",
+      "created": "2026-11-27",
+      "updated": "2026-11-27",
+      "commits": []
+    },
+    {
+      "id": 4970,
+      "title": "search sessions could admit cached equations as stated, without decoding proofs (as library theorems are): a further trust step, Matt's call",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "epic": "proof-search",
+      "body": "[Opus, design] From SW-4955 finding 7 (27 Nov). Not scheduled: would need a D question with the risk and measured saving.",
       "created": "2026-11-27",
       "updated": "2026-11-27",
       "commits": []
