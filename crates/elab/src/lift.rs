@@ -36,7 +36,7 @@ use crate::kernel;
 use stitchwort_core::collections::{HashMap, HashSet};
 use stitchwort_core::globals::{State, UpdateShown};
 use stitchwort_core::term::{Branch, NumArm};
-use stitchwort_core::value::{Head, eval, force};
+use stitchwort_core::value::{ELIDED, Head, eval, force};
 use stitchwort_core::{DefId, Ev, Icit, Name, Sort, Term, Value};
 use stitchwort_syntax::{Diagnostic, Span};
 
@@ -255,6 +255,15 @@ pub(crate) enum Failure {
     Refl,
 }
 
+impl Failure {
+    fn error(self, cx: &Ctx, found: &Value, expected: &Value) -> Diagnostic {
+        match self {
+            Failure::Mismatch => cx.mismatch(expected, found),
+            Failure::Refl => crate::check::refl_error(cx, found, expected),
+        }
+    }
+}
+
 /// After `found` failed to unify with `expected`: whether they unify when
 /// the drafts' frozen metavariables are taken as equal to what they meet.
 /// If so, what that solved stays solved, and the comparison is kept, to be
@@ -314,12 +323,51 @@ impl Elaborator {
         for item in awaiting {
             let mut cx = Ctx::from_parts(self, item.env, item.types, item.names, item.span);
             if !crate::undo::unify(&mut cx, &item.found, &item.expected)? {
-                return Err(match item.failure {
-                    Failure::Mismatch => cx.mismatch(&item.expected, &item.found),
-                    Failure::Refl => crate::check::refl_error(&cx, &item.found, &item.expected),
-                });
+                return Err(item.failure.error(&cx, &item.found, &item.expected));
             }
         }
+        Ok(())
+    }
+
+    /// Checks the comparisons [`await_helpers`] kept that are settled: that
+    /// mention no unknown left unsolved and no helper not yet defined.
+    /// Run before a group of helpers is given to the kernel, so that a
+    /// proof among them whose comparison fails is refused here, not by the
+    /// kernel (SW-4910). Only a check: one that still has an unknown waits
+    /// for [`Elaborator::compare_awaiting_helpers`], since solving it now,
+    /// before the rest of the declaration is elaborated, could solve it
+    /// wrongly (with a `match` not lifted yet taken as anything, say).
+    fn check_settled_awaiting(&self) -> Result<()> {
+        let awaiting = std::mem::take(&mut *self.attempt.awaiting_helpers.borrow_mut());
+        let mut kept = Vec::new();
+        for item in awaiting {
+            let cx = Ctx::from_parts(
+                self,
+                item.env.clone(),
+                item.types.clone(),
+                item.names.clone(),
+                item.span,
+            );
+            let mut settled = true;
+            for side in [&item.found, &item.expected] {
+                let term = cx.quote_folded(side)?;
+                let term = self.zonk_keeping(&term, cx.level(), &|_| true)?;
+                settled &= !term.subterms().any(|(t, _)| match t {
+                    Term::Meta(m) => *m != ELIDED && cx.g().meta_solution(*m).is_none(),
+                    Term::Def(d) => self.kernel.def(*d).state() == State::Pending,
+                    _ => false,
+                });
+            }
+            if !settled {
+                kept.push(item);
+                continue;
+            }
+            let mut cx = cx;
+            if !crate::undo::unify(&mut cx, &item.found, &item.expected)? {
+                return Err(item.failure.error(&cx, &item.found, &item.expected));
+            }
+        }
+        self.attempt.awaiting_helpers.borrow_mut().extend(kept);
         Ok(())
     }
 }
@@ -943,6 +991,7 @@ impl Elaborator {
                 joined_ids.extend(ids);
                 joined.extend(bodies);
             } else {
+                self.check_settled_awaiting()?;
                 kernel::define_group(&mut self.kernel, &self.tables, &bodies)
                     .map_err(|d| self.explain_lifted(d))?;
                 for (_, id) in &members {
