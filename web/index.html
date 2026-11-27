@@ -1769,29 +1769,61 @@ export def area: Shape -> Nat
     return list;
   }
 
+  /**
+   * The paths the tabs and the Other files list were last built for. Every
+   * key calls `renderTabs`, and rebuilding them (over 600 elements in an AoC
+   * day) costs most of a second a key where an accessibility client is on,
+   * as Firefox rebuilds its accessibles for every node replaced (SW-4929); so
+   * they are rebuilt only when their files change, and the marks change in place.
+   */
+  let tabsShown = "";
+  let othersShown = "";
+
   function renderTabs() {
     const paths = tabPaths();
-    fileTabs.replaceChildren(...paths.map((path) => {
-      const tab = el("button", { type: "button", role: "tab", title: path }, tabLabel(path));
-      tab.dataset.path = path;
-      tab.setAttribute("aria-selected", String(path === project.open));
-      if (project.errors.has(path)) {
-        tab.dataset.errors = "";
-        tab.append(el("span", { className: "mark", title: "has errors" }, "!"));
-      }
-      if (isEdited(path)) {
-        tab.dataset.edited = "";
-        tab.append(el("span", { className: "mark edited", title: "edited" }, "•"));
-      }
-      tab.addEventListener("click", () => openFile(path));
-      return tab;
-    }));
+    // A tab's label depends on the day (`tabLabel`), so the day is part of what they show.
+    const tabsKey = JSON.stringify([project.name, project.day, paths]);
+    if (tabsKey !== tabsShown) {
+      tabsShown = tabsKey;
+      fileTabs.replaceChildren(...paths.map((path) => {
+        const tab = el("button", { type: "button", role: "tab", title: path }, tabLabel(path));
+        tab.dataset.path = path;
+        tab.addEventListener("click", () => openFile(path));
+        return tab;
+      }));
+    }
+    for (const tab of fileTabs.children) markTab(tab);
     const others = project.manifest.files.filter((p) => !paths.includes(p));
-    otherFiles.replaceChildren(el("option", { value: "" }, "Other files…"),
-      ...others.map((p) => el("option", { value: p }, p.replace(/^src\/(Aoc|Rogue)\//, ""))));
+    const othersKey = JSON.stringify(others);
+    if (othersKey !== othersShown) {
+      othersShown = othersKey;
+      otherFiles.replaceChildren(el("option", { value: "" }, "Other files…"),
+        ...others.map((p) => el("option", { value: p }, p.replace(/^src\/(Aoc|Rogue)\//, ""))));
+    }
     otherFiles.hidden = others.length === 0;
     resetFile.disabled = !isEdited(project.open);
     resetProject.disabled = !project.manifest.files.some(isEdited);
+  }
+
+  /** Brings a tab's selection and its errors and edited marks up to date, touching only what differs. */
+  function markTab(tab) {
+    const { path } = tab.dataset;
+    const selected = String(path === project.open);
+    if (tab.getAttribute("aria-selected") !== selected) tab.setAttribute("aria-selected", selected);
+    const errors = project.errors.has(path);
+    const edited = isEdited(path);
+    if (errors === ("errors" in tab.dataset) && edited === ("edited" in tab.dataset)) return;
+    for (const mark of tab.querySelectorAll(".mark")) mark.remove();
+    delete tab.dataset.errors;
+    delete tab.dataset.edited;
+    if (errors) {
+      tab.dataset.errors = "";
+      tab.append(el("span", { className: "mark", title: "has errors" }, "!"));
+    }
+    if (edited) {
+      tab.dataset.edited = "";
+      tab.append(el("span", { className: "mark edited", title: "edited" }, "•"));
+    }
   }
 
   function renderBanner() {

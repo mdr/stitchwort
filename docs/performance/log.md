@@ -46,6 +46,39 @@ in [../proposals/README.md](../proposals/README.md).
 
 ## 27 Nov 2026
 
+### SW-4929: typing in a project no longer rebuilds the file tabs and the Other files list
+
+- **Problem.** Matt's Firefox 160 profile of the lag (SW-4930): keys dispatched 300 to
+  1,100 ms late, most samples under `renderTabs` and in accessibility code, with tens of
+  thousands of `DocAccessible::ContentRemovedNode` markers. His Firefox had its
+  accessibility engine on, which headless runs here didn't.
+- **Reproduced.** Headless Firefox 159.0.1 with `accessibility.force_disabled` set to -1,
+  which force-enables the accessibility service (`accessible/base/Platform.h`,
+  `ePlatformIsForceEnabled = -1`; `ReadPlatformDisabledState` in
+  `nsAccessibilityService.cpp`). Typing 20 keys 400 ms apart in Day18.sw: 706 ms median
+  from key to frame, every frame gap over 50 ms, keys queuing up to 6.9 s behind. In the
+  Gecko profile, 14,524 of 14,834 main-thread samples are under `renderTabs`, almost all in
+  `Element.replaceChildren`; markers: 25,663 `ContentRemovedNode`, 12,681 each of a11y
+  show and hide. Each key replaced about 635 nodes: the tabs and the 621-entry list.
+- **Change.** `renderTabs` rebuilds the tabs only when their paths or the day change, and
+  the list only when its files change. A tab's selection and marks are updated in place.
+- **Measured (one run each, 20 keys 400 ms apart, key to frame median / max).**
+
+  | Case | Accessibility | Before | After |
+  |---|---|---|---|
+  | Day18.sw | on | 706 / 720 ms | 8 / 13 ms |
+  | Explode.sw | on | 727 / 754 ms | 7 / 12 ms |
+  | 2024 day 1 | on | 739 / 772 ms | 7 / 16 ms |
+  | Day18.sw | off | 13 / 17 ms | 8 / 11 ms |
+  | Explode.sw | off | 14 / 20 ms (SW-4930) | 7 / 12 ms |
+  | 2024 day 1 | off | 12 / 21 ms (SW-4930) | 7 / 15 ms |
+
+  After the fix, 0 nodes a key change in the tabs and the list (one mark on the first key).
+  Pinned by the browser test "in a project, typing keeps the file tabs and the Other files
+  list" (6,340 nodes added and removed for 10 keys before).
+- **Not done.** `stateKey`/`keyOf` (JSON of every file's text on each key, the ticket's
+  second part): left alone, since keys now take 7 to 8 ms with accessibility on.
+
 ### SW-4930: the Firefox typing lag doesn't reproduce in headless Firefox
 
 - **Problem.** Matt (D3760): the up-to-a-second-per-key lag in 2021 day 18 was in Firefox.

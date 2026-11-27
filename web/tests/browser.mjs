@@ -3032,6 +3032,37 @@ test("in a project, typing with pauses keeps the compiler's worker", async (page
   assert.ok(made <= 1, `${made} compiler workers started while typing 8 keys`);
 }, { ms: 180000 });
 
+test("in a project, typing keeps the file tabs and the Other files list", async (page) => {
+  await page.open();
+  await page.untilChecked();
+  await openDay(page, 2);
+  await page.until(DAY2_TABS_READY);
+  await sleep(1000);
+  await page.ev(`(() => {
+    window.__tabChanges = { added: 0, removed: 0 };
+    const count = (records) => { for (const r of records) { window.__tabChanges.added += r.addedNodes.length; window.__tabChanges.removed += r.removedNodes.length; } };
+    for (const id of ["filetabs", "other-files"]) new MutationObserver(count).observe(document.getElementById(id), { childList: true, subtree: true });
+  })()`);
+  await caretAtEnd(page);
+  for (const ch of "\n-- a note") {
+    await page.type(ch);
+    await sleep(50);
+  }
+  await page.until(`/checked by the kernel/i.test(document.getElementById("status").textContent)`, 60000, "the edited day to check");
+  // The first key marks the tab as edited; nothing else changes. Before, every
+  // key rebuilt the tabs and the list (about 630 nodes a key in day 2), which
+  // Firefox's accessibility engine turned into most of a second (SW-4929).
+  const changes = await page.ev(`JSON.stringify(window.__tabChanges)`);
+  assert.equal(changes, JSON.stringify({ added: 1, removed: 0 }), "nodes added to and removed from the tabs and the list");
+  assert.equal(await page.ev(`document.querySelectorAll("#filetabs button[data-edited]").length`), 1);
+  // A file picked from the list still opens in a tab of its own and leaves the list.
+  const picked = await page.ev(`(() => { const list = document.getElementById("other-files"); const path = list.options[1].value;
+    list.value = path; list.dispatchEvent(new Event("change")); return path; })()`);
+  await page.until(`document.querySelector("#filetabs button[aria-selected=true]")?.dataset.path === ${JSON.stringify(picked)}`, 10000, "the picked file's tab");
+  assert.equal(await page.ev(`[...document.getElementById("other-files").options].some((o) => o.value === ${JSON.stringify(picked)})`), false);
+  assert.equal(await page.ev(`document.querySelectorAll("#filetabs button[aria-selected=true]").length`), 1);
+}, { ms: 180000 });
+
 test("the roguelike's files open without false errors", async (page) => {
   await page.open();
   await page.untilChecked();
