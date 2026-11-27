@@ -713,3 +713,36 @@ fn what_closes_a_goal_in_a_project() {
     let _ = std::fs::remove_dir_all(elsewhere);
     let _ = std::fs::remove_dir_all(other.parent().unwrap());
 }
+
+/// `search` in a project reads the files through the scan cache, as `check`
+/// does (SW-4953), so a search leaves a scan entry behind.
+#[test]
+fn a_project_search_writes_the_scan_entry() {
+    let dir = project("scan");
+    let cache = dir.join("cache");
+    let empty = dir.join("empty");
+    std::fs::create_dir_all(&empty).unwrap();
+    let run = |args: &[&str]| {
+        let output = Command::new(env!("CARGO_BIN_EXE_stitchwort"))
+            .args(args)
+            .current_dir(&dir)
+            .stdin(Stdio::null())
+            .output()
+            .expect("run stitchwort");
+        // `cache-compare` exits 1 when the folders differ, as these do.
+        String::from_utf8(output.stdout).unwrap()
+    };
+    run(&[
+        "search",
+        "Shape.scale _ _ = _",
+        "--cache-dir",
+        &cache.display().to_string(),
+    ]);
+    let out = run(&[
+        "dev",
+        "cache-compare",
+        &cache.display().to_string(),
+        &empty.display().to_string(),
+    ]);
+    assert!(out.contains("A 1 scan"), "{out}");
+}

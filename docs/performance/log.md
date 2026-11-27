@@ -46,6 +46,26 @@ in [../proposals/README.md](../proposals/README.md).
 
 ## 27 Nov 2026
 
+### SW-4953: `search`, `audit` and `run` read the project through the scan cache
+
+- **Problem.** Stage 1 of [../proposals/search-cache.md](../proposals/search-cache.md)
+  (§4.4): `check` reads the cached scan (SW-4813), but `search`, `audit` and `load_main`
+  (`run`) called `analyse`, which parses every project file.
+- **Change.** `Session::analyse_cached` (the choice `load_project_sources_for` already made:
+  the scan when the check cache is on, else `analyse`); the three callers use it. The
+  scan is also what stage 4's project skip needs.
+- **Results unchanged** (measured, aoc/, release): `search --json --limit 100000` for the
+  six SW-4935 queries is byte-identical before and after, stdout, stderr and exit codes;
+  `audit Aoc.Year2025.Day01` output is identical.
+- **Time: no gain** (measured, warm, `search --json --limit 100000 List.map` in aoc/):
+  best of 3 3.03 s before, 3.05 s after; `audit Aoc.Year2025.Day01` 5.65 s and 5.57 s
+  (best of 3, interleaved; machine noisy, about +/-0.3 s). The estimated 175 to 207 ms did
+  not appear: these commands load every namespace (`Target::Everything`), and a namespace
+  the scan only sketched is parsed when it is loaded, so the parse moves rather than
+  goes. The saving needs stage 4, which leaves the project out of a search.
+- **Test.** `a_project_search_writes_the_scan_entry` (a search leaves a scan entry in its
+  cache folder; fails before).
+
 ### SW-4935: `search` reads the library's name index and the core from the cache
 
 - **Problem.** Matt: `stitchwort search --in Std '() → {Parse Char} Int'` in his AoC
