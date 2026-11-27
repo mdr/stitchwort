@@ -21451,35 +21451,41 @@
     {
       "id": 4929,
       "title": "Playground: renderTabs rebuilds the 621-option Other files list and the tabs on every key, which costs up to a second a key in Firefox with accessibility on (SW-4930); also stateKey/keyOf JSON-encode all file texts on every pause",
-      "status": "review",
+      "status": "done",
       "agent": "",
       "where": "",
       "labels": [
         "perf"
       ],
       "epic": "editor-playground",
-      "body": "[DeepSeek] From SW-4925 (27 Nov): about 2 ms a key for renderTabs (15 ms at 4x CPU slowdown) and 10-19 ms a pause for stateKey/keyOf. Rebuild the list only when it changes; compare the edited file instead of all texts.\nPromoted 27 Nov: this is the Firefox lag (SW-4930, D3761). Matt's Firefox 160 profile (2021 day 18, typing a short definition; copy at /Users/Shared/Firefox 2026-11-27 20.10 profile.json.gz): keys dispatched 300-1,100 ms late; in the typing window 2,914 of 3,710 main-thread samples are under renderTabs and 2,889 in accessibility code (aria::MapToState, ApplyARIAState, DocAccessible::ContentRemovedNode 44k markers, a11y show/hide 8.4k each): Firefox's accessibility engine is active on his Mac, so rebuilding the 621-option Other files list (and the tabs) on every key rebuilds ~1,300 accessibles. Fix renderTabs to change only what changed.\n\nLane (Opus, 27 Nov): reproduced in headless Firefox 159.0.1 with accessibility.force_disabled = -1 (force-enables the a11y service; accessible/base/Platform.h): Day18.sw 706 ms median key to frame, profile 98% under renderTabs/replaceChildren with a11y ContentRemovedNode markers, as in Matt's. Fixed: renderTabs rebuilds tabs only when their paths or day change, the Other files list only when its files change, marks in place. After, a11y on: 8 / 7 / 7 ms medians (Day18.sw, Explode.sw, 2024 day 1); off: 8 / 7 / 7. stateKey/keyOf left alone (not needed). New browser test 'in a project, typing keeps the file tabs and the Other files list' (fails before: 6,340 nodes for 10 keys). Firefox driver: scratchpad SW-4929/ff.mjs (A11Y=1, PROFILE=1).",
+      "body": "[DeepSeek] From SW-4925 (27 Nov): about 2 ms a key for renderTabs (15 ms at 4x CPU slowdown) and 10-19 ms a pause for stateKey/keyOf. Rebuild the list only when it changes; compare the edited file instead of all texts.\nPromoted 27 Nov: this is the Firefox lag (SW-4930, D3761). Matt's Firefox 160 profile (2021 day 18, typing a short definition; copy at /Users/Shared/Firefox 2026-11-27 20.10 profile.json.gz): keys dispatched 300-1,100 ms late; in the typing window 2,914 of 3,710 main-thread samples are under renderTabs and 2,889 in accessibility code (aria::MapToState, ApplyARIAState, DocAccessible::ContentRemovedNode 44k markers, a11y show/hide 8.4k each): Firefox's accessibility engine is active on his Mac, so rebuilding the 621-option Other files list (and the tabs) on every key rebuilds ~1,300 accessibles. Fix renderTabs to change only what changed.\n\nLane (Opus, 27 Nov): reproduced in headless Firefox 159.0.1 with accessibility.force_disabled = -1 (force-enables the a11y service; accessible/base/Platform.h): Day18.sw 706 ms median key to frame, profile 98% under renderTabs/replaceChildren with a11y ContentRemovedNode markers, as in Matt's. Fixed: renderTabs rebuilds tabs only when their paths or day change, the Other files list only when its files change, marks in place. After, a11y on: 8 / 7 / 7 ms medians (Day18.sw, Explode.sw, 2024 day 1); off: 8 / 7 / 7. stateKey/keyOf left alone (not needed). New browser test 'in a project, typing keeps the file tabs and the Other files list' (fails before: 6,340 nodes for 10 keys). Firefox driver: scratchpad SW-4929/ff.mjs (A11Y=1, PROFILE=1).\nFixed 27 Nov (SW-4929, Opus, resumed SW-4930 lane): reproduced first in headless Firefox 159 with accessibility.force_disabled=-1 (Firefox source: accessible/base/Platform.h ePlatformIsForceEnabled, nsAccessibilityService.cpp ReadPlatformDisabledState): 706 ms median a key on Day18.sw, profile under renderTabs/replaceChildren with the same a11y markers as Matt's; 13 ms with a11y off. Fix: renderTabs rebuilds tabs only when project, day or tab paths change, Other files only when its list changes, marks updated in place (markTab). After, a11y on: 8/7/7 ms median (Day18, Explode, 2024 day 1). stateKey/keyOf left: not needed. Test \"in a project, typing keeps the file tabs and the Other files list\" (6,340 nodes added/removed for 10 keys before). On main: it and six tab/project browser tests passed. Model result: opus, worked, 15 min (est. 60).\n",
       "created": "2026-11-27",
       "updated": "2026-11-27",
-      "commits": []
+      "commits": [
+        "0819867d2",
+        "9f1e948b6",
+        "fdf4981b4"
+      ]
     },
     {
       "id": 4930,
       "title": "Playground: reproduce and fix the typing lag in Firefox (2021 day 18, D3760)",
-      "status": "doing",
+      "status": "done",
       "agent": "",
       "where": "",
       "labels": [
         "bug"
       ],
       "epic": "editor-playground",
-      "body": "[Opus] D3760 (Matt, 27 Nov): the up-to-a-second-per-keystroke lag on 2021 day 18 was in Firefox. SW-4925 couldn't reproduce it in headless Chrome (16-24 ms a key) and fixed a worker-restart waste. Reproduce in headless Firefox (nixpkgs firefox-bin 159.0.1 and geckodriver are available on aarch64-darwin), idle and under load, profile, fix the measured cause.\n\nLane (Opus, 27 Nov): not reproduced. Headless Firefox 159.0.1 over WebDriver BiDi (no geckodriver), real key events, 20 keys per case: key-to-frame medians 5-22 ms, max 34 ms, driver round trip max 155 ms (Day18.sw, 120 ms gap, 10 nice-19 burners on every core); lone file, 2024 day 1, Day18.sw, Proofs/Explode.sw; gaps 120/400/700 ms; idle, 4 and 10 burners; after visiting 27 days; and with the page before SW-4925 (19 workers for 20 keys, keys still prompt). Chrome 158 under 4 burners matches (16/24 ms). Table in docs/performance/log.md. No change made. Left to try on Matt's side: Firefox 160.0.1 with a real window and his profile (extensions), and about:processes / the Firefox Profiler (profiler.firefox.com) while it lags.\nRound 1 (Opus, 27 Nov): not reproduced in headless Firefox 159.0.1 over BiDi: every key within ~34 ms (median 5-22 ms), idle and with 4 or 10 nice'd burners, Day18.sw, Explode.sw, 2024 day 1, lone file, after visiting 27 days; no frame gap over 50 ms. Chrome under the same load: 16/24 ms. Not covered: Matt's Firefox 160.0.1, a real window with GPU compositing, his extensions, real keyboard input through the parent process. Next: a Firefox Profiler recording from Matt (D3761). Kept in review until then. Model result: opus, worked (not reproduced), 27 min (est. 60).\n",
+      "body": "[Opus] D3760 (Matt, 27 Nov): the up-to-a-second-per-keystroke lag on 2021 day 18 was in Firefox. SW-4925 couldn't reproduce it in headless Chrome (16-24 ms a key) and fixed a worker-restart waste. Reproduce in headless Firefox (nixpkgs firefox-bin 159.0.1 and geckodriver are available on aarch64-darwin), idle and under load, profile, fix the measured cause.\n\nLane (Opus, 27 Nov): not reproduced. Headless Firefox 159.0.1 over WebDriver BiDi (no geckodriver), real key events, 20 keys per case: key-to-frame medians 5-22 ms, max 34 ms, driver round trip max 155 ms (Day18.sw, 120 ms gap, 10 nice-19 burners on every core); lone file, 2024 day 1, Day18.sw, Proofs/Explode.sw; gaps 120/400/700 ms; idle, 4 and 10 burners; after visiting 27 days; and with the page before SW-4925 (19 workers for 20 keys, keys still prompt). Chrome 158 under 4 burners matches (16/24 ms). Table in docs/performance/log.md. No change made. Left to try on Matt's side: Firefox 160.0.1 with a real window and his profile (extensions), and about:processes / the Firefox Profiler (profiler.firefox.com) while it lags.\nRound 1 (Opus, 27 Nov): not reproduced in headless Firefox 159.0.1 over BiDi: every key within ~34 ms (median 5-22 ms), idle and with 4 or 10 nice'd burners, Day18.sw, Explode.sw, 2024 day 1, lone file, after visiting 27 days; no frame gap over 50 ms. Chrome under the same load: 16/24 ms. Not covered: Matt's Firefox 160.0.1, a real window with GPU compositing, his extensions, real keyboard input through the parent process. Next: a Firefox Profiler recording from Matt (D3761). Kept in review until then. Model result: opus, worked (not reproduced), 27 min (est. 60).\n\nFixed 27 Nov (SW-4929, Opus, resumed SW-4930 lane): reproduced first in headless Firefox 159 with accessibility.force_disabled=-1 (Firefox source: accessible/base/Platform.h ePlatformIsForceEnabled, nsAccessibilityService.cpp ReadPlatformDisabledState): 706 ms median a key on Day18.sw, profile under renderTabs/replaceChildren with the same a11y markers as Matt's; 13 ms with a11y off. Fix: renderTabs rebuilds tabs only when project, day or tab paths change, Other files only when its list changes, marks updated in place (markTab). After, a11y on: 8/7/7 ms median (Day18, Explode, 2024 day 1). stateKey/keyOf left: not needed. Test \"in a project, typing keeps the file tabs and the Other files list\" (6,340 nodes added/removed for 10 keys before). On main: it and six tab/project browser tests passed. Model result: opus, worked, 15 min (est. 60).\n",
       "created": "2026-11-27",
       "updated": "2026-11-27",
       "commits": [
         "cff04f033",
         "493047e62",
-        "f113b6e40"
+        "f113b6e40",
+        "0819867d2",
+        "fdf4981b4"
       ]
     },
     {
