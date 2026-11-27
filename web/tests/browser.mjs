@@ -249,6 +249,12 @@ class Page {
       p.dispatchEvent(new Event("change")); })()`);
   }
   tab(view) { return this.ev(`document.querySelector('[data-view="${view}"]').click()`); }
+  /** Clicks Run tests (once it's there), and waits for the results: a summary and no button. */
+  async runTests(ms = 30000) {
+    await this.until(`document.getElementById("run-tests")`, ms, "the Run tests button");
+    await this.click("#run-tests");
+    await this.until(`document.querySelector(".summary") && !document.getElementById("run-tests")`, ms, "the tests' results");
+  }
   click(selector) { return this.ev(`document.querySelector(${JSON.stringify(selector)}).click()`); }
   runResult() { return this.ev(`document.querySelector(".run-result")?.innerText ?? ""`); }
   printed() { return this.ev(`document.querySelector(".run-result pre.program-output")?.textContent ?? null`); }
@@ -516,7 +522,7 @@ test("Open in editor puts a guide example in the editor, ready to run, and colou
   assert.equal(await sourceText(page), file);
   await page.untilChecked();
   assert.equal(await page.ev(`location.hash`), "", "the address no longer names the guide");
-  // Its tests, which this one has, are shown (once they've run).
+  // Its tests, which this one has, are listed (they run when asked).
   await page.until(`document.querySelectorAll("ul.tests li").length > 0`, 30000, "the tests");
   assert.match(await page.output(), /area[\s\S]*update[\s\S]*label/);
   assert.equal(await page.ev(`document.getElementById("tab-tests").getAttribute("aria-selected")`), "true");
@@ -545,7 +551,8 @@ test("every guide example opens, checks, and passes its tests but the failing on
     await page.untilStatus("Checked by the kernel", 60000);
     const failing = await page.ev(`window.editor.value.includes("wrong on purpose")`);
     await page.tab("tests");
-    await page.until(`document.querySelectorAll("ul.tests li").length > 0 || /No tests/i.test(document.getElementById("output").innerText)`, 30000, "the tests");
+    await page.until(`document.getElementById("run-tests") || /No tests/i.test(document.getElementById("output").innerText)`, 30000, "the tests");
+    if (await page.ev(`!!document.getElementById("run-tests")`)) await page.runTests();
     const failures = await page.ev(`document.querySelectorAll("ul.tests li.fail").length`);
     assert.equal(failures, failing ? 1 : 0, `example ${i}: ${await page.output()}`);
   }
@@ -629,6 +636,9 @@ test("every example checks, and passes its tests but the failing one", async (pa
     // A render of the previous example can still finish after the pick and
     // leave its own "No tests yet" or summary, so wait for results that say
     // they are for this source (`data-for`, set by the page).
+    await page.until(`document.getElementById("output").dataset.for === window.editor.value &&
+      (document.getElementById("run-tests") || /No tests yet/.test(document.getElementById("output").textContent))`, 30000, `${id}'s tests`);
+    if (await page.ev(`!!document.getElementById("run-tests")`)) await page.runTests();
     const summary = await page.until(`document.getElementById("output").dataset.for === window.editor.value &&
       (document.querySelector(".summary")?.textContent ||
        document.getElementById("output").textContent.match(/No tests yet/)?.[0])`, 30000, `${id}'s tests`);
@@ -640,6 +650,33 @@ test("every example checks, and passes its tests but the failing one", async (pa
     }
     await assertAligned(page, id);
   }
+});
+
+test("the Tests tab runs nothing until Run tests is clicked, and shows cached results at once", async (page) => {
+  await page.open();
+  await page.untilChecked();
+  await page.pick("ex-tests");
+  await page.untilChecked();
+  await page.tab("tests");
+  const rows = () => page.until(`(() => {
+    const o = document.getElementById("output");
+    if (!o.querySelector(".summary") || o.dataset.for !== window.editor.value) return false;
+    return { rows: [...o.querySelectorAll("ul.tests li")].map((li) => li.textContent), summary: o.querySelector(".summary").textContent };
+  })()`, 30000, "the tests for this source");
+  const listed = await rows();
+  assert.equal(listed.rows.length, 4);
+  assert.ok(listed.rows.every((row) => row.endsWith("not run")), listed.rows.join("\n"));
+  assert.ok(!listed.rows.some((row) => /ran$|cached$/.test(row)), "no test ran");
+  assert.match(await page.output(), /click Run tests/);
+  await page.runTests();
+  const ran = await rows();
+  assert.ok(ran.rows.every((row) => row.endsWith("ran")), ran.rows.join("\n"));
+  // Leaving the tab and returning lists them again, now with their cached results.
+  await page.tab("check");
+  await page.untilChecked();
+  await page.tab("tests");
+  const back = await rows();
+  assert.ok(back.rows.every((row) => row.endsWith("cached")), back.rows.join("\n"));
 });
 
 test("test results are cached, and can be forgotten", async (page) => {
@@ -656,13 +693,21 @@ test("test results are cached, and can be forgotten", async (page) => {
     return { rows: [...o.querySelectorAll("ul.tests li")].map((li) => li.textContent), summary };
   })()`, 30000, "the tests for this source");
 
+  // Opening the tab runs nothing: the tests are listed, not run.
+  const listed = await results();
+  assert.equal(listed.rows.length, 4);
+  assert.ok(listed.rows.every((row) => row.endsWith("not run")), listed.rows.join("\n"));
+  assert.equal(listed.summary, "4 tests: 0 passed, 0 failed, 4 not run");
+  assert.equal(await page.ev(`document.querySelectorAll("ul.tests li.fail").length`), 0, "nothing is red");
+  await page.runTests();
   const first = await results();
   assert.equal(first.rows.length, 4);
   assert.ok(first.rows.every((row) => row.endsWith("ran")), first.rows.join("\n"));
   assert.doesNotMatch(first.summary, /from the cache/);
   assert.match(first.summary, /^4 tests: 3 passed, 1 failed$/);
 
-  // A harmless edit: the tests' results are still valid, so they're cached.
+  // A harmless edit: the tests' results are still valid, so they're cached,
+  // and shown without running anything.
   const source = await page.ev(`window.editor.value`);
   await page.setSource(source + "\n-- edit\n");
   await page.untilChecked();
@@ -670,7 +715,18 @@ test("test results are cached, and can be forgotten", async (page) => {
   assert.ok(second.rows.every((row) => row.endsWith("cached")), second.rows.join("\n"));
   assert.match(second.summary, /^4 tests: 3 passed, 1 failed \(4 from the cache\)$/);
 
+  // Leaving the tab and coming back shows them cached too, without a click.
+  await page.tab("check");
+  await page.untilChecked();
+  await page.tab("tests");
+  const back = await results();
+  assert.ok(back.rows.every((row) => row.endsWith("cached")), back.rows.join("\n"));
+
+  // Forgetting them returns to the listing; running again computes them.
   await page.click("#forget-cache");
+  const forgotten = await results();
+  assert.ok(forgotten.rows.every((row) => row.endsWith("not run")), forgotten.rows.join("\n"));
+  await page.runTests();
   const third = await results();
   assert.ok(third.rows.every((row) => row.endsWith("ran")), third.rows.join("\n"));
   assert.doesNotMatch(third.summary, /from the cache/);
@@ -692,6 +748,7 @@ test "second part" := part1 1 == 2 && part1 2 == 4
 `);
   await page.untilChecked();
   await page.tab("tests");
+  await page.runTests();
   const results = () => page.until(`(() => {
     const o = document.getElementById("output");
     if (!o.querySelector(".summary") || o.dataset.for !== window.editor.value) return false;
@@ -762,6 +819,7 @@ test("warnings show apart from errors, without stopping anything", async (page) 
   await page.tab("tests");
   await page.until(`document.querySelector("#output pre.warnings")`, 30000, "the warnings in the Tests tab");
   await page.setSource(WARNED + `\ntest "sized" := size [1, 2] <= 2\n`);
+  await page.runTests();
   await page.until(`document.querySelector(".summary")?.textContent === "1 test: 1 passed, 0 failed"`);
   assert.equal((await shown()).count, "1 warning");
   // The count goes to the Check tab.
@@ -1607,10 +1665,10 @@ def main(): {IO} () := IO.print "\${List.length xs}"
 // which overflows it inside the WebAssembly, as a deep program once did.
 const CRASH = "-- crash the engine's stack";
 const crashing = (worker) => {
-  const tests = 'test: () => b.test(data.source, data.known ?? ""),';
+  const tests = 'test: () => b.test(data.source, data.known ?? "", data.run !== false),';
   assert.ok(worker.includes(tests), "the worker tests with b.test(data.source, …)");
   return worker.replace(tests, `test: () => data.source.includes(${JSON.stringify(CRASH)})
-      ? withoutStack(() => b.test(data.source, "")) : b.test(data.source, data.known ?? ""),`) + `
+      ? withoutStack(() => b.test(data.source, "")) : b.test(data.source, data.known ?? "", data.run !== false),`) + `
 // For the browser tests: runs f with only a little of the stack left, so
 // that the stack runs out inside the WebAssembly. It recurses until the
 // stack runs out, then calls f a few frames up while unwinding. If only
@@ -1786,6 +1844,7 @@ for (const [how, patch] of [
     assert.ok(page.console.some((m) => m.startsWith("warning: The playground's worker didn't start")), page.console.join("\n"));
     await page.pick("ex-tests");
     await page.tab("tests");
+    await page.runTests();
     await page.until(`/^4 tests: 3 passed, 1 failed( \\(4 from the cache\\))?$/.test(document.querySelector(".summary")?.textContent ?? "")`);
     await page.pick("ex-main");
     await page.run();
@@ -2184,6 +2243,7 @@ test("the AoC tests are grouped by namespace, and cached on the next visit", asy
   await page.untilChecked();
   await openDay(page, 3);
   await page.tab("tests");
+  await page.runTests(60000);
   const results = () => page.until(`(() => {
     const o = document.getElementById("output");
     const summary = o.querySelector(".summary")?.textContent;
@@ -2199,6 +2259,7 @@ test("the AoC tests are grouped by namespace, and cached on the next visit", asy
   assert.ok(first.rows.some((r) => r.includes("real input")), first.rows.join("\n"));
   await page.reload();
   await page.until(`document.getElementById("status").textContent === ${JSON.stringify(dayStatus(3))}`, 60000);
+  // Cached results show on the next visit without a click.
   const second = await results();
   assert.ok(second.rows.every((r) => r.endsWith("cached")), second.rows.join("\n"));
 }, { ms: 120000 });
@@ -2210,6 +2271,7 @@ test("the real-input tests of AoC days 8 and 9 finish well within the compiler l
     await openDay(page, day);
     await page.tab("tests");
     const started = Date.now();
+    await page.runTests();
     const results = await page.until(`(() => {
       const o = document.getElementById("output");
       const summary = o.querySelector(".summary")?.textContent;
@@ -2412,6 +2474,7 @@ test("the roguelike is a second project: it checks with its proofs, plays on key
   assert.match(await page.printed(), /You gave up on level 1, on turn \d+\.\n$/);
   // The tests run in the playground.
   await page.tab("tests");
+  await page.runTests(120000);
   const summary = await page.until(`(() => { const o = document.getElementById("output");
     return o.querySelector("ul.tests") && o.querySelector(".summary")?.textContent; })()`, 120000, "the tests");
   assert.doesNotMatch(summary, /[1-9]\d* failed/);

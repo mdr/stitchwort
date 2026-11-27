@@ -32,6 +32,10 @@ enum Runner<'a> {
     Machine,
     /// Native code, compiled by `native`, falling back to the machine.
     Native(&'a dyn NativeTests),
+    /// Runs nothing: a test without a cached result comes back
+    /// [`TestResult::not_run`]. Keyed like [`Runner::Machine`], whose
+    /// results the playground caches.
+    CacheOnly,
 }
 
 /// What `stitchwort test --native` gives the driver to run tests as native
@@ -359,6 +363,13 @@ impl Session {
         self.run_selected(cache, &|test| !test.library, Runner::Reference)
     }
 
+    /// Lists the program's tests with the results the cache has, running
+    /// none: the others are [`TestResult::not_run`]. A cached result is the
+    /// one [`Session::run_tests_fast`] would reuse.
+    pub fn list_tests_fast(&self, cache: &Cache) -> Vec<TestResult> {
+        self.run_selected(cache, &|test| !test.library, Runner::CacheOnly)
+    }
+
     /// [`Session::run_tests`], for only the tests `keep` keeps.
     pub fn run_tests_where(
         &self,
@@ -484,12 +495,12 @@ impl Session {
         // machine's, so a test at the limit can differ between them.
         let modes = match runner {
             Runner::Reference => modes(g),
-            Runner::Machine => format!("{}m", modes(g)),
+            Runner::Machine | Runner::CacheOnly => format!("{}m", modes(g)),
             Runner::Native(_) => format!("{}x", modes(g)),
         };
         let limits = stitchwort_rt::Limits::from_core(self.elab.options.limits);
         let (lowered, wanted) = match runner {
-            Runner::Reference => (None, Vec::new()),
+            Runner::Reference | Runner::CacheOnly => (None, Vec::new()),
             Runner::Machine | Runner::Native(_) => self
                 .lower_tests(cache, selected, &modes)
                 .map_or((None, Vec::new()), |(lowered, wanted)| {
@@ -524,6 +535,7 @@ impl Session {
                         detail: None,
                         unfinished: Some(why),
                         assuming: Vec::new(),
+                        not_run: false,
                     };
                 }
                 let hash = match def_hash(g, test.def) {
@@ -538,6 +550,7 @@ impl Session {
                             detail: None,
                             unfinished: None,
                             assuming: Vec::new(),
+                            not_run: false,
                         };
                     }
                 };
@@ -553,6 +566,20 @@ impl Session {
                         detail: self.failure(test, outcome),
                         unfinished: None,
                         assuming: self.test_assuming(test),
+                        not_run: false,
+                    };
+                }
+                if matches!(runner, Runner::CacheOnly) {
+                    return TestResult {
+                        name: test.name.clone(),
+                        namespace: test.namespace.clone(),
+                        outcome: Outcome::Failed,
+                        cached: false,
+                        hash: Some(hash),
+                        detail: None,
+                        unfinished: None,
+                        assuming: Vec::new(),
+                        not_run: true,
                     };
                 }
                 // A test that runs partial code is a `Delay` (D1183).
@@ -570,6 +597,7 @@ impl Session {
                             detail: None,
                             unfinished: None,
                             assuming: Vec::new(),
+                            not_run: false,
                         };
                     }
                 };
@@ -586,6 +614,7 @@ impl Session {
                                 detail: None,
                                 unfinished: Some(why),
                                 assuming: Vec::new(),
+                                not_run: false,
                             };
                         }
                     };
@@ -600,6 +629,7 @@ impl Session {
                         detail: self.failure(test, outcome),
                         unfinished: None,
                         assuming: self.test_assuming(test),
+                        not_run: false,
                     };
                 }
                 let on_native = match (&lowered, &mut native) {
@@ -643,6 +673,7 @@ impl Session {
                     detail: self.failure(test, outcome),
                     unfinished: None,
                     assuming: Vec::new(),
+                    not_run: false,
                 }
             })
             .collect();
