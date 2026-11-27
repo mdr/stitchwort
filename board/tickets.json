@@ -1,5 +1,5 @@
 {
-  "next": 4960,
+  "next": 4961,
   "tickets": [
     {
       "id": 47,
@@ -21936,6 +21936,21 @@
       ],
       "epic": "proof-search",
       "body": "[Sonnet] From SW-4944 (27 Nov). Profile first.",
+      "created": "2026-11-27",
+      "updated": "2026-11-27",
+      "commits": []
+    },
+    {
+      "id": 4960,
+      "title": "Prebuilt std cache: add the editor's modes (checker +nav+ty, search +nav) to the installed bundle so VS Code skips the cold std fill too",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [
+        "perf"
+      ],
+      "epic": "dev-loop-speed",
+      "body": "[Sonnet] From SW-2163 (27 Nov): the bundle holds the CLI's mode only; the reader already serves any std.* unit, so the build adds stitchwort_lsp::library_bundle entries. Watch the server's native limits: a key mismatch is a silent all-miss, so test a hit count.",
       "created": "2026-11-27",
       "updated": "2026-11-27",
       "commits": []
