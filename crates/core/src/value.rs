@@ -5326,11 +5326,8 @@ fn visit(
         }
         Value::Neutral(head, spine) => {
             let head = match head {
-                // Checked in release builds too: past it, the index wraps
-                // to one no context has, which a printer shows as some
-                // other name rather than failing.
                 Head::Var(l, _, _) => {
-                    assert!(
+                    debug_assert!(
                         l < level,
                         "internal error: variable at level {l} read back with {level} in scope: \
                          the caller is quoting outside the context the value was made in"
