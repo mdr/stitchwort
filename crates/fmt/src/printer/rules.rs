@@ -67,6 +67,9 @@ pub(crate) struct Rules<'a> {
     /// its opening bracket ([`Doc::CloserLine`]); for each such opening
     /// bracket, itself.
     commented_pair: Vec<Option<usize>>,
+    /// Closing brackets that must start a line to keep a comment waiting
+    /// before them inside their brackets (SW-4911).
+    force_closer_line: BTreeSet<usize>,
     /// The first node whose shape no rule expects, and what was expected.
     unexpected: Option<String>,
 }
@@ -175,6 +178,7 @@ impl<'a> Rules<'a> {
         }
         Rules {
             commented_pair,
+            force_closer_line: BTreeSet::new(),
             trivia,
             src,
             tokens,
@@ -358,6 +362,22 @@ impl<'a> Rules<'a> {
         false
     }
 
+    /// The first closer of the run ending an element when the line ends with
+    /// a comment before that run: starting the closer's line keeps the
+    /// comment inside the brackets. `None` when the element doesn't end
+    /// with a closer, or the closer has own-line comments already.
+    fn closer_after_comment(&self, last: usize) -> Option<usize> {
+        let mut j = last;
+        while j > 0 && closer(&self.tokens[j].tok) {
+            j -= 1;
+        }
+        (j < last
+            && self.trivia[j].trailing.is_some()
+            && self.defer_trailing != Some(j)
+            && self.trivia[j + 1].leading.is_empty())
+        .then_some(j + 1)
+    }
+
     fn leaf(&self, leaf: Leaf<'_>) -> Doc {
         let i = leaf.index();
         let mut parts = self.leading(i);
@@ -370,7 +390,14 @@ impl<'a> Rules<'a> {
         // own-line comments (S40): at the indentation in force, which a
         // declaration's type shares with its contents, it would read as
         // their block's next line (SW-3962).
-        if i > 0
+        if self.force_closer_line.contains(&i) && self.trivia[i].leading.is_empty() {
+            // A comment waiting on the code before the closer ends its line
+            // here, so the comment stays inside the brackets and the closer
+            // can keep the next `|` or `=>` on its line (SW-4911). When a
+            // break already put the closer at the start of its line, this
+            // only moves that line, leaving no empty line before the closer.
+            parts.push(Doc::CloserLine(i));
+        } else if i > 0
             && closer(&self.tokens[i].tok)
             && self.trivia[i].leading.is_empty()
             && self.ends_line_with_comment_before(i)
@@ -552,6 +579,23 @@ impl<'a> Rules<'a> {
     /// starts a line would start the next arm (the parser's `or_bar_ahead`).
     fn pattern_or(&mut self, node: Node<'_>) -> Doc {
         let children: Vec<Element> = node.children().collect();
+        // A comment waiting before a closer that ends an alternative must
+        // stay inside its brackets: after the closer it would end the line,
+        // and the following `|` would start a new arm (SW-4911).
+        let mut forced = Vec::new();
+        for (k, &el) in children.iter().enumerate() {
+            if !children
+                .get(k + 1)
+                .is_some_and(|&next| self.is_tok(next, &Tok::Pipe))
+            {
+                continue;
+            }
+            if let Some(close) = self.closer_after_comment(Self::last(el))
+                && self.force_closer_line.insert(close)
+            {
+                forced.push(close);
+            }
+        }
         let mut parts = Vec::new();
         for (k, &el) in children.iter().enumerate() {
             if k > 0 {
@@ -562,6 +606,9 @@ impl<'a> Rules<'a> {
                 }
             }
             parts.push(self.el(el));
+        }
+        for close in forced {
+            self.force_closer_line.remove(&close);
         }
         Doc::group(Doc::nest(2, Doc::concat(parts)))
     }
