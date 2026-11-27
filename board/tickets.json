@@ -21795,14 +21795,14 @@
     {
       "id": 4950,
       "title": "search: a constructor mention filters nothing (search --in Std MkPair lists all 9,732 std declarations); the type index seems to skip constructors",
-      "status": "doing",
+      "status": "review",
       "agent": "",
       "where": "",
       "labels": [
         "bug"
       ],
       "epic": "proof-search",
-      "body": "[Sonnet] From SW-4947 (27 Nov).",
+      "body": "[Sonnet] From SW-4947 (27 Nov).\n\nSW-4950 lane: cause was that constructors (Term::Ctor) were recorded neither in the pattern's names nor in the candidate type index (only defs and data types); added a ctors set to both, used by the mention filter (not by pattern matching, where MkPair _ _ also matches variables of the pair type by eta). std MkPair: 9732 -> 523 results; MkPair _ _ = _ unchanged at 91.\n",
       "created": "2026-11-27",
       "updated": "2026-11-27",
       "commits": []
