@@ -7,7 +7,6 @@ import Aoc.Year2021.Day10 (..)
 import Aoc.Year2021.Day10.Spec (..)
 import Std (Bool, Eq, List, Nat, Void)
 
---| `y < x` is false when `x ≤ y`.
 --| In a sorted list, at most k elements are below the one at index k.
 theorem countBelowSorted: ∀ (sorted: List Nat) => List.Sorted Nat.leq sorted
       → ∀ (k: Nat) => k < sorted.length → sorted.count (score => score < sorted.getOr k 0) ≤ k

@@ -140,10 +140,18 @@ fn golden_terms_on_nat_and_int() {
              (Std.Int )) ((Std.Int.decLessEq #1) #0)) (fun #2)) (fun #1))))",
         ),
         ("leNat", "(fun (fun ((Std.Nat.leq #1) #0)))"),
-        ("useNat", "(((Main.provedNat 1) 2) auto Refl)"),
+        // `auto`'s proofs from the decisions: `Decidable.sound` is a proof, so
+        // its call stays a call (rule F, SW-4674); it unfolded to `Refl`
+        // before.
+        (
+            "useNat",
+            "(((Main.provedNat 1) 2) auto (((Std.Decidable.sound implicit ((True ) = (True ))) \
+             (%mk (True ) (fun Refl) (fun Refl))) Refl))",
+        ),
         (
             "useInt",
-            "(((Main.provedInt (OfNat 1)) (OfNat 2)) auto Refl)",
+            "(((Main.provedInt (OfNat 1)) (OfNat 2)) auto (((Std.Decidable.sound implicit \
+             ((True ) = (True ))) (%mk (True ) (fun Refl) (fun Refl))) Refl))",
         ),
         ("lawNat", "(fun (fun ((Std.Nat.addComm #1) #0)))"),
         (
