@@ -551,30 +551,51 @@ pub struct Ends {
     pub y: Value,
 }
 
-/// The first level of the range that comparisons started by evaluation
-/// make their fresh variables in (rule K's test, [`ends_meet`]). No context
-/// reaches it, so a fresh variable there never names a free variable of the
-/// values compared (docs/proposals/full-proof-irrelevance-audit.md, finding
-/// A: with `v5` free, comparing `z => z` with `z => v5` at level 5 would
-/// answer "equal"). On a 32-bit target (the web build) it is 2^31, which
-/// leaves room for 128 nested tests of [`LEVELS_PER_TEST`] each; one inside
-/// all of them answers "not equal" ([`test_levels`]).
+/// The lowest level comparisons started by evaluation (rule K's test,
+/// [`ends_meet`]; rule S's) make their fresh variables at. No context
+/// reaches it (a context that deep can't exist in memory), so a fresh
+/// variable there never names a free variable of the values compared
+/// (docs/proposals/full-proof-irrelevance-audit.md, finding A: with `v5`
+/// free, comparing `z => z` with `z => v5` at level 5 would answer
+/// "equal"). 2^31 on a 32-bit target (the web build).
 pub const RESERVED_LEVELS: usize = if usize::BITS >= 64 { 1 << 40 } else { 1 << 31 };
 
-/// How far each test in progress may go under binders before a nested one
-/// (a cast met while comparing the ends of another) starts its own levels.
-pub(crate) const LEVELS_PER_TEST: usize = 1 << 24;
+/// One above the highest level a comparison may make a fresh variable at:
+/// below the levels kept for markers ([`DUMMY_LEVEL`], `erase::ERASED`,
+/// [`unused`]), which a fresh variable must never be taken for.
+pub const LEVEL_CAP: usize = usize::MAX - 3;
 
-/// The first fresh level of a test started with `used` levels above `base`
-/// taken by the tests around it, and the count taken while it runs; `None`
-/// if its range would pass `usize::MAX`. Unchecked, the sum would wrap into
-/// the levels of real variables, the collision [`RESERVED_LEVELS`] exists to
-/// prevent; on a 32-bit target that happens to a test inside 128 others. The
-/// caller answers "not equal" (the cast stays stuck), which is always safe.
-pub(crate) fn test_levels(base: usize, used: usize) -> Option<(usize, usize)> {
-    let taken = used.checked_add(LEVELS_PER_TEST)?;
-    base.checked_add(taken - 1)?;
-    Some((base + used, taken))
+/// The level after `k` fresh variables made from `level` (`level` to
+/// `level + k - 1`), or `None` past [`LEVEL_CAP`].
+pub fn next_level(level: usize, k: usize) -> Option<usize> {
+    level.checked_add(k).filter(|&next| next <= LEVEL_CAP)
+}
+
+/// The level after `k` fresh variables made from `level` by a comparison
+/// going under binders (or into a `case` branch's fields), raising
+/// [`Machine::reached`](crate::machine::Machine::reached) to it. Every
+/// fresh variable a comparison makes goes through here, before it's used:
+/// applying a closure to it can already evaluate a cast with it in its
+/// ends, whose test must start above it. Past [`LEVEL_CAP`] there's no
+/// answer (`E-RESOURCE`).
+fn fresh_past(g: &Ev, level: usize, k: usize) -> Result<usize> {
+    let Some(next) = next_level(level, k) else {
+        return Err(g.machine.budget.too_deep("comparison"));
+    };
+    if next > g.machine.reached.get() {
+        g.machine.reached.set(next);
+    }
+    Ok(next)
+}
+
+/// Puts [`Machine::reached`](crate::machine::Machine::reached) back as it
+/// was when dropped, on any return or error.
+struct RestoreReached<'a>(&'a crate::machine::Machine, usize);
+
+impl Drop for RestoreReached<'_> {
+    fn drop(&mut self) {
+        self.0.reached.set(self.1);
+    }
 }
 
 /// Whether the ends of a cast into data are equal, so the cast is its base
@@ -592,7 +613,12 @@ pub fn ends_meet(g: &Ev, ends: &Ends) -> Result<bool> {
 
 /// Whether `x` and `y`, of one type, are equal, compared where evaluation
 /// has no count of the variables in scope (rules K and S): read-only, with
-/// fresh variables from the reserved range ([`RESERVED_LEVELS`]).
+/// fresh variables from the larger of [`RESERVED_LEVELS`] and
+/// [`Machine::reached`](crate::machine::Machine::reached), so above every
+/// variable either value can hold: one of the context's, or one a
+/// comparison in progress made. The test gives its levels back when it
+/// returns: its variables live on only in caches that match values without
+/// evaluating them. Running out of levels is an error, never "not equal".
 ///
 /// Answers are remembered for the rest of the outermost test (the one not
 /// inside another), by the two values' shapes ([`ShapeMemo`]), so a test
@@ -605,21 +631,19 @@ pub fn ends_meet(g: &Ev, ends: &Ends) -> Result<bool> {
 /// solves nothing), and each test's fresh variables are above every one
 /// either value can hold, so an answer found at one level holds at any.
 fn meet_in_evaluation(g: &Ev, x: &Value, y: &Value) -> Result<bool> {
-    struct Restore<'a>(&'a crate::machine::Machine, usize);
-    impl Drop for Restore<'_> {
+    struct ClearAnswers<'a>(&'a crate::machine::Machine, bool);
+    impl Drop for ClearAnswers<'_> {
         fn drop(&mut self) {
-            self.0.cast_levels.set(self.1);
-            if self.1 == 0 {
+            if self.1 {
                 *self.0.cast_answers.borrow_mut() = None;
             }
         }
     }
-    let used = g.machine.cast_levels.get();
-    let Some((level, taken)) = test_levels(RESERVED_LEVELS, used) else {
-        return Ok(false);
-    };
-    let _restore = Restore(g.machine, used);
-    g.machine.cast_levels.set(taken);
+    let level = RESERVED_LEVELS.max(g.machine.reached.get());
+    #[cfg(feature = "test-bypass")]
+    check_levels::below(level, x, y);
+    let outermost = g.machine.cast_answers.borrow().is_none();
+    let _clear = ClearAnswers(g.machine, outermost);
     let filed = {
         let mut answers = g.machine.cast_answers.borrow_mut();
         let memo = answers.get_or_insert_with(ShapeMemo::default);
@@ -636,6 +660,87 @@ fn meet_in_evaluation(g: &Ev, x: &Value, y: &Value) -> Result<bool> {
         memo.insert((same, filed.1, filed.2), x, y);
     }
     Ok(same)
+}
+
+/// The test-only check of [`meet_in_evaluation`]'s invariant: every
+/// variable in the two values is below the test's first level. Off unless
+/// [`check_levels::set`] or `STITCHWORT_CHECK_TEST_LEVELS=1` turns it on
+/// (the soundness examples do), since it walks both values whole.
+#[cfg(feature = "test-bypass")]
+pub mod check_levels {
+    use super::{Closure, Elim, Head, Value};
+    use crate::collections::HashSet;
+    use std::sync::atomic::{AtomicBool, Ordering};
+
+    static ON: AtomicBool = AtomicBool::new(false);
+
+    /// Turns the check on or off for every thread.
+    pub fn set(on: bool) {
+        ON.store(on, Ordering::Relaxed);
+    }
+
+    fn on() -> bool {
+        static ENV: std::sync::OnceLock<bool> = std::sync::OnceLock::new();
+        ON.load(Ordering::Relaxed)
+            || *ENV.get_or_init(|| crate::env_flag::env_flag("STITCHWORT_CHECK_TEST_LEVELS"))
+    }
+
+    /// Panics if `x` or `y` holds a variable at `start` or above (the
+    /// marker levels apart), walking closures' environments and stuck
+    /// casts' ends but forcing nothing.
+    pub(super) fn below(start: usize, x: &Value, y: &Value) {
+        if !on() {
+            return;
+        }
+        let mut seen: HashSet<*const ()> = HashSet::default();
+        let mut work = vec![x.clone(), y.clone()];
+        let closure = |c: &Closure, work: &mut Vec<Value>, seen: &mut HashSet<*const ()>| {
+            if seen.insert(c.env.as_ptr().cast()) {
+                work.extend(c.env.iter().cloned());
+            }
+        };
+        while let Some(value) = work.pop() {
+            match &value {
+                Value::Sort(_) | Value::Nat(_) | Value::Chars(_) | Value::Refl => {}
+                Value::Resumption(_) => {}
+                Value::Pi(_, _, a, b, _) => {
+                    work.push((**a).clone());
+                    closure(b, &mut work, &mut seen);
+                }
+                Value::Lam(_, _, b, _) => closure(b, &mut work, &mut seen),
+                Value::Data(_, args) => work.extend(args.iter().cloned()),
+                Value::Ctor(_, _, fields) => {
+                    if seen.insert(fields.as_ptr().cast()) {
+                        work.extend(fields.iter().cloned());
+                    }
+                }
+                Value::NatAdd(_, x) => work.push((**x).clone()),
+                Value::Eq(a, x, y) => work.extend([(**a).clone(), (**x).clone(), (**y).clone()]),
+                Value::Neutral(_, spine) | Value::Call(_, spine, _) => {
+                    if let Value::Neutral(Head::Var(l, ..), _) = &value {
+                        assert!(
+                            *l < start || *l >= super::LEVEL_CAP,
+                            "internal error: a test starting at level {start} compares a value holding the variable at level {l}"
+                        );
+                    }
+                    for elim in spine.iter() {
+                        match elim {
+                            Elim::App(v, _) => work.push(v.clone()),
+                            Elim::Proj(..) => {}
+                            Elim::J {
+                                motive, base, ends, ..
+                            } => {
+                                work.extend([(**motive).clone(), (**base).clone()]);
+                                if let Some(ends) = ends {
+                                    work.extend([ends.ty.clone(), ends.x.clone(), ends.y.clone()]);
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    }
 }
 
 /// The eliminations applied to a neutral value's head, in order: shared, so
@@ -5518,6 +5623,13 @@ fn visibly_data(g: &Ev, value: &Value) -> bool {
 /// codomains have frames of their own, which are gone before the recursion
 /// starts.
 fn conv_with(g: &Ev, level: usize, a: &Value, b: &Value, memo: &mut CallMemo) -> Result<bool> {
+    // Every level below `level` may be free in `a` and `b` (the caller's
+    // promise), so a test met while comparing them starts at or above it.
+    let reached = g.machine.reached.get();
+    let _restore = RestoreReached(g.machine, reached);
+    if level > reached {
+        g.machine.reached.set(level);
+    }
     let mut work = vec![ConvTask::Values(level, a.clone(), b.clone())];
     while let Some(mut task) = work.pop() {
         g.machine.budget.step()?;
@@ -5569,9 +5681,10 @@ fn codomains(
     if same_closure(g, &b1, &b2)? {
         return Ok(true);
     }
+    let next = fresh_past(g, level, 1)?;
     let fresh = Value::var_marked(level, mark);
     work.push(ConvTask::Values(
-        level + 1,
+        next,
         b1.apply(g, fresh.clone())?,
         b2.apply(g, fresh)?,
     ));
@@ -5917,9 +6030,10 @@ fn conv_step(
         // body applied to a fresh variable would find the same value twice.
         (Value::Lam(_, _, b1, _), Value::Lam(_, _, b2, _)) if same_closure(g, b1, b2)? => true,
         (Value::Lam(_, _, b1, m1), Value::Lam(_, _, b2, m2)) => {
+            let next = fresh_past(g, level, 1)?;
             let fresh = Value::var_marked(level, m1.or(*m2));
             work.push(ConvTask::Values(
-                level + 1,
+                next,
                 b1.apply(g, fresh.clone())?,
                 b2.apply(g, fresh)?,
             ));
@@ -5927,9 +6041,10 @@ fn conv_step(
         }
         // Eta: `f` and `x => f x` are equal.
         (Value::Lam(_, i, b, mark), other) | (other, Value::Lam(_, i, b, mark)) => {
+            let next = fresh_past(g, level, 1)?;
             let fresh = Value::var_marked(level, *mark);
             work.push(ConvTask::Values(
-                level + 1,
+                next,
                 b.apply(g, fresh.clone())?,
                 apply_icit(g, other.clone(), fresh, *i)?,
             ));
@@ -6349,9 +6464,10 @@ fn push_eta(g: &Ev, level: usize, a: &Value, b: &Value, work: &mut Vec<ConvTask>
     let Some((icit, mark)) = next_parameter(g, a).or_else(|| next_parameter(g, b)) else {
         return Ok(false);
     };
+    let next = fresh_past(g, level, 1)?;
     let fresh = Value::var_marked(level, mark);
     work.push(ConvTask::Values(
-        level + 1,
+        next,
         apply_icit(g, a.clone(), fresh.clone(), icit)?,
         apply_icit(g, b.clone(), fresh, icit)?,
     ));
@@ -6707,6 +6823,9 @@ fn same_trees_of(
     (t2, e2, h2): (Rc<Term>, Vec<Value>, bool),
     same: &mut dyn FnMut(usize, &Value, &Value) -> Result<bool>,
 ) -> Result<bool> {
+    // The unifier calls this too, outside `conv_with`; the fields'
+    // variables are gone when it returns.
+    let _restore = RestoreReached(g.machine, g.machine.reached.get());
     // Pairs of subtrees still to compare, each with its level.
     let mut pending = vec![(level, t1, e1, t2, e2)];
     while let Some((level, t1, e1, t2, e2)) = pending.pop() {
@@ -6749,6 +6868,7 @@ fn same_trees_of(
                         (Some(x), Some(y)) => {
                             let ctor = &g.data(*d1).ctors[c];
                             let k = ctor.fields.len();
+                            let next = fresh_past(g, level, k)?;
                             let fresh = (0..k).map(|i| {
                                 let mark = ctor
                                     .field_sorts
@@ -6760,7 +6880,7 @@ fn same_trees_of(
                             let mut e2 = e2.clone();
                             e1.extend(fresh.clone());
                             e2.extend(fresh);
-                            pending.push((level + k, x.clone(), e1, y.clone(), e2));
+                            pending.push((next, x.clone(), e1, y.clone(), e2));
                         }
                         _ => return Ok(false),
                     }
@@ -7876,25 +7996,14 @@ mod tests {
         Term::App(rc(Term::Var(1)), rc(Term::Var(0)), Icit::Explicit)
     }
 
-    /// A 32-bit target has 2^31 levels above [`RESERVED_LEVELS`], room for
-    /// 128 nested tests. A base with as many above it here behaves the
-    /// same: each of the 128 gets levels at or above the base, and a test
-    /// inside all of them gets none, rather than a level wrapped below it.
+    /// Fresh variables stop below the marker levels at the top of `usize`.
     #[test]
-    fn rule_k_levels_stop_at_the_top_of_the_range() {
-        let base = usize::MAX - ((1 << 31) - 1);
-        let mut used = 0;
-        let mut tests = 0;
-        while let Some((level, taken)) = test_levels(base, used) {
-            assert!(level >= base && level <= usize::MAX - (LEVELS_PER_TEST - 1));
-            used = taken;
-            tests += 1;
-        }
-        assert_eq!(tests, 128);
-        assert_eq!(
-            test_levels(RESERVED_LEVELS, 0),
-            Some((RESERVED_LEVELS, LEVELS_PER_TEST))
-        );
+    fn fresh_levels_stop_below_the_markers() {
+        assert_eq!(next_level(LEVEL_CAP - 1, 1), Some(LEVEL_CAP));
+        assert_eq!(next_level(LEVEL_CAP, 1), None);
+        assert_eq!(next_level(LEVEL_CAP - 2, 3), None);
+        assert_eq!(next_level(usize::MAX, 1), None);
+        const { assert!(LEVEL_CAP < DUMMY_LEVEL && LEVEL_CAP < crate::erase::ERASED) };
     }
 
     fn closure(env: Vec<Value>, body: Term) -> Closure {

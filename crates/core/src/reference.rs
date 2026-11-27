@@ -52,8 +52,8 @@ use crate::budget::Result;
 use crate::native;
 use crate::term::{Branch, DefId, Icit, QuotForm, Sort, Term};
 use crate::value::{
-    Closure, Elim, Ends, Head, LEVELS_PER_TEST, RESERVED_LEVELS, Shared, Spine, Value, quot_mk_rep,
-    quot_value, test_levels,
+    Closure, Elim, Ends, Head, LEVEL_CAP, RESERVED_LEVELS, Shared, Spine, Value, quot_mk_rep,
+    quot_value,
 };
 
 thread_local! {
@@ -894,9 +894,7 @@ fn rule_s(
     for (k, index) in ctor.result.iter().enumerate() {
         let wanted = eval(g, &ctor_env, index)?;
         let depth = ENDS_DEPTH.with(|c| c.get());
-        let Some(level) = ends_level(depth) else {
-            return Ok(false);
-        };
+        let level = ends_level(depth)?;
         ENDS_DEPTH.with(|c| c.set(depth + 1));
         let same = conv(g, level, &wanted, &args[n + k]);
         ENDS_DEPTH.with(|c| c.set(depth));
@@ -1127,11 +1125,37 @@ thread_local! {
     static ENDS_DEPTH: std::cell::Cell<usize> = const { std::cell::Cell::new(0) };
 }
 
-/// The first fresh level of the test of ends `depth` tests deep: `None`
-/// past the top of the reserved range, where the test answers "not equal".
-fn ends_level(depth: usize) -> Option<usize> {
-    let used = depth.checked_mul(LEVELS_PER_TEST)?;
-    test_levels(RESERVED_LEVELS, used).map(|(level, _)| level)
+/// How many levels each test of ends in progress takes. The kernel hands
+/// levels out compactly instead (`value::meet_in_evaluation`); fixed
+/// ranges here make the differential tests compare two schemes, where a
+/// fresh variable missed by one would show. Recursion stops this evaluator
+/// long before a test goes this deep.
+const LEVELS_PER_TEST: usize = 1 << 24;
+
+/// The first fresh level of the test of ends `depth` tests deep, or no
+/// answer (`E-RESOURCE`) past the top of the levels.
+fn ends_level(depth: usize) -> Result<usize> {
+    depth
+        .checked_mul(LEVELS_PER_TEST)
+        .and_then(|used| RESERVED_LEVELS.checked_add(used))
+        .filter(|&level| {
+            level
+                .checked_add(LEVELS_PER_TEST)
+                .is_some_and(|top| top <= LEVEL_CAP)
+        })
+        .ok_or(crate::budget::ResourceError::Nesting("comparison"))
+}
+
+/// The level after `k` fresh variables made from `level` by a comparison,
+/// or no answer past the top of its range: [`RESERVED_LEVELS`] outside a
+/// test, the next test's first level inside one.
+fn fresh_past(level: usize, k: usize) -> Result<usize> {
+    let used = ENDS_DEPTH.with(|d| d.get()).checked_mul(LEVELS_PER_TEST);
+    let top = used.and_then(|used| RESERVED_LEVELS.checked_add(used));
+    match (level.checked_add(k), top) {
+        (Some(next), Some(top)) if next <= top && next <= LEVEL_CAP => Ok(next),
+        _ => Err(crate::budget::ResourceError::Nesting("comparison")),
+    }
 }
 
 /// Whether a cast's ends are equal (rule K). Evaluation has no count of the
@@ -1141,9 +1165,7 @@ fn ends_level(depth: usize) -> Option<usize> {
 /// can be a free variable of the ends.
 fn ends_equal(g: &Ev, ends: &Ends) -> Result<bool> {
     let depth = ENDS_DEPTH.with(|d| d.get());
-    let Some(level) = ends_level(depth) else {
-        return Ok(false);
-    };
+    let level = ends_level(depth)?;
     ENDS_DEPTH.with(|d| d.set(depth + 1));
     let same = conv(g, level, &ends.x, &ends.y);
     ENDS_DEPTH.with(|d| d.set(depth));
@@ -1284,17 +1306,27 @@ fn conv_in(g: &Ev, level: usize, a: &Value, b: &Value) -> Result<bool> {
             let fresh = fresh(m1.or(*m2));
             i1 == i2
                 && conv_in(g, level, a1, a2)?
-                && conv_in(g, level + 1, &apply(b1, fresh.clone())?, &apply(b2, fresh)?)?
+                && conv_in(
+                    g,
+                    fresh_past(level, 1)?,
+                    &apply(b1, fresh.clone())?,
+                    &apply(b2, fresh)?,
+                )?
         }
         (Value::Lam(_, _, b1, m1), Value::Lam(_, _, b2, m2)) => {
             let fresh = fresh(m1.or(*m2));
-            conv_in(g, level + 1, &apply(b1, fresh.clone())?, &apply(b2, fresh)?)?
+            conv_in(
+                g,
+                fresh_past(level, 1)?,
+                &apply(b1, fresh.clone())?,
+                &apply(b2, fresh)?,
+            )?
         }
         (Value::Lam(_, i, b, mark), other) | (other, Value::Lam(_, i, b, mark)) => {
             let fresh = fresh(*mark);
             conv_in(
                 g,
-                level + 1,
+                fresh_past(level, 1)?,
                 &apply(b, fresh.clone())?,
                 &apply_icit(g, other.clone(), fresh, *i)?,
             )?
@@ -1588,6 +1620,7 @@ fn same_trees(g: &Ev, level: usize, mut a: Tree, mut b: Tree) -> Result<bool> {
                     (None, None) => {}
                     (Some(x), Some(y)) => {
                         let ctor = &g.data(*d1).ctors[c];
+                        let next = fresh_past(level, ctor.fields.len())?;
                         let fresh: Vec<Value> = (0..ctor.fields.len())
                             .map(|i| {
                                 let mark = ctor
@@ -1597,7 +1630,6 @@ fn same_trees(g: &Ev, level: usize, mut a: Tree, mut b: Tree) -> Result<bool> {
                                 Value::var_marked(level + i, mark)
                             })
                             .collect();
-                        let k = fresh.len();
                         let mut f1 = e1.clone();
                         let mut f2 = e2.clone();
                         f1.extend(fresh.iter().cloned());
@@ -1612,7 +1644,7 @@ fn same_trees(g: &Ev, level: usize, mut a: Tree, mut b: Tree) -> Result<bool> {
                             env: f2,
                             held: b.held,
                         };
-                        if !same_trees(g, level + k, x, y)? {
+                        if !same_trees(g, next, x, y)? {
                             return Ok(false);
                         }
                     }
@@ -1695,7 +1727,7 @@ fn eta(g: &Ev, level: usize, a: &Value, b: &Value) -> Result<bool> {
     let fresh = Value::var_marked(level, mark);
     conv_in(
         g,
-        level + 1,
+        fresh_past(level, 1)?,
         &apply_icit(g, a.clone(), fresh.clone(), icit)?,
         &apply_icit(g, b.clone(), fresh, icit)?,
     )
