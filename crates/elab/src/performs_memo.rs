@@ -39,10 +39,11 @@ use stitchwort_syntax::ast::Expr;
 use crate::Elaborator;
 use crate::check::Ctx;
 
-/// The expression's address, the context's identity, the number of
-/// abilities declared, whether a description's recursion is in scope, and
-/// `bare_rows_pure`.
-type Key = (usize, u64, usize, bool, bool);
+/// The expression's address, the context's identity, and the number of
+/// abilities declared with whether a description's recursion is in scope
+/// and `bare_rows_pure` in its low two bits. (The memo holds an entry per
+/// expression walked, so the key and entry are kept small.)
+type Key = (usize, u64, u32);
 
 /// The answers of one declaration (see the module doc).
 #[derive(Default)]
@@ -78,8 +79,8 @@ struct Entry {
     performs: bool,
     /// How many metavariables there were, and how long the trail was, when
     /// the walk that found it began.
-    metas: usize,
-    trail: usize,
+    metas: u32,
+    trail: u32,
 }
 
 impl Memo {
@@ -112,10 +113,12 @@ impl Memo {
     /// Whether `entry` still holds: no solution since its walk began is of
     /// a metavariable that existed then.
     fn holds(&self, entry: &Entry) -> bool {
-        let first = self.minima.partition_point(|&(at, _)| at < entry.trail);
+        let first = self
+            .minima
+            .partition_point(|&(at, _)| at < entry.trail as usize);
         self.minima
             .get(first)
-            .is_none_or(|&(_, m)| m >= entry.metas)
+            .is_none_or(|&(_, m)| m >= entry.metas as usize)
     }
 }
 
@@ -131,12 +134,14 @@ pub(crate) struct Walk {
 }
 
 fn key(cx: &Ctx, expr: &Expr) -> Key {
+    // A declaration can't have 2^30 abilities: each is a table entry.
+    let abilities = u32::try_from(cx.e.tables.abilities.len()).unwrap_or(u32::MAX >> 2);
     (
         std::ptr::from_ref(expr) as usize,
         cx.identity(),
-        cx.e.tables.abilities.len(),
-        cx.e.decl.recursion.is_some(),
-        cx.e.decl.bare_rows_pure.get(),
+        abilities << 2
+            | u32::from(cx.e.decl.recursion.is_some()) << 1
+            | u32::from(cx.e.decl.bare_rows_pure.get()),
     )
 }
 
@@ -218,10 +223,14 @@ impl Walk {
             return;
         }
         memo.catch_up(cx);
+        // Counts too large to hold are not recorded.
+        let (Ok(metas), Ok(trail)) = (u32::try_from(self.metas), u32::try_from(self.trail)) else {
+            return;
+        };
         let entry = Entry {
             performs,
-            metas: self.metas,
-            trail: self.trail,
+            metas,
+            trail,
         };
         // Or a solution of an older metavariable made during the walk, which
         // may have read it unsolved first.

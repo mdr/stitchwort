@@ -91,8 +91,8 @@ time_ms = 371.9
 [check-long-sum]
 steps = 180049
 visits = 188996
-allocations = 342356
-peak_bytes = 9076970
+allocations = 351398
+peak_bytes = 10830919
 time_ms = 113.5
 
 [check-nested-parens]
@@ -104,10 +104,10 @@ time_ms = 9.5
 
 [check-nested-apps]
 steps = 26084
-visits = 2025042
-allocations = 2075563
-peak_bytes = 2452959
-time_ms = 961.7
+visits = 26042
+allocations = 78604
+peak_bytes = 2803695
+time_ms = 30.0
 
 [check-number-huge]
 steps = 375
@@ -146,9 +146,9 @@ time_ms = 1.8
 
 [text-literal-walk]
 steps = 1400141
-visits = 31
-allocations = 633593
-peak_bytes = 3462
+visits = 30
+allocations = 633579
+peak_bytes = 4086
 time_ms = 48.2
 
 [run-proof-fields]
