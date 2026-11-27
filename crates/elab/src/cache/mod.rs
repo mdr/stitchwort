@@ -2588,8 +2588,9 @@ struct UnitOut {
     /// theorems are written without proofs or full hashes. Any other
     /// unit holding one can't be encoded.
     interface: bool,
-    /// The core (`core_entry`): the one unit whose entry may hold
-    /// primitives and bind core built-ins.
+    /// The core (`core_entry`): the one unit whose entry may hold the
+    /// core's primitives and bind core built-ins. A library file's may hold
+    /// float primitives.
     core: bool,
 }
 
@@ -2902,7 +2903,7 @@ impl Elaborator {
 
     /// The entry for a unit that has just loaded without errors, or why it
     /// can't be cached: a declaration the kernel didn't admit, a primitive
-    /// or core built-in bound, an export made, a library test kept, a name
+    /// outside the unit that may declare it or a core built-in bound, an export made, a library test kept, a name
     /// that failed, or a reference that can't be written by path. Library
     /// built-ins are encoded.
     #[allow(clippy::too_many_arguments)]
@@ -3172,18 +3173,21 @@ impl Elaborator {
                     def.path()
                 ));
             }
-            let primitive = g.env.builtins().primitive(id).is_some();
+            let core_primitive = g.env.builtins().primitive(id).is_some();
+            let float_primitive = g.env.builtins().float_primitive(id).is_some();
             // The body itself is written, so a stated theorem, whose proof
             // isn't here, is refused too: not `Def::defined`.
             if def.state() != State::Final
-                || (def.body().is_none() && !def.unproved() && !primitive)
+                || (def.body().is_none() && !def.unproved() && !core_primitive && !float_primitive)
             {
                 return Err(format!("`{}` isn't admitted with a body", def.path()));
             }
             if def.export() || !def.validators().is_empty() {
                 return Err(format!("`{}` is exported", def.path()));
             }
-            if primitive && !unit.core {
+            // Each kind of primitive only where elaborating admits it, so
+            // replay can admit it by the same rule (`submit`).
+            if (core_primitive && !unit.core) || (float_primitive && (unit.core || !unit.library)) {
                 return Err(format!("`{}` is a primitive", def.path()));
             }
             // Replay declares it again under its module.
@@ -3369,9 +3373,11 @@ impl Elaborator {
             // reference (docs/proposals/opaque-definitions.md §6.4).
             e.w.bool(def.opaque());
             e.w.bool(def.tailrec());
-            // A primitive (only in the core): no body and no group; replay
-            // admits it as elaborating does (`partial::define_primitive`).
-            let primitive = g.env.builtins().primitive(id).is_some();
+            // A primitive (the core's, or a float one in a library file):
+            // no body and no group; replay admits it as elaborating does
+            // (`partial::define_primitive`, `float::define_primitive`).
+            let primitive = g.env.builtins().primitive(id).is_some()
+                || g.env.builtins().float_primitive(id).is_some();
             e.w.bool(primitive);
             let refs = &unfolding_refs[id.0 - before.defs];
             e.w.usize(refs.len());
@@ -3946,8 +3952,9 @@ struct DefEntry {
     fold: bool,
     opaque: bool,
     tailrec: bool,
-    /// A primitive of the core's (`partial::Primitive`), named by `name`:
-    /// no body and no group.
+    /// A primitive, named by `name`: one of the core's
+    /// (`partial::Primitive`) in the core's entry, a float one
+    /// (`float::FloatOp`) in a library file's. No body and no group.
     primitive: bool,
     /// Its `unfolding` list as written.
     unfolding: Vec<DefId>,
@@ -4801,10 +4808,11 @@ impl Elaborator {
         };
         // The core's entry is the one that binds built-ins with no library
         // installed (a library file's replay always has one): the only
-        // entry that may hold primitives (`core_entry`).
+        // entry that may hold the core's primitives (`core_entry`). A
+        // library file's may hold float primitives, which `std/Float` declares.
         let core = library && self.session.library.is_none();
-        if !core && defs.iter().any(|d| d.primitive) {
-            return bad("a primitive outside the core");
+        if !library && defs.iter().any(|d| d.primitive) {
+            return bad("a primitive outside the library");
         }
         // The groups, each with the entry's own declarations its terms
         // refer to (besides its members).
@@ -5157,7 +5165,8 @@ impl Elaborator {
             if next_def < defs.len() && defs[next_def].primitive {
                 let def = &defs[next_def];
                 let id = DefId(base_defs + next_def);
-                self.admit_primitive(def, id, check).map_err(refused)?;
+                self.admit_primitive(def, id, check, core)
+                    .map_err(refused)?;
                 def_final[next_def] = true;
                 next_def += 1;
                 continue;

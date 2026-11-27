@@ -74,15 +74,9 @@ struct Run {
     dump: String,
     stats: Stats,
     loaded: usize,
-    /// How many of those can't be cached: `Float/Float.sw`, which declares
-    /// primitives and binds natives (docs/proposals/float.md, "As built").
-    uncacheable: usize,
     /// What the session's journal did and holds at the end.
     journal: JournalStats,
 }
-
-/// The library files that can't be cached.
-const UNCACHEABLE: &[&str] = &["Float/Float.sw"];
 
 /// Loads `source` in a new session (navigation recorded or not), through
 /// the cache in `cache` if there is one.
@@ -146,12 +140,6 @@ fn finish_run(mut session: Session, source: &Source) -> Run {
         dump,
         stats: session.elab.check_cache_stats(),
         loaded: session.elab.loaded_library_files().len(),
-        uncacheable: session
-            .elab
-            .loaded_library_files()
-            .iter()
-            .filter(|f| UNCACHEABLE.contains(&f.as_str()))
-            .count(),
         journal: session.elab.journal_stats(),
     }
 }
@@ -188,13 +176,9 @@ pub(crate) fn assert_cache_changes_nothing(source: &Source, nav: bool) {
     );
     assert_eq!(cold.stats.hits, 0, "{n}: a new cache had entries");
     assert_eq!(
-        cold.stats.written + cold.stats.uncacheable,
-        fresh.loaded,
-        "{n}: every library file loaded was written or found uncacheable"
-    );
-    assert_eq!(
-        cold.stats.uncacheable, fresh.uncacheable,
-        "{n}: a library file can't be cached"
+        (cold.stats.written, cold.stats.uncacheable),
+        (fresh.loaded, 0),
+        "{n}: a library file loaded wasn't written"
     );
     assert!(
         warm.dump == fresh.dump,
@@ -203,7 +187,7 @@ pub(crate) fn assert_cache_changes_nothing(source: &Source, nav: bool) {
     );
     assert_eq!(
         (warm.stats.hits, warm.stats.misses),
-        (fresh.loaded - fresh.uncacheable, fresh.uncacheable),
+        (fresh.loaded, 0),
         "{n} (nav {nav}): the warm run elaborated a cacheable library file"
     );
     // Every project namespace checked without errors was written, and
@@ -1258,7 +1242,6 @@ fn run_target_here(
         dump,
         stats: session.elab.check_cache_stats(),
         loaded: session.elab.loaded_library_files().len(),
-        uncacheable: 0,
         journal: session.elab.journal_stats(),
     };
     (run, checked)
@@ -1434,47 +1417,27 @@ fn std_copy(name: &str) -> PathBuf {
     std
 }
 
-/// The standard library with `Float/Float.sw` cut before its primitives,
-/// which keep it out of the cache, so that its entry, with the Float
-/// built-ins it binds, can be written and replayed; the rest goes to
-/// `Float/Rest.sw`. In a new directory.
-fn std_with_cacheable_float() -> PathBuf {
-    let std = std_copy("float-std");
-    let float = std.join("Float/Float.sw");
-    let text = std::fs::read_to_string(&float).unwrap();
-    // `Float.sub` is the last declaration the cut file needs; the blank line
-    // after its block is the cut. Found by declaration, not by a comment,
-    // which std's edits move.
-    let sub = text
-        .find("\ndef Float.sub ")
-        .expect("Float.sw declares `Float.sub`");
-    let cut = sub
-        + text[sub..]
-            .find("\n\n")
-            .expect("a blank line after `Float.sub`");
-    std::fs::write(&float, &text[..cut + 1]).unwrap();
-    // The library must still declare every Float built-in, so the rest of
-    // the file, primitives included, moves to a file of its own, which this
-    // test never loads. Its instances become plain definitions: an instance
-    // must be declared in its type's file.
-    let rest = text[cut + 1..].replace("\ninstance ", "\ndef ");
-    std::fs::write(std.join("Float/Rest.sw"), rest).unwrap();
-    std
+/// SW-1204: `Float/Float.sw`, which declares the primitive `Float.toText`,
+/// is written to the cache and replayed from it as every other library file
+/// is, and the replay changes nothing.
+#[test]
+fn float_sw_is_cached_and_replays_unchanged() {
+    let source = Source::File(
+        "main.sw".to_string(),
+        "import Std (Float)\n\ndef x: Text := Float.toText (Float.ofNat 3)\n".to_string(),
+    );
+    assert_cache_changes_nothing(&source, false);
 }
 
 /// SW-1925 (the elab review's F1): a library entry the kernel refuses after
-/// it has bound `Float` and `Float.add`'s native is undone completely, the
-/// Float bindings included. The undo is checked when it is done, against
-/// the kernel at the mark (`admit_replayed`): checking afterwards would
-/// pass anyway, since elaborating the file binds the same ids again.
-///
-/// It reads its own copy of the library, which a process reads once: it
-/// needs a process of its own, as nextest gives every test.
+/// it has bound `Float`, `Float.add`'s native and the primitive
+/// `Float.toText` is undone completely, the Float bindings included. The
+/// undo is checked when it is done, against the kernel at the mark
+/// (`admit_replayed`): checking afterwards would pass anyway, since
+/// elaborating the file binds the same ids again. `Float.isFinite` is the
+/// first group after `Float.toText`.
 #[test]
 fn a_refused_library_entry_takes_back_its_float_bindings() {
-    let std = std_with_cacheable_float();
-    stitchwort_elab::use_std_dir(&std)
-        .expect("the library was read already: run this test in a process of its own (nextest)");
     let cache = temp_dir("refused-float-cache");
     let source = Source::File(
         "main.sw".to_string(),
@@ -1483,9 +1446,14 @@ fn a_refused_library_entry_takes_back_its_float_bindings() {
     let fresh = run(&source, false, None);
     let cold = run(&source, false, Some(&cache));
     let refused = with_stack(STACK, || {
-        run_here(&source, false, Some(&cache), None, Some("Std.Float.add"))
+        run_here(
+            &source,
+            false,
+            Some(&cache),
+            None,
+            Some("Std.Float.isFinite"),
+        )
     });
-    let _ = std::fs::remove_dir_all(&std);
     let _ = std::fs::remove_dir_all(&cache);
     assert!(
         fresh.dump.contains("\naccepted true\n") && fresh.dump.contains("float Native("),
@@ -1495,7 +1463,7 @@ fn a_refused_library_entry_takes_back_its_float_bindings() {
     assert_eq!(
         (cold.stats.uncacheable, cold.stats.written),
         (0, cold.loaded),
-        "the cut Float.sw still can't be cached"
+        "Float.sw can't be cached"
     );
     assert!(
         refused.dump == fresh.dump,
