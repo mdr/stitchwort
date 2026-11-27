@@ -284,3 +284,141 @@ fn the_library_namespace_import_line_imports_cleanly() {
         );
     });
 }
+
+/// Rows with abilities left open (D3765,
+/// docs/proposals/search-open-abilities.md).
+const ROWS: &str = "\
+type Doc = | MkDoc
+
+ability Tick where
+  tick: () -> {Tick} Nat
+
+ability Note where
+  note: Text -> {Note} ()
+
+def pureCount (d: Doc): Nat := 0
+
+def tickCount (d: Doc): {Tick} Nat := tick()
+
+def bothCount (d: Doc): {Note, Tick} Nat :=
+  note \"n\"
+  tick()
+
+def loopCount (d: Doc): {Partial} Nat := loopCount d
+
+def tickFlag (d: Doc): {Tick} Bool := tick() == 0
+";
+
+fn rows_search(query: &str) -> Result<Report, (String, Vec<String>)> {
+    with_session(STACK, Session::for_stack, |session| {
+        session.load("rows.sw", ROWS).expect("the file checks");
+        session
+            .search(query, &Options::default(), &Scope::File)
+            .map_err(|d| (d.code.to_string(), d.notes.clone()))
+    })
+}
+
+/// Each result in the file's namespace, with the abilities it took; not
+/// the helpers a partial definition generates (`loopCount.recur`).
+fn taken(report: &Report) -> Vec<(String, usize)> {
+    (report.results.iter())
+        .filter_map(|r| Some((r.name.strip_prefix("Main.")?.to_string(), r.abilities_taken)))
+        .filter(|(name, _)| !name.contains('.'))
+        .collect()
+}
+
+#[test]
+fn an_open_row_matches_any_abilities_fewest_first() {
+    // `{_}` takes the empty row, abilities in any number, and `Partial`.
+    let report = rows_search("Doc → {_} Nat").unwrap();
+    assert_eq!(report.search_tier, Some("filtered"), "{report:?}");
+    let found = taken(&report);
+    assert_eq!(
+        found,
+        [
+            ("pureCount".to_string(), 0),
+            ("loopCount".to_string(), 1),
+            ("tickCount".to_string(), 1),
+            ("bothCount".to_string(), 2),
+        ],
+        "{found:?}"
+    );
+}
+
+#[test]
+fn a_row_with_a_tail_hole_needs_the_abilities_written() {
+    // `{Tick | _}`: `Tick` and maybe more, the closest first.
+    let found = taken(&rows_search("Doc → {Tick | _} Nat").unwrap());
+    assert_eq!(
+        found,
+        [("tickCount".to_string(), 0), ("bothCount".to_string(), 1)],
+        "{found:?}"
+    );
+    // Written in either order, the row is a set.
+    let found = taken(&rows_search("Doc → {Tick, Note | _} Nat").unwrap());
+    assert_eq!(found, [("bothCount".to_string(), 0)], "{found:?}");
+    // A closed row is exact.
+    let found = taken(&rows_search("Doc → {Tick} Nat").unwrap());
+    assert_eq!(found, [("tickCount".to_string(), 0)], "{found:?}");
+}
+
+#[test]
+fn a_named_row_that_took_abilities_is_a_generalisation() {
+    let report = rows_search("Doc → {?e} Nat").unwrap();
+    let relation = |name: &str| {
+        (report.results.iter())
+            .find(|r| r.name == format!("Main.{name}"))
+            .and_then(|r| r.relation)
+    };
+    assert_eq!(relation("pureCount"), Some("instance"), "{report:?}");
+    assert_eq!(relation("tickCount"), Some("generalisation"), "{report:?}");
+}
+
+#[test]
+fn a_pure_pattern_that_finds_nothing_leaves_the_abilities_open() {
+    // `Doc → Nat` is pure, as the type is.
+    let report = rows_search("Doc → Nat").unwrap();
+    assert_eq!(report.search_tier, Some("filtered"));
+    assert_eq!(taken(&report), [("pureCount".to_string(), 0)]);
+    // Nothing pure is a `Doc → Bool`: searched again as `Doc → {_} Bool`.
+    let report = rows_search("Doc → Bool").unwrap();
+    assert_eq!(report.search_tier, Some("openAbilities"), "{report:?}");
+    assert_eq!(taken(&report), [("tickFlag".to_string(), 1)]);
+    assert!(
+        (report.warnings.iter()).any(|w| w.contains("`Doc → {_} Bool`")),
+        "{:?}",
+        report.warnings
+    );
+}
+
+#[test]
+fn row_holes_written_another_way_are_refused_with_a_pointer() {
+    let (code, notes) = rows_search("Doc → {Tick, _} Nat").unwrap_err();
+    assert_eq!(code, "E-SEARCH-PATTERN");
+    assert!(
+        notes.iter().any(|n| n.contains("{Parse _ | _}")),
+        "{notes:?}"
+    );
+    let (code, notes) = rows_search("Doc → _ Nat").unwrap_err();
+    assert_eq!(code, "E-NOT-A-TYPE");
+    assert!(notes.iter().any(|n| n.contains("`{_} Int`")), "{notes:?}");
+}
+
+#[test]
+fn a_row_hole_in_a_program_is_refused() {
+    for source in [
+        "def bad (n: Nat): {_} Nat := n\n",
+        "ability Tick where\n  tick: () -> {Tick} Nat\n\ndef bad (n: Nat): {Tick | _} Nat := n\n",
+    ] {
+        let codes = with_session(STACK, Session::for_stack, |session| {
+            match session.load("bad.sw", source) {
+                Ok(_) => Vec::new(),
+                Err(ds) => ds.iter().map(|d| d.code.to_string()).collect::<Vec<_>>(),
+            }
+        });
+        assert!(
+            codes.iter().any(|c| c == "E-ABILITY"),
+            "{source}: {codes:?}"
+        );
+    }
+}

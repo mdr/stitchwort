@@ -403,7 +403,8 @@ impl<'f> Lower<'f> {
     }
 
     /// `{A, B args | e}`, `{A, e}`, `{e}` or `{}`: a lowercase name last
-    /// is the row's variable.
+    /// is the row's variable. `{A | _}` has the tail `_`, which only a
+    /// search pattern accepts.
     fn row(&self, node: Node<'f>) -> Lowering<Row> {
         let kind = NodeKind::Row;
         let span = required(node.span(), kind, "its tokens")?;
@@ -414,7 +415,14 @@ impl<'f> Lower<'f> {
             match part {
                 Element::Leaf(leaf) if matches!(leaf.tok(), Tok::Comma | Tok::RBrace) => {}
                 Element::Leaf(leaf) if *leaf.tok() == Tok::Pipe => {
-                    let name = parts.next().as_ref().and_then(as_leaf).and_then(name);
+                    let leaf = parts.next().as_ref().and_then(as_leaf);
+                    let name = match leaf {
+                        Some(leaf) if *leaf.tok() == Tok::Underscore => Some(Name {
+                            text: "_".into(),
+                            span: leaf.span(),
+                        }),
+                        _ => leaf.and_then(name),
+                    };
                     tail = Some(required(name, kind, "its variable")?);
                 }
                 ability => abilities.push(self.expr(ability)?),

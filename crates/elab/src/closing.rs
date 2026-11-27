@@ -315,6 +315,7 @@ impl Elaborator {
                 distinct: true,
                 ty: Some(Ty::Type),
                 via: None,
+                rows: Vec::new(),
             };
             Ok(Goal {
                 pattern,
@@ -409,6 +410,7 @@ impl Elaborator {
                     distinct: goal.pattern.distinct,
                     ty: goal.pattern.ty.clone(),
                     via: None,
+                    rows: Vec::new(),
                 };
                 (pattern, sym)
             }),
@@ -748,6 +750,7 @@ impl Elaborator {
             distinct: true,
             ty,
             via: None,
+            rows: Vec::new(),
         })
     }
 

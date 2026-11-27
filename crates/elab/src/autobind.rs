@@ -523,7 +523,9 @@ fn walk_at(
             for ability in &row.abilities {
                 walk(e, ability, bound, true, uses)?;
             }
-            if let Some(tail) = &row.tail {
+            if let Some(tail) = &row.tail
+                && !row.open_tail()
+            {
                 let before = uses.len();
                 walk(e, &Expr::Var(tail.clone()), bound, true, uses)?;
                 let partial = row
