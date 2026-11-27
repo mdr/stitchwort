@@ -22021,7 +22021,7 @@
     {
       "id": 4964,
       "title": "Recursion check: three self-recursive search functions lack a guard or // Depth: reason (driver search.rs has_row and open_results::result, elab search.rs hole_applied); quick tier red at 83c42d0ba",
-      "status": "backlog",
+      "status": "doing",
       "agent": "",
       "where": "",
       "labels": [
