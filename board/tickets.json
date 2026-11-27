@@ -1,5 +1,5 @@
 {
-  "next": 4934,
+  "next": 4935,
   "tickets": [
     {
       "id": 47,
@@ -21527,6 +21527,19 @@
       "labels": [],
       "epic": "editor-playground",
       "body": "",
+      "created": "2026-11-27",
+      "updated": "2026-11-27",
+      "commits": []
+    },
+    {
+      "id": 4934,
+      "title": "AoC 2020 day 8: argument duplicates Std.Parse.int; use Parse.int",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "epic": "aoc-2020",
+      "body": "[DeepSeek] Found by Matt's `stitchwort search '() → {Parse Char} Int'` (27 Nov): Aoc.Year2020.Day08.argument (Day08.sw:57) and Std.Parse.int (std/Parse/Chars.sw:59) are both `() → {Parse Char} Int`, both a sign and a whole number. Check they accept the same text, replace argument with Parse.int, keep the day's proofs and tests passing (check Aoc.Year2020.Day08 only).\n",
       "created": "2026-11-27",
       "updated": "2026-11-27",
       "commits": []
