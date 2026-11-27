@@ -278,3 +278,145 @@ test('search for a proof: picks show the proof text, best first; the messages an
   assert.ok(cfg.proofStillApplies(answer, 4, '?'), 'moved version, ? still there');
   assert.ok(!cfg.proofStillApplies(answer, 4, 'n'));
 });
+
+// ---- Search by Type ----
+
+const FILTER_MAP = {
+  name: 'Std.List.filterMap',
+  short: 'filterMap',
+  namespace: 'Std.List',
+  kind: 'definition',
+  type: 'List a → (a → {e} Option b) → {e} List b',
+  file: 'std/List/Toolkit.sw',
+  line: 204,
+  summary: 'Keeps the `Some` results, in order.',
+  insertText: 'List.filterMap',
+  additionalTextEdits: [{ range: { start: { line: 1, character: 15 }, end: { line: 1, character: 15 } }, newText: ', List' }],
+};
+
+test('type search rows: name, then the type beside it, then the doc and where it is; the order kept', () => {
+  const answer = {
+    total: 3,
+    results: [
+      FILTER_MAP,
+      { name: 'Demo.lemma', short: 'lemma', namespace: 'Demo', kind: 'theorem', type: 'a = a', file: 'proj/src/Demo.sw', line: 3, summary: null, open: true },
+    ],
+  };
+  const items = cfg.typeSearchItems(answer);
+  assert.deepStrictEqual(
+    items.map((i) => [i.label, i.description, i.detail, i.alwaysShow]),
+    [
+      ['$(symbol-function) filterMap', ': List a → (a → {e} Option b) → {e} List b', 'Keeps the `Some` results, in order.  —  Std.List, std/List/Toolkit.sw:204', true],
+      ['$(symbol-key) lemma (open goal)', ': a = a', 'Demo, proj/src/Demo.sw:3', true],
+    ],
+  );
+  assert.strictEqual(items[0].result, FILTER_MAP);
+  const labelled = cfg.typeSearchItems(answer, true);
+  assert.strictEqual(labelled[0].label, '$(symbol-function) filterMap : List a → (a → {e} Option b) → {e} List b');
+  assert.strictEqual(labelled[0].description, 'Std.List, std/List/Toolkit.sw:204');
+  assert.deepStrictEqual(cfg.typeSearchItems(null), []);
+  assert.strictEqual(cfg.typeSearchTitle(answer, 'List _'), '3 matches for List _ (the best 2)');
+  assert.strictEqual(cfg.typeSearchTitle({ total: 1, results: [FILTER_MAP] }, 'q'), '1 match for q');
+  assert.strictEqual(cfg.typeSearchTitle({ error: { code: 'E-PARSE', message: 'expected a type' } }, 'q'), 'Search by Type: expected a type');
+});
+
+test('picking a result writes its name over the target and adds its import, in one list of edits', () => {
+  const at = { start: { line: 5, character: 2 }, end: { line: 5, character: 3 } };
+  assert.deepStrictEqual(cfg.typeSearchEdits(FILTER_MAP, at), [
+    { range: at, newText: 'List.filterMap' },
+    FILTER_MAP.additionalTextEdits[0],
+  ]);
+  assert.deepStrictEqual(cfg.typeSearchEdits({ name: 'Demo.f' }, at), [{ range: at, newText: 'Demo.f' }]);
+});
+
+test('the box starts with the goal at a ?, a selection typed exactly, or the selected text', () => {
+  const sel = { start: { line: 1, character: 4 }, end: { line: 1, character: 9 } };
+  assert.strictEqual(cfg.typeSearchPrefill({ goal: { goal: 'm + n = n + m' } }), '⊢ m + n = n + m');
+  const hover = { contents: { kind: 'markdown', value: '```stitchwort\nList Nat\n```' }, range: sel };
+  assert.strictEqual(cfg.typeSearchPrefill({ hover, selection: sel, selectedText: 'xs.map f' }), 'List Nat');
+  const wider = { ...hover, range: { start: { line: 1, character: 0 }, end: sel.end } };
+  assert.strictEqual(cfg.typeSearchPrefill({ hover: wider, selection: sel, selectedText: ' Nat ->\n  Nat ' }), 'Nat -> Nat');
+  assert.strictEqual(cfg.typeSearchPrefill({}), '');
+});
+
+// Timers and requests driven by hand.
+function scheduler() {
+  const timers = [];
+  const runs = [];
+  const shown = [];
+  const busy = [];
+  const s = cfg.latestWins({
+    delay: 200,
+    setTimer: (fn, ms) => timers.push({ fn, ms, live: true }) - 1,
+    clearTimer: (id) => {
+      if (id !== undefined) timers[id].live = false;
+    },
+    run(query) {
+      const run = { query, cancelled: false };
+      run.promise = new Promise((resolve, reject) => Object.assign(run, { resolve, reject }));
+      run.cancel = () => {
+        run.cancelled = true;
+        run.reject(new Error('cancelled'));
+      };
+      runs.push(run);
+      return run;
+    },
+    show: (query, answer) => shown.push([query, answer]),
+    busy: (on) => busy.push(on),
+  });
+  const fire = () => {
+    for (const t of timers.filter((t) => t.live)) {
+      t.live = false;
+      t.fn();
+    }
+  };
+  const tick = () => new Promise((r) => setImmediate(r));
+  return { s, timers, runs, shown, busy, fire, tick };
+}
+
+test('type search waits for typing to stop, then runs only the newest query', async () => {
+  const { s, timers, runs, shown, busy, fire, tick } = scheduler();
+  s.input('N');
+  s.input('Na');
+  s.input('Nat');
+  assert.strictEqual(timers.filter((t) => t.live).length, 1, 'one timer, restarted');
+  assert.strictEqual(timers[2].ms, 200);
+  fire();
+  assert.deepStrictEqual(runs.map((r) => r.query), ['Nat']);
+  // Typing on while it runs: the newest waits, and the running one is cancelled.
+  s.input('Nat ->');
+  fire();
+  s.input('Nat -> L');
+  fire();
+  assert.ok(runs[0].cancelled);
+  assert.strictEqual(runs.length, 1, 'nothing else sent while one runs');
+  await tick();
+  assert.deepStrictEqual(runs.map((r) => r.query), ['Nat', 'Nat -> L'], 'the newest, not the one in between');
+  assert.deepStrictEqual(shown, [], "a cancelled search's answer isn't shown");
+  assert.ok(!s.settled('Nat -> L'));
+  runs[1].resolve({ total: 0 });
+  await tick();
+  assert.deepStrictEqual(shown, [['Nat -> L', { total: 0 }]]);
+  assert.deepStrictEqual(busy, [true, true, false]);
+  assert.ok(s.settled('Nat -> L'));
+  // The same query again isn't searched again; Enter's `now` skips the wait.
+  s.now('Nat -> L');
+  assert.strictEqual(runs.length, 2);
+  s.now('List');
+  assert.strictEqual(runs.length, 3);
+  s.dispose();
+  assert.ok(runs[2].cancelled);
+});
+
+test('type search: back to the running query before it is cancelled keeps it', async () => {
+  const { s, runs, shown, fire, tick } = scheduler();
+  s.now('Nat');
+  s.input('Nat ->');
+  s.input('Nat');
+  fire();
+  assert.ok(!runs[0].cancelled);
+  runs[0].resolve({ total: 1 });
+  await tick();
+  assert.deepStrictEqual(shown, [['Nat', { total: 1 }]]);
+  assert.strictEqual(runs.length, 1);
+});

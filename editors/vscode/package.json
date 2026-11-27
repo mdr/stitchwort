@@ -15,8 +15,14 @@
       { "command": "stitchwort.showGoals", "title": "Stitchwort: Show Goals" },
       { "command": "stitchwort.restartServer", "title": "Stitchwort: Restart Server" },
       { "command": "stitchwort.runProjectTests", "title": "Stitchwort: Run Project Tests" },
-      { "command": "stitchwort.toggleRunOnSave", "title": "Stitchwort: Toggle Run Tests on Save" }
+      { "command": "stitchwort.toggleRunOnSave", "title": "Stitchwort: Toggle Run Tests on Save" },
+      { "command": "stitchwort.searchByType", "title": "Stitchwort: Search by Type…" }
     ],
+    "menus": {
+      "editor/context": [
+        { "command": "stitchwort.searchByType", "when": "editorLangId == stitchwort && editorHasSelection", "group": "navigation@9" }
+      ]
+    },
     "keybindings": [
       { "command": "stitchwort.runProjectTests", "key": "ctrl+; p", "mac": "cmd+; p", "when": "editorLangId == stitchwort" },
       { "command": "stitchwort.toggleRunOnSave", "key": "ctrl+; w", "mac": "cmd+; w", "when": "editorLangId == stitchwort" }
@@ -64,6 +70,7 @@
         "stitchwort.proofSearch.timeLimitMs": {"type": "number", "default": 5000, "minimum": 100, "description": "How long a proof search may run, in milliseconds, before it gives up with what it has found, once you pick \"Search for a proof\"."},
         "stitchwort.semanticColours": {"type": "boolean", "default": true, "description": "Colour names by what the checker found them to be (functions, types, theorems and so on), beyond the syntax colouring."},
         "stitchwort.startupWorkers": {"type": "string", "default": "auto", "description": "When a project is opened and its check cache is cold, check it with this many workers side by side: \"off\", \"auto\" (one per core, at most 8, and at most one per 2 GB of memory) or a number. Read when the project is loaded."},
+        "stitchwort.typeSearch.live": {"type": "boolean", "default": true, "description": "Update Search by Type's results as you type (200 ms after you stop). Off: they update when you press Enter, and Enter again picks a result."},
         "stitchwort.goals.openAutomatically": {"type": "boolean", "default": false, "description": "Open the Goals panel when you open a `.sw` file that has a goal `?`."}
       }
     },

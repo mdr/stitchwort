@@ -245,7 +245,149 @@ function staleBody(last) {
   return `<div class="stale"><p class="note">Nothing at the cursor; the last answer:</p>${last}</div>`;
 }
 
+// ---- Search by Type (docs/proposals/editor-type-search.md, stage 1) ----
+
+// `stitchwort/search`: {textDocument: {uri}, query, limit?} → the report of
+// `stitchwort search --json`, each result with short, namespace, location,
+// insertText and additionalTextEdits; {error: {code, message}} for a query
+// that doesn't parse or elaborate yet; null when superseded.
+const TYPE_SEARCH = 'stitchwort/search';
+const TYPE_SEARCH_DEBOUNCE_MS = 200;
+
+const KIND_ICONS = { definition: 'symbol-function', theorem: 'symbol-key', constructor: 'symbol-enum-member' };
+
+// Where the type goes in a row. A quick pick sorts the rows whose label
+// fuzzy-matches the query ahead of the rest (VS Code's quickInputList
+// `compareEntries`), and turning that off (`sortByLabel`) is a proposed API
+// that released VS Code doesn't allow extensions. A type in the label would
+// match the type typed, so the server's ranking would be lost; in the
+// description it isn't matched, and only a query by name reorders rows.
+const TYPE_IN_LABEL = false;
+
+// The quick pick's rows for a search answer, the server's order kept: the
+// kind's icon and short name (and the type, with TYPE_IN_LABEL), then the type
+// dim beside it, then the doc's first sentence with the namespace and file.
+function typeSearchItems(answer, typeInLabel = TYPE_IN_LABEL) {
+  return ((answer && answer.results) || []).map((r) => {
+    const icon = KIND_ICONS[r.kind] || 'symbol-misc';
+    const short = r.short || r.name;
+    const name = `${short}${r.conjunct ? ` (${r.conjunct})` : ''}${r.open ? ' (open goal)' : ''}`;
+    const where = `${r.namespace || ''}${r.namespace ? ', ' : ''}${r.file}:${r.line}`;
+    return {
+      label: typeInLabel ? `$(${icon}) ${name} : ${r.type}` : `$(${icon}) ${name}`,
+      description: typeInLabel ? where : `: ${r.type}`,
+      detail: typeInLabel ? r.summary || undefined : r.summary ? `${r.summary}  —  ${where}` : where,
+      alwaysShow: true,
+      result: r,
+    };
+  });
+}
+
+// The quick pick's title for an answer: how many matched, and the warnings
+// (a looser tier, results cut at the limit); for an error, what is wrong.
+function typeSearchTitle(answer, query) {
+  if (!answer) return 'Search by Type';
+  if (answer.error) return `Search by Type: ${answer.error.message}`;
+  const total = answer.total || 0;
+  const shown = (answer.results || []).length;
+  const counted = `${total} match${total === 1 ? '' : 'es'} for ${query}`;
+  const more = shown < total ? ` (the best ${shown})` : '';
+  return `${counted}${more}`;
+}
+
+// The edits picking `result` makes: its name in place of `range` (the
+// selection, or the `?` the search started from) and the import the file
+// needs, all against the text as it is now, so they go in one edit.
+function typeSearchEdits(result, range) {
+  return [{ range, newText: result.insertText || result.name }, ...(result.additionalTextEdits || [])];
+}
+
+// What the search box starts with: `⊢ goal` at a `?` (the query syntax takes a
+// pasted goal), a selected expression's type when the server can type it
+// exactly the selection, else the selected text, else nothing.
+function typeSearchPrefill({ goal, hover, selection, selectedText }) {
+  if (goal && goal.goal) return `⊢ ${goal.goal}`;
+  const value = hover && hover.contents && (hover.contents.value || hover.contents);
+  const typed = typeof value === 'string' ? /^```stitchwort\n([^`]*)\n```$/.exec(value) : null;
+  const sameRange = (a, b) =>
+    !!a && !!b && a.start.line === b.start.line && a.start.character === b.start.character &&
+    a.end.line === b.end.line && a.end.character === b.end.character;
+  if (typed && !typed[1].includes('\n') && sameRange(hover.range, selection)) return typed[1];
+  return (selectedText || '').trim().replace(/\s+/g, ' ');
+}
+
+// Searching as you type: a query is sent `delay` ms after typing stops; while
+// one runs nothing else is sent, and a newer query waits (only the newest:
+// at most one running and one waiting), the running one being cancelled.
+// `run(query)` returns {promise, cancel}; `show(query, answer)` gets the
+// answers of queries that weren't superseded, in order. Timers are passed in
+// so tests can drive them.
+function latestWins({ run, show, delay = TYPE_SEARCH_DEBOUNCE_MS, setTimer = setTimeout, clearTimer = clearTimeout, busy = () => {} }) {
+  let timer;
+  let running; // {query, cancel}
+  let waiting; // a query, or undefined
+  let lastSent;
+  const start = (query) => {
+    lastSent = query;
+    const { promise, cancel } = run(query);
+    const mine = { query, cancel };
+    running = mine;
+    busy(true);
+    const settle = (answer) => {
+      if (running !== mine) return;
+      running = undefined;
+      const next = waiting;
+      waiting = undefined;
+      if (next === undefined) {
+        busy(false);
+        show(query, answer);
+      } else start(next);
+    };
+    promise.then(settle, () => settle(undefined));
+  };
+  const send = (query) => {
+    if (running) {
+      // Back to the query running: it goes on, unless it was cancelled.
+      if (query === running.query && !running.cancelled) waiting = undefined;
+      else if (waiting !== query) {
+        waiting = query;
+        running.cancelled = true;
+        running.cancel();
+      }
+    } else if (query !== lastSent) start(query);
+  };
+  return {
+    // The text changed.
+    input(query) {
+      clearTimer(timer);
+      timer = setTimer(() => send(query), delay);
+    },
+    // Search now (Enter with live updating off, or the first query).
+    now(query) {
+      clearTimer(timer);
+      send(query);
+    },
+    // Whether `query` is the one whose answer is shown or coming.
+    settled(query) {
+      return !running && waiting === undefined && lastSent === query;
+    },
+    dispose() {
+      clearTimer(timer);
+      if (running) running.cancel();
+      running = undefined;
+      waiting = undefined;
+    },
+  };
+}
+
 module.exports = {
+  TYPE_SEARCH,
+  TYPE_SEARCH_DEBOUNCE_MS,
+  typeSearchItems,
+  typeSearchTitle,
+  typeSearchEdits,
+  typeSearchPrefill,
+  latestWins,
   SEARCH_PROOF,
   SELECT_RANGE,
   noProofMessage,

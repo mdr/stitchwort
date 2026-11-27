@@ -21666,12 +21666,12 @@
     {
       "id": 4942,
       "title": "Language server: a running search never checks its cancel flag (crates/lsp/src/lib.rs:1229-1236), so a stale search can't be stopped",
-      "status": "doing",
+      "status": "review",
       "agent": "",
       "where": "",
       "labels": [],
       "epic": "proof-search",
-      "body": "[Sonnet] From SW-4938 (27 Nov). Needed before search-as-you-type in the editor; overlaps SW-4935's code, so after it.",
+      "body": "[Sonnet] From SW-4938 (27 Nov). Needed before search-as-you-type in the editor; overlaps SW-4935's code, so after it.\n\nLane (Opus, in SW-4945, b61815769): a type search now stops part way: search_in_text/project watch the shared flag, and the engine's candidate loop (crates/elab/src/search.rs, one condition beside the deadline check) breaks on Budget::cancel_requested (made pub). Test: library search_match::a_search_from_a_file_stops_when_cancelled_part_way (fails without the watch: ran to the end, 6420 matches). Not done: proof searches (\"Search for a proof\", contextAt, splits) still don't watch their flag; wrapping actions_at_project in cancellable is a follow-up.\n",
       "created": "2026-11-27",
       "updated": "2026-11-27",
       "commits": []
@@ -21709,12 +21709,12 @@
     {
       "id": 4945,
       "title": "VS Code: Search by Type quick pick (D3766): live results, Enter inserts the name and its import, go-to button, from a ? or a selection; stitchwort/search request; cancellable search (SW-4942)",
-      "status": "doing",
+      "status": "review",
       "agent": "",
       "where": "",
       "labels": [],
       "epic": "proof-search",
-      "body": "[Opus] D3766 (Matt, 27 Nov 2026: \"yes\"): stage 1 of docs/proposals/editor-type-search.md: \"Stitchwort: Search by Type…\" quick pick with live results (200 ms debounce, newest query only), rows in variant C's layout without colour, Enter inserts the name and its import in one undo, a row button goes to the definition, started also from a `?` (goal pre-filled) or a selection (its type); a `stitchwort/search` LSP request over the existing engine scoped to the open file with unsaved text; SW-4942 (search checks its cancel flag) folded in. The playground panel and the coloured Search view are later (the second decision is still open).\n",
+      "body": "[Opus] D3766 (Matt, 27 Nov 2026: \"yes\"): stage 1 of docs/proposals/editor-type-search.md: \"Stitchwort: Search by Type…\" quick pick with live results (200 ms debounce, newest query only), rows in variant C's layout without colour, Enter inserts the name and its import in one undo, a row button goes to the definition, started also from a `?` (goal pre-filled) or a selection (its type); a `stitchwort/search` LSP request over the existing engine scoped to the open file with unsaved text; SW-4942 (search checks its cancel flag) folded in. The playground panel and the coloured Search view are later (the second decision is still open).\n\n\nLane (Opus, 27 Nov, b61815769): built. `stitchwort/search` on the search pool (crates/lsp/src/type_search.rs; driver Session::search_in_text / search_in_project in crates/driver/src/search_in.rs), the warm library session for both a file on its own and a project's file; a project's file loads only what its namespace uses (load_for_probe), not the project's other namespaces. VS Code: \"Stitchwort: Search by Type…\" (typeSearch.js; pure parts in client.js), no default key; the type is in the description, not the label (quick-pick fuzzy re-sort; no headless VS Code host to test it in, so the note's fallback). Tests: 3 server tests (file, project with unsaved text, supersede/cancel), 2 lsp unit tests, 5 node tests, all pass.\n",
       "created": "2026-11-27",
       "updated": "2026-11-27",
       "commits": []

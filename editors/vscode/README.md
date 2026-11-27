@@ -97,6 +97,36 @@ Syntax colouring for `.sw` files, and a thin client for the language server
   | Cmd+; Cmd+X | cancel the run |
   | Cmd+; P | `Stitchwort: Run Project Tests`, the active file's project |
   | Cmd+; W | `Stitchwort: Toggle Run Tests on Save`, VS Code's continuous run |
+- **Search by Type** (docs/proposals/editor-type-search.md, stage 1).
+  "Stitchwort: Search by Type…" opens a quick pick: type a query in
+  `stitchwort search`'s syntax and the list updates 200 ms after typing
+  stops, from the server's `stitchwort/search` request, scoped to the
+  active `.sw` file with its unsaved text (with none active, any open `.sw`
+  file, and Enter then goes to the definition). Only the newest query runs:
+  at most one running and one waiting, the running one cancelled (the server
+  stops it between candidates), and the last results stay listed until the
+  next arrive, or when the query doesn't parse yet (the title says why).
+  Rows: the kind's icon and the short name in the label, `: type` in the
+  description, the doc's first sentence with the namespace and file in the
+  detail. The type is not in the label because a quick pick sorts rows
+  whose label fuzzy-matches the typed text first, and the switch that stops
+  it (`sortByLabel`) is a proposed API released VS Code doesn't let
+  extensions use; in the description it isn't matched, so the server's
+  ranking stays except for a query by name (`TYPE_IN_LABEL` in `client.js`
+  puts it back). Enter writes `insertText` over the selection (or the `?`
+  the search started from) and applies `additionalTextEdits` (the import),
+  in one `editor.edit`, so one undo; with Enter pressed before the newest
+  query's results are in, it searches first. Buttons: go to the
+  definition, copy `name : type`. On a `?` the box starts with `⊢ goal`
+  (from `stitchwort/goalAt`); on a selection, with its type when the
+  range hover answers for exactly that range, else the selected text. Also
+  in the editor's context menu with a selection, and as "Search by type for
+  this goal" among a `?`'s quick actions (offered by the extension where
+  the goal diagnostic is). No default key; bind `stitchwort.searchByType`.
+  `stitchwort.typeSearch.live` off: the list updates on Enter only. The
+  pure parts (`typeSearchItems`, `typeSearchTitle`, `typeSearchEdits`,
+  `typeSearchPrefill`, `latestWins`) are in `client.js`; the glue is
+  `typeSearch.js`.
 - **Rename.** F2 renames a local, hypothesis, function or theorem in every
   file of the project, served by `stitchwort lsp` (`prepareRename`, `rename`).
   The renamed project is checked first: a rename that would cause an error or
@@ -132,6 +162,7 @@ on unless noted (D3468):
 | `stitchwort.proofSearch.timeLimitMs` | how long one "Search for a proof" may run (default 5000) |
 | `stitchwort.semanticColours` | colours from what the checker resolved each name to |
 | `stitchwort.startupWorkers` | when a project with a cold check cache opens, check it with this many workers side by side: `off`, `auto` (the default) or a number; also `STITCHWORT_STARTUP_WORKERS` for other editors |
+| `stitchwort.typeSearch.live` | Search by Type's results update as you type (on Enter when off) |
 | `stitchwort.goals.openAutomatically` | open the Goals panel when a `.sw` file with a `?` opens (off by default) |
 | `stitchwort.path` | the `stitchwort` program (restarts the server) |
 
@@ -220,8 +251,9 @@ start it the way the client starts the real one. `task test:vscode` runs
 declarations) is tested against a stub program in `test/runner.test.js`; the
 glue in `runs.js` is not.
 
-The VS Code glue in `extension.js` isn't covered by tests (the Goals panel's
-page body, `goalHtml`, is, in `client.js`).
+The VS Code glue in `extension.js` and `typeSearch.js` isn't covered by tests
+(the Goals panel's page body, `goalHtml`, is, in `client.js`, as are Search by
+Type's rows, edits, prefill and scheduling).
 
 ### End-to-end check (with the real server)
 
@@ -230,7 +262,7 @@ error into a `.sw` file without saving and see the squiggle; F12 on a name,
 Shift-F12 on a definition, hover on a use, and the outline (Cmd-Shift-O) give
 the answers they gave before; write a `?` as a proof and run "Stitchwort: Show Goals": the panel shows the
 goal, follows the cursor and updates as you type; F12 on a library name opens the library file
-(a `stitchwort-std:` document in bundle mode); set `stitchwort.path` to a wrong path and see the warning. Open `docs/tutorial/01-proving-programs.sw`: "▶ Run test" appears above tests and works (a file outside a project); open `aoc/` and see the Testing panel list the days' tests, run one, and break one to see the failure at its line.
+(a `stitchwort-std:` document in bundle mode); set `stitchwort.path` to a wrong path and see the warning. Open `docs/tutorial/01-proving-programs.sw`: "▶ Run test" appears above tests and works (a file outside a project); open `aoc/` and see the Testing panel list the days' tests, run one, and break one to see the failure at its line. In a `.sw` file run "Stitchwort: Search by Type…", type `Nat -> List _ -> List _`, see the list update as you type, press Enter and see the name and its import go in (one Cmd-Z takes both out).
 
 ## Uninstall
 
