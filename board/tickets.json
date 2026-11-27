@@ -1,5 +1,5 @@
 {
-  "next": 4953,
+  "next": 4954,
   "tickets": [
     {
       "id": 47,
@@ -21730,7 +21730,7 @@
     {
       "id": 4946,
       "title": "VS Code extension test: 'per-group runs against a stub CLI report progressively' fails intermittently under load (order of A and B finishing)",
-      "status": "backlog",
+      "status": "doing",
       "agent": "",
       "where": "",
       "labels": [
@@ -21745,7 +21745,7 @@
     {
       "id": 4947,
       "title": "Design: keep search's derived data in the check cache: the library's deferred equations (34% of a warm std search, est. -0.45 s) and type_index (11%, -0.17 s), and load a project only when --in or the pattern needs it (-0.8 s in aoc/)",
-      "status": "doing",
+      "status": "done",
       "agent": "",
       "where": "",
       "labels": [
@@ -21755,7 +21755,9 @@
       "body": "[Opus, paper] From SW-4935's profile (27 Nov): warm std-only search 1.49 s. A design note in docs/proposals/: what's cached, keyed by what, what the trusted replay must check before admitting cached equations (trust: Matt's decision), and loading the project lazily so --in Std stays as fast as std-only without losing project types in patterns.",
       "created": "2026-11-27",
       "updated": "2026-11-27",
-      "commits": []
+      "commits": [
+        "202867a17"
+      ]
     },
     {
       "id": 4948,
@@ -21822,6 +21824,21 @@
       "labels": [],
       "epic": "dev-loop-speed",
       "body": "[Sonnet] Matt asked why making worktrees was slow (27 Nov). kache makes it seconds when another checkout built the same code; after a core merge nothing is cached.",
+      "created": "2026-11-27",
+      "updated": "2026-11-27",
+      "commits": []
+    },
+    {
+      "id": 4953,
+      "title": "search cache stage 1 (docs/proposals/search-cache.md): read the project through the scan cache in search, audit and load_main instead of parsing every file",
+      "status": "doing",
+      "agent": "",
+      "where": "",
+      "labels": [
+        "perf"
+      ],
+      "epic": "proof-search",
+      "body": "[Sonnet] Stage 1 of SW-4947's plan, no decision needed. Est. 20 min.",
       "created": "2026-11-27",
       "updated": "2026-11-27",
       "commits": []
