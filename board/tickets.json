@@ -1,5 +1,5 @@
 {
-  "next": 4912,
+  "next": 4913,
   "tickets": [
     {
       "id": 47,
@@ -37193,6 +37193,21 @@
       ],
       "epic": "syntax-language",
       "body": "[DeepSeek] Found by Overmind, fuzz batch 23 (`task fuzz:fmt SEED=0x26112617 CASES=1000000 COMMENTS=0.3` at 98f88b21a, case 59013). Internal error: \"the output doesn't parse: expected `=>`, but found `|`\". Fails safe: fmt refuses (rc=2) and leaves the file unchanged. Unrelated to SW-4853.\n\nRepro: docs/reviews/repros/fuzz-fmt-26112617-59013.sw (checks fine with the CLI).\n\nCause (Overmind): the formatter moves a comment inside empty brackets to after them, `[-- c⏎]` → `[] -- c`. As the first alternative of an or-pattern, the comment's line break splits `[]` from `| [_, .._] => 0`, and a `|` continuing the pattern on a new line there is an E-PARSE. Harmless when `=>` follows the brackets, or for a plain `[-- c⏎]` value.\n\nFix: place the comment so the output re-parses (e.g. keep it inside the brackets, or put the or-pattern's continuation where the parser takes it), in crates/fmt; check the self-hosted formatter (tools/fmt) for the same placement and match it (formatters stay in sync). Add the repro as a fmt test, failing first.\n",
+      "created": "2026-11-27",
+      "updated": "2026-11-27",
+      "commits": []
+    },
+    {
+      "id": 4912,
+      "title": "fmt: two attribute groups before a local definition format to text that doesn't parse (fmt refuses)",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [
+        "bug"
+      ],
+      "epic": "syntax-language",
+      "body": "[DeepSeek] Found by Overmind, fuzz batch 28 (`task fuzz:fmt SEED=0x2611261c CASES=1000000`, no comments, at 98f88b21a, case 711300). Internal error: \"the output doesn't parse: attributes can't be used on a statement that isn't a local definition\". Fails safe: fmt refuses and leaves the file unchanged.\n\nRepro: docs/reviews/repros/fuzz-fmt-2611261c-711300.sw. It parses: `check` gives only the semantic E-ATTRIBUTE (\"`tailrec` is written twice here\"), so the formatter's output is what breaks. Trigger: two attribute groups before a local definition (the original had a local `theorem`); one `@[tailrec]` formats unchanged. The bad output wasn't captured: capture it first to see how the groups are rearranged.\n\nFix in crates/fmt; check tools/fmt for the same and match it (formatters stay in sync). Add the repro as a fmt test, failing first.\n",
       "created": "2026-11-27",
       "updated": "2026-11-27",
       "commits": []
