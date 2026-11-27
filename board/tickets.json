@@ -21781,12 +21781,12 @@
     {
       "id": 4948,
       "title": "Proof searches (Search for a proof, the goal panel's context, splits) don't stop when cancelled: wrap actions_at_project and the others in cancellable",
-      "status": "doing",
+      "status": "review",
       "agent": "",
       "where": "",
       "labels": [],
       "epic": "proof-search",
-      "body": "[Sonnet] From SW-4945 (27 Nov); the type search half of SW-4942 is done.",
+      "body": "[Sonnet] From SW-4945 (27 Nov); the type search half of SW-4942 is done.\n\nLane: watch_cancel on every lsp search session (proofs, context, splits, members, expand); test a_cancelled_proof_search_frees_its_worker failed before (worker held 27s), passes after. Wasm check OK.",
       "created": "2026-11-27",
       "updated": "2026-11-27",
       "commits": []
