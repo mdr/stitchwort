@@ -1,5 +1,5 @@
 {
-  "next": 4924,
+  "next": 4925,
   "tickets": [
     {
       "id": 47,
@@ -21364,6 +21364,19 @@
       "labels": [],
       "epic": "editor-playground",
       "body": "Released 27 Nov (D3759, Matt): browser tests on main 8ed3ea5fe, 106 of 106 (17:41-18:03); gh workflow run playground.yml, run 46046584937 at 2de5c5e43 (only board/log changes on top), build 18:03-18:18, deploy 18:18. Live: index 200, pkg/version.json compiler 8a6814146aa74170, projects 451c39cf395ebe91, the same as the run artifact (a local macOS build hashes differently: the wasm bytes differ by platform). The deployed artifact, served locally: the \"every day checks\" browser test passed (55 s). Previous release 10 Nov, 895da6c5b.\n",
+      "created": "2026-11-27",
+      "updated": "2026-11-27",
+      "commits": []
+    },
+    {
+      "id": 4924,
+      "title": "Playground: the Tests tab runs nothing until you click Run tests; cached results still show at once",
+      "status": "doing",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "epic": "editor-playground",
+      "body": "[Sonnet] Matt, 27 Nov 2026: \"In the playground, the test tab shouldn't run automatically, but there should be a run button that you click when you want to run them. Obviously, if they're cached, they still just show the cache result.\"\n\nToday (web/index.html, `view === \"tests\"`): opening the Tests tab, and every re-render after an edit, sends a `test` request at once and runs every uncached test.\n\nWanted (orchestrator's calls on the details, 27 Nov): opening the tab, or editing while it's open, runs nothing. It lists the tests: each with a result in the test cache (TEST_CACHE, the same keys as today) shows it as now, marked \"cached\"; each without one shows as not run yet. A \"Run tests\" button runs them (only the uncached ones compute, as today), and the results show as now. The summary counts not-run tests separately. \"Forget cached results\" stays. The worker's cache-only listing (no test evaluated) is the lane's design.\n",
       "created": "2026-11-27",
       "updated": "2026-11-27",
       "commits": []
