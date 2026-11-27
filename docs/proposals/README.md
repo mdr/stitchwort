@@ -281,6 +281,7 @@ status line now says the wrong thing; the details are in
 | [check-cache.md](check-cache.md) | A cache of checked declarations across runs | built, stages 1-3: `crates/driver/src/check_cache.rs` | SW-239, SW-240, SW-245, SW-880 |
 | [check-cache-key.md](check-cache-key.md) | Check caches that survive a compiler change | parked: D2560 yes, no narrower key; SW-1741 fixed the cause instead | SW-1753, SW-1745, SW-1741 |
 | [check-cache-trust.md](check-cache-trust.md) | What the check cache trusts when it skips the kernel | proposed: D2800-D2802, D2680 | SW-1971, SW-1919, SW-1925, SW-1995, SW-1996 |
+| [search-cache.md](search-cache.md) | A faster warm `search`: std's deferred equations and the folded type index kept in the check cache, the project left out under `--in Std` when no query name reaches it, the scan instead of a full parse | proposed: D3768, D3769 | SW-4947; SW-4935 |
 | [after-the-toy-proof.md](after-the-toy-proof.md) | What the toy proof taught, what to tidy, and where next | record (roadmap behind D3623-D3625) | SW-3489 |
 | [cold-std-check.md](cold-std-check.md) | Checking std from a cold cache | proposed: D3120, D3121 | SW-2156 |
 | [every-comment-placed.md](every-comment-placed.md) | Every comment has a place | built (SW-3447); D3619 adopted | SW-3446, SW-3447 |
