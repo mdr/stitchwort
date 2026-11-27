@@ -692,7 +692,10 @@ fn random_salt() -> [u8; 16] {
 /// - **Trust:** its entries are admitted without the kernel's checks, as
 ///   a cache directory's are (check-cache.md, D1660). The salt that keeps a
 ///   directory from reading another's entries doesn't apply: the bundle
-///   comes from the build that made the WebAssembly reading it.
+///   comes from the build that made the WebAssembly reading it. The same
+///   holds for the file an installed binary reads beside its canonical
+///   executable (`share/stitchwort/std.cache`, SW-2163, D3120); a file
+///   beside a link to the binary is never read.
 #[derive(Default)]
 pub struct LibraryBundle {
     compiler: String,
@@ -808,6 +811,12 @@ impl LibraryBundle {
         Self::decode(&std::fs::read(file).ok()?)
     }
 
+    /// [`LibraryBundle::installed_beside`] for the executable `exe` once
+    /// links are resolved: a file beside a link isn't read.
+    pub fn installed_for(exe: &Path) -> Option<LibraryBundle> {
+        Self::installed_beside(&std::fs::canonicalize(exe).ok()?)
+    }
+
     /// [`LibraryBundle::installed_beside`] for this process's executable,
     /// read the first time it is asked for.
     pub fn installed() -> Option<std::sync::Arc<LibraryBundle>> {
@@ -815,8 +824,9 @@ impl LibraryBundle {
             std::sync::OnceLock::new();
         INSTALLED
             .get_or_init(|| {
+                // `installed_for` resolves links, as `std_dir` does.
                 let exe = std::env::current_exe().ok()?;
-                Self::installed_beside(&exe).map(std::sync::Arc::new)
+                Self::installed_for(&exe).map(std::sync::Arc::new)
             })
             .clone()
     }

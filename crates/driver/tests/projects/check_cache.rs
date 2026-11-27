@@ -669,6 +669,49 @@ fn the_bundle_beside_an_executable_is_read_only_for_this_build() {
     let _ = std::fs::remove_dir_all(&root);
 }
 
+#[cfg(unix)]
+#[test]
+fn a_bundle_beside_a_link_to_the_executable_is_not_read() {
+    let source = small_program();
+    let bundle = bundle_of(&source);
+    let root = temp_dir("installed-link");
+    let real = root.join("real");
+    let other = root.join("other");
+    for d in [&real, &other] {
+        std::fs::create_dir_all(d.join("bin")).unwrap();
+        std::fs::create_dir_all(d.join("share/stitchwort")).unwrap();
+    }
+    std::fs::write(real.join("bin/stitchwort"), b"").unwrap();
+    // A bundle beside the link only.
+    std::os::unix::fs::symlink(real.join("bin/stitchwort"), other.join("bin/stitchwort")).unwrap();
+    std::fs::write(other.join("share/stitchwort/std.cache"), bundle.encode()).unwrap();
+    let link = other.join("bin/stitchwort");
+    assert!(LibraryBundle::installed_for(&link).is_none());
+    // One beside the real binary is read, through the link too.
+    std::fs::write(real.join("share/stitchwort/std.cache"), bundle.encode()).unwrap();
+    assert!(LibraryBundle::installed_for(&link).is_some());
+    assert!(LibraryBundle::installed_for(&real.join("bin/stitchwort")).is_some());
+    let _ = std::fs::remove_dir_all(&root);
+}
+
+#[test]
+fn installed_hits_go_through_the_kernel_under_recheck() {
+    let source = small_program();
+    let bundle = bundle_of(&source);
+    let dir = temp_dir("installed-recheck");
+    let run = with_stack(STACK, || {
+        let mut session = Session::for_stack(STACK);
+        session.elab.set_recheck(true);
+        session.elab.set_check_cache(std::rc::Rc::new(
+            CheckCache::at(&dir).with_installed(bundle),
+        ));
+        finish_run(session, &source)
+    });
+    assert!(run.stats.hits > 0);
+    assert_eq!(run.stats.rechecked, run.stats.hits, "{:?}", run.stats);
+    let _ = std::fs::remove_dir_all(&dir);
+}
+
 #[test]
 fn an_entry_under_another_key_is_a_miss() {
     let source = small_program();
