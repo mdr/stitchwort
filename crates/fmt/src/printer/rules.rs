@@ -1458,9 +1458,8 @@ impl<'a> Rules<'a> {
         Doc::concat(parts)
     }
 
-    /// Whether an expression `let`'s value starts below its `:=` because a
-    /// comment waits there: an own-line comment before the value, or a
-    /// trailing comment ending the `:=` line.
+    /// Whether an expression `let`'s value starts below its `:=` because an
+    /// own-line comment waits before it.
     fn let_value_comment_below(&self, node: Node<'_>) -> bool {
         let children: Vec<Element> = node.children().collect();
         let Some(assign) = children
@@ -1469,9 +1468,9 @@ impl<'a> Rules<'a> {
         else {
             return false;
         };
-        children.get(assign + 1).is_some_and(|&el| {
-            self.has_leading(el) || self.ends_line_with_comment_before(Self::first(el))
-        })
+        children
+            .get(assign + 1)
+            .is_some_and(|&el| self.has_leading(el))
     }
 
     /// `let p := value` (S17): the value as a body after `:=` (S12).
@@ -1493,24 +1492,23 @@ impl<'a> Rules<'a> {
             // Not even when the value itself breaks over a comment: it
             // starts on the `:=` line and goes on below.
             let value = &children[assign + 1..];
-            let comment_below = value.first().is_some_and(|&el| {
-                self.has_leading(el) || self.ends_line_with_comment_before(Self::first(el))
-            });
+            let comment_below = value.first().is_some_and(|&el| self.has_leading(el));
             let starts_below = comment_below
-                || value
-                    .first()
-                    .is_some_and(|&el| Self::kind(el) == Some(NodeKind::Block));
+                || value.first().is_some_and(|&el| {
+                    let first = Self::first(el);
+                    Self::kind(el) == Some(NodeKind::Block)
+                        || self.ends_line_with_comment_before(first)
+                });
             if !starts_below {
                 let value = self.join(value);
                 return Doc::concat([head, Doc::text(" "), value]);
             }
             if comment_below {
-                // A comment between the `:=` and the value keeps the value
-                // on the line below at the indentation in force, where it
-                // is a continuation of the `:=` line rather than a block:
-                // the `;` after it still belongs to the `let` (SW-4917).
-                // The sequence leaves its later lines at that indentation
-                // too, so they stay in the same block.
+                // An own-line comment between the `:=` and the value keeps
+                // the value on the line below at the indentation in force,
+                // where it is a continuation of the `:=` line rather than a
+                // block: the `;` after it still belongs to the `let`
+                // (SW-4917). The sequence leaves its later lines there too.
                 return Doc::concat([head, Doc::HardLine, self.join(value)]);
             }
             return Doc::concat([head, choice]);

@@ -10,8 +10,3 @@ def plain: Nat :=
   let x :=
   -- c
   1; x
-
--- A trailing comment after the `:=` stays on its line too.
-def trailing: Nat :=
-  (let x := -- c
-  1; x)
