@@ -604,6 +604,9 @@ fn rejected_examples_fail_for_the_expected_reason() {
 
 #[test]
 fn soundness_examples_fail_for_the_expected_reason() {
+    // Every test evaluation starts is checked to start above its values'
+    // variables (SW-4914).
+    stitchwort_core::value::check_levels::set(true);
     par_map_sessions(
         STACK,
         &examples("soundness"),

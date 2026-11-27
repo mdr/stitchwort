@@ -5466,8 +5466,14 @@ pub fn is_type_former(g: &Ev, level: usize, ty: &Value) -> budget::Result<bool> 
         match force(g, ty)? {
             Value::Sort(_) => return Ok(true),
             Value::Pi(_, _, _, cod, _) => {
+                // These are context variables, which a test evaluation
+                // starts takes to be below `RESERVED_LEVELS`.
+                let next = level + 1;
+                if next > crate::value::RESERVED_LEVELS {
+                    return Err(g.machine.budget.too_deep("type former"));
+                }
                 ty = cod.apply(g, Value::var(level))?;
-                level += 1;
+                level = next;
             }
             _ => return Ok(false),
         }

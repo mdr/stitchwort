@@ -52,12 +52,13 @@ pub struct Machine {
     /// (docs/proposals/literal-match-facts.md). Kept on rewind: a name
     /// stays valid as long as any value holding one lives.
     pub apart_sets: RefCell<ApartSets>,
-    /// How many levels of the range reserved for the comparisons that
-    /// evaluation starts (rule K's test of a cast's ends) are in use by
-    /// tests in progress: `crate::value::ends_meet`. Such a comparison has
-    /// no context to count its variables from, so it makes its fresh
-    /// variables from [`crate::value::RESERVED_LEVELS`] up, past this.
-    pub cast_levels: Cell<usize>,
+    /// One above the highest level any comparison in progress has made a
+    /// fresh variable at, or was started at (`value::conv_with`, which puts
+    /// it back when it returns). A test started by evaluation, which has no
+    /// context to count its variables from, makes its fresh variables from
+    /// here or [`crate::value::RESERVED_LEVELS`], whichever is higher, so
+    /// above every variable its values can hold (`value::meet_in_evaluation`).
+    pub reached: Cell<usize>,
     /// Rule K's and rule S's answers in the outermost test running
     /// (`value::meet_in_evaluation`): `None` outside one.
     pub cast_answers: std::cell::RefCell<Option<crate::value::ShapeMemo<bool>>>,
