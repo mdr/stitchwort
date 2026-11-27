@@ -1299,14 +1299,14 @@
     {
       "id": 1204,
       "title": "std/Float/Float.sw is never cached: Std.Float.mul isn't admitted with a body",
-      "status": "doing",
+      "status": "review",
       "agent": "",
       "where": "",
       "labels": [
         "perf"
       ],
       "epic": "performance",
-      "body": "SW-1199 finding 5 (STITCHWORT_CACHE_DEBUG).\n\nFrom SW-1925: when Float.sw becomes cacheable, the replay undo bug it fixed becomes reachable; switch a_refused_library_entry_takes_back_its_float_bindings to the real Float.sw.\n\nAudit note (22 Nov): Audit 22 Nov: no work merged; the test it names still exists (crates/driver/tests/projects/check_cache.rs:1227).\n\nBacklog grooming 27 Nov 2026: Still true (crates/driver/tests/projects/check_cache.rs:85 `UNCACHEABLE: &[\"Float/Float.sw\"]`), but SW-4674/SW-4700 changed Float (Float.make keeps its witness, 932036d46), so re-check why Float.sw is refused before assuming the card's cause (\"isn't admitted with a body\").\n",
+      "body": "SW-1199 finding 5 (STITCHWORT_CACHE_DEBUG).\n\nFrom SW-1925: when Float.sw becomes cacheable, the replay undo bug it fixed becomes reachable; switch a_refused_library_entry_takes_back_its_float_bindings to the real Float.sw.\n\nAudit note (22 Nov): Audit 22 Nov: no work merged; the test it names still exists (crates/driver/tests/projects/check_cache.rs:1227).\n\nBacklog grooming 27 Nov 2026: Still true (crates/driver/tests/projects/check_cache.rs:85 `UNCACHEABLE: &[\"Float/Float.sw\"]`), but SW-4674/SW-4700 changed Float (Float.make keeps its witness, 932036d46), so re-check why Float.sw is refused before assuming the card's cause (\"isn't admitted with a body\").\n\nLane (Opus, 27 Nov): cause was Float.toText, the float primitive with no body, refused by the encoder outside the core. Fix: library entries may hold float primitives; replay admits them by float::define_primitive + bind_def/check_shape, as elaborating does (e1f819ae6). SW-1925 test switched to the real Float.sw (refused after Float.isFinite); new test float_sw_is_cached_and_replays_unchanged. Measured: std search 1.45 -> 1.33 s, one-file check importing Float 0.34 -> 0.13 s (warm, best of 3, loaded machine). Touches trusted replay (cache/core_entry.rs admit_primitive, cache/mod.rs submit/encode): wants a review.",
       "created": "2026-11-04",
       "updated": "2026-11-27",
       "commits": []
