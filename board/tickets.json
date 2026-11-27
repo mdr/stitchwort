@@ -21978,17 +21978,21 @@
     {
       "id": 4961,
       "title": "search cache stage 4 (docs/proposals/search-cache.md §4.3): under --in Std, load the project only when --in names something outside Std or the pattern names something the project declares (scan cache name lists); sort the two load-order lists (D3769)",
-      "status": "review",
+      "status": "done",
       "agent": "",
       "where": "",
       "labels": [
         "perf"
       ],
       "epic": "proof-search",
-      "body": "[Sonnet] D3769 (Matt, 27 Nov 2026: \"yes\"). Results byte-identical incl. patterns naming project types; est. -0.9 s in aoc/ with --in Std. Check that the skip stops Target::Everything loading the whole project (SW-4953's note). Est. 30 min.\n\nLane done: search --in Std skips the project unless --in leaves Std or the query's words hit a scan-listed declared name; aoc warm 2.23 s -> 1.41 s; differential identical bar the sorted out-of-budget names; 3 new search:: tests pass.",
+      "body": "[Sonnet] D3769 (Matt, 27 Nov 2026: \"yes\"). Results byte-identical incl. patterns naming project types; est. -0.9 s in aoc/ with --in Std. Check that the skip stops Target::Everything loading the whole project (SW-4953's note). Est. 30 min.\n\nLane done: search --in Std skips the project unless --in leaves Std or the query's words hit a scan-listed declared name; aoc warm 2.23 s -> 1.41 s; differential identical bar the sorted out-of-budget names; 3 new search:: tests pass.\nDone (Sonnet): Session::scan_cached + Scan::declares_any (project.rs); search.rs within_library, query_words, sorted out-of-budget and internal-error lists; main.rs skips load_analysis when no query word hits a declared name (needs a check cache). aoc/ --in Std warm 2.23 -> 1.41 s. JSON identical apart from the sorted warning names. On main: 21 search tests, clippy clean, wasm builds. Model result: sonnet, worked, 13 min (est. 30).\n",
       "created": "2026-11-27",
       "updated": "2026-11-27",
-      "commits": []
+      "commits": [
+        "e968ef5a5",
+        "6cfc20f21",
+        "ae20092f8"
+      ]
     },
     {
       "id": 4962,
