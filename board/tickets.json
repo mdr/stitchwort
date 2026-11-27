@@ -21358,12 +21358,12 @@
     {
       "id": 4923,
       "title": "Release the playground from today's main (D3759; last release 10 Nov, 895da6c5b)",
-      "status": "doing",
+      "status": "done",
       "agent": "",
       "where": "",
       "labels": [],
       "epic": "editor-playground",
-      "body": "",
+      "body": "Released 27 Nov (D3759, Matt): browser tests on main 8ed3ea5fe, 106 of 106 (17:41-18:03); gh workflow run playground.yml, run 46046584937 at 2de5c5e43 (only board/log changes on top), build 18:03-18:18, deploy 18:18. Live: index 200, pkg/version.json compiler 8a6814146aa74170, projects 451c39cf395ebe91, the same as the run artifact (a local macOS build hashes differently: the wasm bytes differ by platform). The deployed artifact, served locally: the \"every day checks\" browser test passed (55 s). Previous release 10 Nov, 895da6c5b.\n",
       "created": "2026-11-27",
       "updated": "2026-11-27",
       "commits": []
