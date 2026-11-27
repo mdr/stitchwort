@@ -21450,15 +21450,15 @@
     },
     {
       "id": 4929,
-      "title": "Playground: per-key page work: renderTabs rebuilds the 621-option Other files list on every key, and stateKey/keyOf JSON-encode all 726 file texts on every pause",
-      "status": "backlog",
+      "title": "Playground: renderTabs rebuilds the 621-option Other files list and the tabs on every key, which costs up to a second a key in Firefox with accessibility on (SW-4930); also stateKey/keyOf JSON-encode all file texts on every pause",
+      "status": "doing",
       "agent": "",
       "where": "",
       "labels": [
         "perf"
       ],
       "epic": "editor-playground",
-      "body": "[DeepSeek] From SW-4925 (27 Nov): about 2 ms a key for renderTabs (15 ms at 4x CPU slowdown) and 10-19 ms a pause for stateKey/keyOf. Rebuild the list only when it changes; compare the edited file instead of all texts.",
+      "body": "[DeepSeek] From SW-4925 (27 Nov): about 2 ms a key for renderTabs (15 ms at 4x CPU slowdown) and 10-19 ms a pause for stateKey/keyOf. Rebuild the list only when it changes; compare the edited file instead of all texts.\nPromoted 27 Nov: this is the Firefox lag (SW-4930, D3761). Matt's Firefox 160 profile (2021 day 18, typing a short definition; copy at /Users/Shared/Firefox 2026-11-27 20.10 profile.json.gz): keys dispatched 300-1,100 ms late; in the typing window 2,914 of 3,710 main-thread samples are under renderTabs and 2,889 in accessibility code (aria::MapToState, ApplyARIAState, DocAccessible::ContentRemovedNode 44k markers, a11y show/hide 8.4k each): Firefox's accessibility engine is active on his Mac, so rebuilding the 621-option Other files list (and the tabs) on every key rebuilds ~1,300 accessibles. Fix renderTabs to change only what changed.\n",
       "created": "2026-11-27",
       "updated": "2026-11-27",
       "commits": []
@@ -21466,7 +21466,7 @@
     {
       "id": 4930,
       "title": "Playground: reproduce and fix the typing lag in Firefox (2021 day 18, D3760)",
-      "status": "backlog",
+      "status": "doing",
       "agent": "",
       "where": "",
       "labels": [
