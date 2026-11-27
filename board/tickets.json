@@ -37170,7 +37170,7 @@
     {
       "id": 4910,
       "title": "fuzz:elab oracle 3: false byComputing in match branches proving a let equation over a let-bound value reaches the kernel (E-REFL from the kernel, not the elaborator)",
-      "status": "backlog",
+      "status": "doing",
       "agent": "",
       "where": "",
       "labels": [
@@ -37185,7 +37185,7 @@
     {
       "id": 4911,
       "title": "fmt: a comment inside empty brackets that start an or-pattern is moved after them, splitting the pattern so the output doesn't parse (fmt refuses)",
-      "status": "backlog",
+      "status": "doing",
       "agent": "",
       "where": "",
       "labels": [
@@ -37200,7 +37200,7 @@
     {
       "id": 4912,
       "title": "fmt: two attribute groups before a local definition format to text that doesn't parse (fmt refuses)",
-      "status": "backlog",
+      "status": "doing",
       "agent": "",
       "where": "",
       "labels": [
