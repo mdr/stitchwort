@@ -1,5 +1,5 @@
 {
-  "next": 4944,
+  "next": 4945,
   "tickets": [
     {
       "id": 47,
@@ -21670,6 +21670,19 @@
       "labels": [],
       "epic": "editor-playground",
       "body": "[Sonnet] D3764 (Matt, 27 Nov 2026: \"yes\"): build the recommendation of docs/proposals/editor-test-shortcuts.md (SW-4939): (1) in project files the code-lens \"Run test(s)\" start an ordinary Testing-panel run naming our profile, so Cmd+; L / Cmd+; E repeat them; lone files unchanged; (2) test items keep the server's full range so Cmd+; C runs the test the cursor is in (SW-4940); (3) \"Stitchwort: Run Project Tests\" for the active file's project, default key Cmd+; P in Stitchwort editors; (4) continuous run (supportsContinuousRun) off by default, Cmd+; W toggles it, one `stitchwort test` per project per save with the test cache skipping unchanged tests, measured on aoc/; (5) guide chapter 9 \"In the editor\" with the keys, chapter 1's editor bullets and the extension README.\n",
+      "created": "2026-11-27",
+      "updated": "2026-11-27",
+      "commits": []
+    },
+    {
+      "id": 4944,
+      "title": "search: open abilities in patterns as D3765 decided: {_} any row, {Parse _ | _} Parse and maybe more, pure fallback, rows as sets",
+      "status": "doing",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "epic": "proof-search",
+      "body": "[Opus] D3765 (Matt, 27 Nov 2026: \"OK\"): build docs/proposals/search-open-abilities.md's recommendation: `{_}` in a search pattern matches any row (including none and Partial), `{e}`/`{?e}` the named form; `{Parse _ | _}` for \"Parse and maybe more\", `{Parse _, _}` refused with a pointer, closed `{Parse _}` exact; no braces stays pure, with a fallback pass that opens the rows when nothing pure matched, saying so; rows compared as sets; fewer extra abilities ranks first; targeted errors for `_ Int` and the others. Touches the parser (`_` after `|`: formatter-sync rule applies), search-mode row elaboration, the filter, a search-only switch in the unifier's row rules, ranking, the fallback pass, docs/syntax.md, guide chapter 8.\n",
       "created": "2026-11-27",
       "updated": "2026-11-27",
       "commits": []
