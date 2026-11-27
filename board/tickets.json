@@ -1,5 +1,5 @@
 {
-  "next": 4903,
+  "next": 4905,
   "tickets": [
     {
       "id": 47,
@@ -37036,19 +37036,49 @@
     {
       "id": 4901,
       "title": "[Sonnet] All-tier failures 27 Nov (at df69610cd; log /private/tmp/claude-550/-Users-agent-repos-mdr-stitchwort/8230e28a-2fab-4832-920d-c5160adb7e00/scratchpad/test-all.log): cli::tools doc_equations::{doc_lists_generated_equations_in_their_own_section (doc_equations.rs:81 'a Theorems section' missing), doc_names_a_guards_proof_only_when_the_guard_names_it (:201), search_flags_generated_equations}. Last all-tier 22 Nov passed. Find the commit with the three tests only and fix",
-      "status": "review",
+      "status": "done",
       "agent": "Sonnet",
       "where": "",
       "labels": [],
       "epic": "diagnostics",
+      "body": "Causes: SW-4684 (import clash now an error) dropped the Theorems section; SW-4665 (sealed guards) made the guard skip message impossible. Model result: sonnet, worked, 9 min (est. 40).",
+      "created": "2026-11-27",
+      "updated": "2026-11-27",
+      "commits": [
+        "6f1cf4880",
+        "90ffb2ca4",
+        "e9a8f6bc6"
+      ]
+    },
+    {
+      "id": 4902,
+      "title": "[Sonnet] All-tier timeouts 27 Nov (at df69610cd, load 50-97 during the run): driver::library search_at_bench::stage_two_on_any_std_statement (1200 s limit) and driver::proofs differential::the_evaluators_agree_on_the_prelude_and_every_example (1800 s limit); also examples_wide::rewinding_changes_nothing_for_the_examples took 3,382 s. Rerun each alone on a quiet machine to see if it's load or a slowdown; if a slowdown, find the commit",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "epic": "test-infra",
       "body": "",
       "created": "2026-11-27",
       "updated": "2026-11-27",
       "commits": []
     },
     {
-      "id": 4902,
-      "title": "[Sonnet] All-tier timeouts 27 Nov (at df69610cd, load 50-97 during the run): driver::library search_at_bench::stage_two_on_any_std_statement (1200 s limit) and driver::proofs differential::the_evaluators_agree_on_the_prelude_and_every_example (1800 s limit); also examples_wide::rewinding_changes_nothing_for_the_examples took 3,382 s. Rerun each alone on a quiet machine to see if it's load or a slowdown; if a slowdown, find the commit",
+      "id": 4903,
+      "title": "[DeepSeek] equations.rs: the skip message 'its branch uses {proof} of a condition…' fires only when lib.prop_irrel is missing, so is probably unreachable since SW-4665 sealed guards through Prop.irrel (SW-4901 finding); confirm and remove it or test it",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "epic": "proof-automation",
+      "body": "",
+      "created": "2026-11-27",
+      "updated": "2026-11-27",
+      "commits": []
+    },
+    {
+      "id": 4904,
+      "title": "[DeepSeek] A driver test that runs the theorem search (crates/driver/src/search.rs import_library_namespaces) on a file defining a std top-level name (Pair, List), so an import clash is caught in the quick tier, not only by the all tier's CLI doc tests (SW-4901 finding)",
       "status": "backlog",
       "agent": "",
       "where": "",
