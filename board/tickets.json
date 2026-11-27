@@ -21371,15 +21371,19 @@
     {
       "id": 4924,
       "title": "Playground: the Tests tab runs nothing until you click Run tests; cached results still show at once",
-      "status": "review",
+      "status": "done",
       "agent": "",
       "where": "",
       "labels": [],
       "epic": "editor-playground",
-      "body": "[Sonnet] Matt, 27 Nov 2026: \"In the playground, the test tab shouldn't run automatically, but there should be a run button that you click when you want to run them. Obviously, if they're cached, they still just show the cache result.\"\n\nToday (web/index.html, `view === \"tests\"`): opening the Tests tab, and every re-render after an edit, sends a `test` request at once and runs every uncached test.\n\nWanted (orchestrator's calls on the details, 27 Nov): opening the tab, or editing while it's open, runs nothing. It lists the tests: each with a result in the test cache (TEST_CACHE, the same keys as today) shows it as now, marked \"cached\"; each without one shows as not run yet. A \"Run tests\" button runs them (only the uncached ones compute, as today), and the results show as now. The summary counts not-run tests separately. \"Forget cached results\" stays. The worker's cache-only listing (no test evaluated) is the lane's design.\n\nDone on lane/SW-4924 (b29da6de7): test request takes run=false (Session::list_tests_fast, TestResult::not_run); Tests tab lists tests, Run tests button, summary counts not run; chapters and AoC days share the path. Browser tests updated, new test added; docs updated.",
+      "body": "[Sonnet] Matt, 27 Nov 2026: \"In the playground, the test tab shouldn't run automatically, but there should be a run button that you click when you want to run them. Obviously, if they're cached, they still just show the cache result.\"\n\nToday (web/index.html, `view === \"tests\"`): opening the Tests tab, and every re-render after an edit, sends a `test` request at once and runs every uncached test.\n\nWanted (orchestrator's calls on the details, 27 Nov): opening the tab, or editing while it's open, runs nothing. It lists the tests: each with a result in the test cache (TEST_CACHE, the same keys as today) shows it as now, marked \"cached\"; each without one shows as not run yet. A \"Run tests\" button runs them (only the uncached ones compute, as today), and the results show as now. The summary counts not-run tests separately. \"Forget cached results\" stays. The worker's cache-only listing (no test evaluated) is the lane's design.\n\nDone on lane/SW-4924 (b29da6de7): test request takes run=false (Session::list_tests_fast, TestResult::not_run); Tests tab lists tests, Run tests button, summary counts not run; chapters and AoC days share the path. Browser tests updated, new test added; docs updated.\nDone: test requests take run (false: list with cached results, evaluate nothing; Runner::CacheOnly, same keys as Machine); Tests tab lists with cached results and a Run tests button; summary counts not run; guide 09, 01, web/guide updated. Review: 3 stale web unit expectations (missing notRun) fixed in cb546495e; whole stitchwort-web --lib 36 passed. Browser tests by filter (16, incl. the new failing-first one). Verifier on main: CLI test_failures, test_json, test_files 44 passed. Note: after Run tests, leaving and returning to the tab shows the remembered run answer (rows \"ran\"), not the listing; same results. Fallback finding: SW-4926. Model result: sonnet, needed fixes (3 stale unit expectations), 25 + 6 min (est. 45).\n",
       "created": "2026-11-27",
       "updated": "2026-11-27",
-      "commits": []
+      "commits": [
+        "b29da6de7",
+        "cb546495e",
+        "d7d7c4136"
+      ]
     },
     {
       "id": 4925,
