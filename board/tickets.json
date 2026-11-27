@@ -1,5 +1,5 @@
 {
-  "next": 4957,
+  "next": 4960,
   "tickets": [
     {
       "id": 47,
@@ -21700,15 +21700,19 @@
     {
       "id": 4944,
       "title": "search: open abilities in patterns as D3765 decided: {_} any row, {Parse _ | _} Parse and maybe more, pure fallback, rows as sets",
-      "status": "review",
+      "status": "done",
       "agent": "",
       "where": "",
       "labels": [],
       "epic": "proof-search",
-      "body": "[Opus] D3765 (Matt, 27 Nov 2026: \"OK\"): build docs/proposals/search-open-abilities.md's recommendation: `{_}` in a search pattern matches any row (including none and Partial), `{e}`/`{?e}` the named form; `{Parse _ | _}` for \"Parse and maybe more\", `{Parse _, _}` refused with a pointer, closed `{Parse _}` exact; no braces stays pure, with a fallback pass that opens the rows when nothing pure matched, saying so; rows compared as sets; fewer extra abilities ranks first; targeted errors for `_ Int` and the others. Touches the parser (`_` after `|`: formatter-sync rule applies), search-mode row elaboration, the filter, a search-only switch in the unifier's row rules, ranking, the fallback pass, docs/syntax.md, guide chapter 8.\n\n\nLane notes (Opus, 27 Nov 21:45-22:16): built on branch lane/SW-4944. `{_}`, `{e}`/`{?e}` and `{A | _}` elaborate (search mode only) to `CompD ?d ?r t` with closed unknowns, so the existing divergence and row rules solve them; no new unifier switch was needed. Written abilities are matched after unification as a set; the filter drops row plumbing. Rank key `abilities` after place; JSON `abilitiesTaken` (absent when 0); `searchTier: openAbilities` for the pure-pattern fallback. Tests: 6 new in driver library `search_match::` (18/18 pass), CLI `server search::` 17/17, `tools guide::` pass; `doc_equations::search_flags_generated_equations` fails, as on main (stale for SW-4936's text output). Self-hosted formatter's parser refuses `| _` (outside its slices' grammar).\n",
+      "body": "[Opus] D3765 (Matt, 27 Nov 2026: \"OK\"): build docs/proposals/search-open-abilities.md's recommendation: `{_}` in a search pattern matches any row (including none and Partial), `{e}`/`{?e}` the named form; `{Parse _ | _}` for \"Parse and maybe more\", `{Parse _, _}` refused with a pointer, closed `{Parse _}` exact; no braces stays pure, with a fallback pass that opens the rows when nothing pure matched, saying so; rows compared as sets; fewer extra abilities ranks first; targeted errors for `_ Int` and the others. Touches the parser (`_` after `|`: formatter-sync rule applies), search-mode row elaboration, the filter, a search-only switch in the unifier's row rules, ranking, the fallback pass, docs/syntax.md, guide chapter 8.\n\n\nLane notes (Opus, 27 Nov 21:45-22:16): built on branch lane/SW-4944. `{_}`, `{e}`/`{?e}` and `{A | _}` elaborate (search mode only) to `CompD ?d ?r t` with closed unknowns, so the existing divergence and row rules solve them; no new unifier switch was needed. Written abilities are matched after unification as a set; the filter drops row plumbing. Rank key `abilities` after place; JSON `abilitiesTaken` (absent when 0); `searchTier: openAbilities` for the pure-pattern fallback. Tests: 6 new in driver library `search_match::` (18/18 pass), CLI `server search::` 17/17, `tools guide::` pass; `doc_equations::search_flags_generated_equations` fails, as on main (stale for SW-4936's text output). Self-hosted formatter's parser refuses `| _` (outside its slices' grammar).\n\nDone (Opus): parser allows `| _`; search-mode rows become CompD ?d ?r t (unifier unchanged); row_fit compares written abilities as a set; filter asks for written abilities, not row machinery; abilitiesTaken ranks after place; pure function patterns fall back to open rows (searchTier openAbilities, with a warning; ~6 s for () → Int); errors for {A, _} and _ Int; `_` in a program row is E-ABILITY. Self-hosted formatter refuses `| _` (outside its slices; programs refuse it anyway). Checked before merge: tools/fmt, aoc, games/rogue check --no-cache clean (46/19/5 s), hash_stability + pinned_hashes 19/19; on main 51 named tests pass (conflict in search_match.rs with SW-4945 resolved keeping both). Model result: opus, worked, 31 min (est. 90).\n",
       "created": "2026-11-27",
       "updated": "2026-11-27",
-      "commits": []
+      "commits": [
+        "3c8a32433",
+        "7e4f82865",
+        "0a22d11c8"
+      ]
     },
     {
       "id": 4945,
@@ -21885,6 +21889,49 @@
       ],
       "epic": "proof-search",
       "body": "[Sonnet] After SW-4954. Est. 30 min.",
+      "created": "2026-11-27",
+      "updated": "2026-11-27",
+      "commits": []
+    },
+    {
+      "id": 4957,
+      "title": "search lists a partial definition's generated helpers (loopCount.description, loopCount.recur) as ordinary results",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "epic": "proof-search",
+      "body": "[Sonnet] From SW-4944 (27 Nov).",
+      "created": "2026-11-27",
+      "updated": "2026-11-27",
+      "commits": []
+    },
+    {
+      "id": 4958,
+      "title": "search: a pattern starting with a brace ({Parse _ | _} Nat) parses as a record update (E-PARSE), so a computation type can't be searched on its own",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [
+        "bug"
+      ],
+      "epic": "proof-search",
+      "body": "[Sonnet] From SW-4944 (27 Nov).",
+      "created": "2026-11-27",
+      "updated": "2026-11-27",
+      "commits": []
+    },
+    {
+      "id": 4959,
+      "title": "search: the pure-pattern fallback to open abilities takes about 6 s for () → Int",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [
+        "perf"
+      ],
+      "epic": "proof-search",
+      "body": "[Sonnet] From SW-4944 (27 Nov). Profile first.",
       "created": "2026-11-27",
       "updated": "2026-11-27",
       "commits": []
