@@ -1,5 +1,5 @@
 {
-  "next": 4914,
+  "next": 4916,
   "tickets": [
     {
       "id": 47,
@@ -18574,15 +18574,18 @@
     {
       "id": 4679,
       "title": "[Opus] Rule K's fresh levels on 32-bit: RESERVED_LEVELS + used is unchecked, so more than 128 nested ends tests on the web build would wrap into real levels (finding A). Check the addition and answer 'not equal' (stuck) on overflow, with a test (SW-4673 follow-up)",
-      "status": "review",
+      "status": "done",
       "agent": "",
       "where": "",
       "labels": [],
       "epic": "elaborator-kernel",
-      "body": "Lane (Opus, 27 Nov): fixed in 714854071. value::test_levels computes the fresh level with checked arithmetic; past usize::MAX the test answers 'not equal' (stuck). Same for rule S's index test (shares meet_in_evaluation) and the reference evaluator's two literal (1<<40)+depth*(1<<24) sites. Verified: on 32-bit, a test inside 128 others got 2^31+128*2^24 = 2^32, wrapping to level 0. Tests: value::tests::rule_k_levels_stop_at_the_top_of_the_range, rule_k::the_ends_test_out_of_levels_says_different (fails on the old arithmetic: 'equal' for z=>z vs z=>v0); all examples::soundness pass; wasm32 check of core passes. docs/core.md updated. Wants a Fable review.",
+      "body": "Lane (Opus, 27 Nov): fixed in 714854071. value::test_levels computes the fresh level with checked arithmetic; past usize::MAX the test answers 'not equal' (stuck). Same for rule S's index test (shares meet_in_evaluation) and the reference evaluator's two literal (1<<40)+depth*(1<<24) sites. Verified: on 32-bit, a test inside 128 others got 2^31+128*2^24 = 2^32, wrapping to level 0. Tests: value::tests::rule_k_levels_stop_at_the_top_of_the_range, rule_k::the_ends_test_out_of_levels_says_different (fails on the old arithmetic: 'equal' for z=>z vs z=>v0); all examples::soundness pass; wasm32 check of core passes. docs/core.md updated. Wants a Fable review.\nFix: value::test_levels does the fresh-level arithmetic with checked adds; on overflow meet_in_evaluation answers not equal (stuck) before touching cast_levels or the memo; reference.rs rule S and ends_equal go through it too. Tests rule_k_levels_stop_at_the_top_of_the_range and rule_k::the_ends_test_out_of_levels_says_different (both fail on the old arithmetic). Fable review: merge (docs/reviews/SW-4679-fable-review.md); follow-ups SW-4914 (binder depth past 2^24, soundness) and SW-4915 (out of levels as E-RESOURCE). Verifier: soundness set (tier all), rule_k/shared_case/record_eta, wasm32 check, all pass. Model result: opus, worked, 13 min (est. 40).\n",
       "created": "2026-11-23",
       "updated": "2026-11-27",
-      "commits": []
+      "commits": [
+        "714854071",
+        "4eedfd861"
+      ]
     },
     {
       "id": 4680,
@@ -21196,6 +21199,36 @@
       ],
       "epic": "audit-fuzzing",
       "body": "From SW-4910's report: lift::resolve_batch now redoes kept comparisons once their helpers are defined, but a joined group (join && pending) still defines the owner with the comparison pending. No test for that shape yet.",
+      "created": "2026-11-27",
+      "updated": "2026-11-27",
+      "commits": []
+    },
+    {
+      "id": 4914,
+      "title": "[Opus] Kernel: bound a comparison's binder depth to its level range: conv goes under binders with a plain level + 1, so a test more than 2^24 binders deep (e.g. a type computed by recursion, T (Succ n) = (x: Nat) → T n) shares levels with a nested test's and w => w vs w => x can answer equal (finding A again; subject reduction lost, not directly False); on 32-bit a top-level comparison could reach 2^31. Build the repro and measure first; then one helper for the four level + 1 sites returning a resource error at the range's top; docs/core.md states the bound. Fable review (SW-4679 review N1)",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [
+        "core"
+      ],
+      "epic": "elaborator-kernel",
+      "body": "From docs/reviews/SW-4679-fable-review.md, N1. Reasoned from conv_with and the 10^10 step budget; no repro yet. Older than SW-4679.",
+      "created": "2026-11-27",
+      "updated": "2026-11-27",
+      "commits": []
+    },
+    {
+      "id": 4915,
+      "title": "[Opus] Rule K out of levels: make running out an E-RESOURCE ('no answer') instead of 'not equal', so it isn't filed in the answer memo (whose comment 'an answer found at one level holds at any' no longer holds), gives a clear message instead of a silently stuck cast, and fixes the stuck-on-a-proof note near value.rs:6522 that would report differing indices. 128 nested tests is few on the web: tower hyp 129 = 0 := byComputing is refused on the web and accepted natively (examples/accept/cast-ends-tested-once.sw nests 40); consider handing out levels compactly. User-visible: may need a D question (SW-4679 review N2-N4)",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [
+        "core"
+      ],
+      "epic": "elaborator-kernel",
+      "body": "From docs/reviews/SW-4679-fable-review.md, N2, N3, N4. Sound as merged; this is about messages, the memo invariant and the web build's depth limit.",
       "created": "2026-11-27",
       "updated": "2026-11-27",
       "commits": []
