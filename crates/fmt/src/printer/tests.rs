@@ -882,17 +882,17 @@ fn a_let_whose_value_breaks_over_a_comment_keeps_its_semicolon_after_it() {
 
 #[test]
 fn a_comment_right_after_a_let_assign_keeps_the_sequence() {
-    // SW-3750: a comment ending the `:=` line must not put the value below
-    // it: a value starting its own line is a block, which the `;` after it
-    // would end as a sequence's.
+    // SW-3750, SW-4917: a comment ending the `:=` line keeps its place. The
+    // value waits below at the block's column, where the `;` after it still
+    // belongs to the `let`, and the body stays on the value's line.
     check(
         "def value: Text :=\n (let x :=-- c\n 1; 2; x)\n",
-        "def value: Text :=\n  (let x\n    -- c\n    := 1;\n   2; x)\n",
+        "def value: Text :=\n  (let x := -- c\n  1; 2; x)\n",
     );
     // A list's element is bracketed too.
     check(
         "def xs: List Nat :=\n [let x :=-- c\n 1; 2; x]\n",
-        "def xs: List Nat := [\n  let x\n    -- c\n    := 1;\n  2; x\n]\n",
+        "def xs: List Nat := [\n  let x := -- c\n  1; 2; x\n]\n",
     );
 }
 

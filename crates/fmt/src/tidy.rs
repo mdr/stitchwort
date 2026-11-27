@@ -149,22 +149,6 @@ pub fn place_comments(tokens: &[Token], trivia: &[Trivia], eof: &Trivia) -> (Vec
         }
         out[i].leading.append(&mut moved);
     }
-    // An expression `let`'s value must start on its `:=` line, or the `;`
-    // after it ends a block rather than the `let` (SW-3750). A comment
-    // ending that line has nowhere to go after the `:=`, so it goes before,
-    // as a comment after an arrow does.
-    for i in 0..tokens.len() {
-        if tokens[i].tok != Tok::ColonEq
-            || !expression_let_assign(tokens, i)
-            || out[i].trailing.is_none()
-        {
-            continue;
-        }
-        if let Some(mut comment) = out[i].trailing.take() {
-            comment.blank_lines_before = 0;
-            out[i].leading.push(comment);
-        }
-    }
     for t in out.iter_mut().chain(std::iter::once(&mut eof)) {
         t.leading.iter_mut().for_each(trim);
         if let Some(comment) = &mut t.trailing {
@@ -199,55 +183,6 @@ fn skipped(tokens: &[Token], j: usize) -> bool {
         Tok::Pipe => record_update_bar(tokens, j),
         _ => false,
     }
-}
-
-/// Whether the `:=` at `assign` is an expression `let`'s: a `let` at its
-/// depth before it, and a `;` at that depth after it (`(let x := e; body)`).
-fn expression_let_assign(tokens: &[Token], assign: usize) -> bool {
-    let mut depth = 0usize;
-    let mut let_before = false;
-    for token in tokens[..assign].iter().rev() {
-        match token.tok {
-            Tok::RParen | Tok::RBracket | Tok::RBrace => depth += 1,
-            Tok::LParen | Tok::LBracket | Tok::LBrace if depth > 0 => depth -= 1,
-            Tok::LParen | Tok::LBracket | Tok::LBrace => break,
-            Tok::KwLet if depth == 0 => {
-                let_before = true;
-                break;
-            }
-            Tok::Semi | Tok::FatArrow if depth == 0 => break,
-            Tok::KwDef
-            | Tok::KwTheorem
-            | Tok::KwType
-            | Tok::KwTest
-            | Tok::KwExport
-            | Tok::KwInstance
-            | Tok::KwInterface
-            | Tok::KwNamespace
-            | Tok::KwImport
-            | Tok::KwInclude
-            | Tok::KwAbility
-                if depth == 0 =>
-            {
-                break;
-            }
-            _ => {}
-        }
-    }
-    if !let_before {
-        return false;
-    }
-    let mut depth = 0usize;
-    for token in &tokens[assign + 1..] {
-        match token.tok {
-            Tok::LParen | Tok::LBracket | Tok::LBrace => depth += 1,
-            Tok::RParen | Tok::RBracket | Tok::RBrace if depth > 0 => depth -= 1,
-            Tok::RParen | Tok::RBracket | Tok::RBrace => return false,
-            Tok::Semi if depth == 0 => return true,
-            _ => {}
-        }
-    }
-    false
 }
 
 fn trim(comment: &mut Comment) {
