@@ -1,5 +1,5 @@
 {
-  "next": 4916,
+  "next": 4917,
   "tickets": [
     {
       "id": 47,
@@ -14471,15 +14471,18 @@
     {
       "id": 3593,
       "title": "[Opus] Debug-build panic in hash_stability::examples: debug_assert at crates/core/src/value.rs:3515 'variable at level … read back with … in scope' (found by SW-3582 in a debug run; release builds skip it). Find the example, the cause, and whether release builds compute something wrong there",
-      "status": "review",
+      "status": "done",
       "agent": "",
       "where": "",
       "labels": [],
       "epic": "elaborator-kernel",
-      "body": "Lane notes (27 Nov, Opus, ~25 min, est. 60): no longer reproduces at main 84e0ac68b (hash_stability::examples, all 785 examples, release with the assert made a plain assert!: passes). Cause found: the SW-3582 debug run predated SW-3592's fix 4366706f2, where Shown::unknown printed an unsolved instance's type with no names in scope (quote at level 0 of a value mentioning level 0). Putting `&[]` back reproduces it in examples/accept/rewrite-waits-for-dictionary.sw and map-set.sw (rewrite's nothing-found message, via pretty::value). In release the wrapped index printed as another name (`Add _`, `DecEq _k`) in messages a tactic retry discarded; no hash changed. Display only; the kernel rejects an out-of-scope Var (check.rs, E-MALFORMED) and eval's env indexing panics on one. Fix a3e7647ce: the assertion runs in release builds too, with a should_panic test that failed before it. Follow-up candidate: reference.rs:1049 reads back `level - 1 - l` unchecked the same way.\n",
+      "body": "Lane notes (27 Nov, Opus, ~25 min, est. 60): no longer reproduces at main 84e0ac68b (hash_stability::examples, all 785 examples, release with the assert made a plain assert!: passes). Cause found: the SW-3582 debug run predated SW-3592's fix 4366706f2, where Shown::unknown printed an unsolved instance's type with no names in scope (quote at level 0 of a value mentioning level 0). Putting `&[]` back reproduces it in examples/accept/rewrite-waits-for-dictionary.sw and map-set.sw (rewrite's nothing-found message, via pretty::value). In release the wrapped index printed as another name (`Add _`, `DecEq _k`) in messages a tactic retry discarded; no hash changed. Display only; the kernel rejects an out-of-scope Var (check.rs, E-MALFORMED) and eval's env indexing panics on one. Fix a3e7647ce: the assertion runs in release builds too, with a should_panic test that failed before it. Follow-up candidate: reference.rs:1049 reads back `level - 1 - l` unchecked the same way.\n\nCause: SW-3592 (4366706f2, 16 Nov 15:04) already fixed it; SW-3582's debug run was on an older tree. Reproduced by re-breaking Shown::unknown (names -> &[]): fires in examples/accept/rewrite-waits-for-dictionary.sw and map-set.sw. Release effect, measured: a wrong variable name (Add _, DecEq _k) in messages a tactic retry discarded; no hash changed, nothing reached the kernel. Change: the read-back level check is an assert in release too (E-INTERNAL via catch_unwind); test kernel::a_variable_outside_the_context_does_not_read_back. No Fable review: orchestrator's call, a debug check promoted to release, no kernel rule changed. Follow-up SW-4916 (reference.rs, arm_display.rs). Verifier: kernel::, soundness set and hash_stability::examples on all examples (EXAMPLES=.sw), 102 passed. Model result: opus, worked, 22 min (est. 60).\n",
       "created": "2026-11-16",
       "updated": "2026-11-27",
-      "commits": []
+      "commits": [
+        "a3e7647ce",
+        "80512765f"
+      ]
     },
     {
       "id": 3595,
@@ -21229,6 +21232,21 @@
       ],
       "epic": "elaborator-kernel",
       "body": "From docs/reviews/SW-4679-fable-review.md, N2, N3, N4. Sound as merged; this is about messages, the memo invariant and the web build's depth limit.",
+      "created": "2026-11-27",
+      "updated": "2026-11-27",
+      "commits": []
+    },
+    {
+      "id": 4916,
+      "title": "[DeepSeek] Read-back: give the reference kernel's quote (crates/core/src/reference.rs:1049) and arm_display.rs:738 and :770 the same level < depth check value.rs's visit now has in release (SW-3593), each failing as an internal error rather than wrapping; a should_panic test each",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [
+        "core"
+      ],
+      "epic": "elaborator-kernel",
+      "body": "From SW-3593's report: these compute Term::Var(level - 1 - l) unchecked, so a quoting bug there prints a wrong name instead of failing. Release builds have overflow checks off.",
       "created": "2026-11-27",
       "updated": "2026-11-27",
       "commits": []
