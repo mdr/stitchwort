@@ -257,6 +257,7 @@ status line now says the wrong thing; the details are in
 | [closer.md](closer.md) | A closer for the leftovers: what `grind`, `simp_all` and `auto` would close in slice 1's proofs, measured on 50; recommends mending `cases` and `rewrite repeatedly`, then `byFacts [lemmas]` | proposed: one decision, not yet numbered | SW-4242 |
 | [std-lemma-references.md](std-lemma-references.md) | The compiler's references to std, checked | proposed | SW-1392 |
 | [std-naming.md](std-naming.md) | One name per operation in std, and how lemmas are named | proposed | SW-2179 |
+| [streams.md](streams.md) | Infinite streams: a std library on functions of the position (`Stream`, laws as real equalities, coinduction as a theorem) and `Stream.Gen` for speed; coinductive types stay out of the kernel; survey of Agda, Idris, Lean, Rocq, Haskell; probes in `streams/` | proposed: D3770-D3772 | SW-4962 |
 
 ## Tooling and the editor
 
