@@ -122,7 +122,8 @@ pub use rewind::{FreshMark, Mark};
 pub use scope::edit_distance;
 pub use state::JournalStats;
 pub use std_dir::{
-    CORE_ORDER, STD_DIR_VAR, StdText, load_std_text, std_text, use_std_bundle, use_std_dir,
+    CORE_ORDER, STD_DIR_VAR, StdText, load_std_text, set_build_tree, std_text, use_std_bundle,
+    use_std_dir,
 };
 mod tailrec;
 mod undo;

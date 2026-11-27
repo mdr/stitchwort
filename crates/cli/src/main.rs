@@ -1210,6 +1210,7 @@ fn jobs_asked(jobs: Option<usize>) -> usize {
 
 fn main() -> ExitCode {
     exit_quietly_on_broken_pipe();
+    stitchwort_elab::set_build_tree(&Path::new(env!("CARGO_MANIFEST_DIR")).join("../.."));
     let cli = Cli::parse();
     FULL_GOALS.store(cli.full_goals, std::sync::atomic::Ordering::Relaxed);
     COLOR.store(cli.color as u8, std::sync::atomic::Ordering::Relaxed);
