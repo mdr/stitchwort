@@ -1,5 +1,5 @@
 {
-  "next": 4945,
+  "next": 4946,
   "tickets": [
     {
       "id": 47,
@@ -21656,7 +21656,7 @@
     {
       "id": 4942,
       "title": "Language server: a running search never checks its cancel flag (crates/lsp/src/lib.rs:1229-1236), so a stale search can't be stopped",
-      "status": "backlog",
+      "status": "doing",
       "agent": "",
       "where": "",
       "labels": [],
@@ -21688,6 +21688,19 @@
       "labels": [],
       "epic": "proof-search",
       "body": "[Opus] D3765 (Matt, 27 Nov 2026: \"OK\"): build docs/proposals/search-open-abilities.md's recommendation: `{_}` in a search pattern matches any row (including none and Partial), `{e}`/`{?e}` the named form; `{Parse _ | _}` for \"Parse and maybe more\", `{Parse _, _}` refused with a pointer, closed `{Parse _}` exact; no braces stays pure, with a fallback pass that opens the rows when nothing pure matched, saying so; rows compared as sets; fewer extra abilities ranks first; targeted errors for `_ Int` and the others. Touches the parser (`_` after `|`: formatter-sync rule applies), search-mode row elaboration, the filter, a search-only switch in the unifier's row rules, ranking, the fallback pass, docs/syntax.md, guide chapter 8.\n",
+      "created": "2026-11-27",
+      "updated": "2026-11-27",
+      "commits": []
+    },
+    {
+      "id": 4945,
+      "title": "VS Code: Search by Type quick pick (D3766): live results, Enter inserts the name and its import, go-to button, from a ? or a selection; stitchwort/search request; cancellable search (SW-4942)",
+      "status": "doing",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "epic": "proof-search",
+      "body": "[Opus] D3766 (Matt, 27 Nov 2026: \"yes\"): stage 1 of docs/proposals/editor-type-search.md: \"Stitchwort: Search by Type…\" quick pick with live results (200 ms debounce, newest query only), rows in variant C's layout without colour, Enter inserts the name and its import in one undo, a row button goes to the definition, started also from a `?` (goal pre-filled) or a selection (its type); a `stitchwort/search` LSP request over the existing engine scoped to the open file with unsaved text; SW-4942 (search checks its cancel flag) folded in. The playground panel and the coloured Search view are later (the second decision is still open).\n",
       "created": "2026-11-27",
       "updated": "2026-11-27",
       "commits": []
