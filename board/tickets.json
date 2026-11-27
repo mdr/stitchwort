@@ -1,5 +1,5 @@
 {
-  "next": 4946,
+  "next": 4947,
   "tickets": [
     {
       "id": 47,
@@ -21701,6 +21701,21 @@
       "labels": [],
       "epic": "proof-search",
       "body": "[Opus] D3766 (Matt, 27 Nov 2026: \"yes\"): stage 1 of docs/proposals/editor-type-search.md: \"Stitchwort: Search by Type…\" quick pick with live results (200 ms debounce, newest query only), rows in variant C's layout without colour, Enter inserts the name and its import in one undo, a row button goes to the definition, started also from a `?` (goal pre-filled) or a selection (its type); a `stitchwort/search` LSP request over the existing engine scoped to the open file with unsaved text; SW-4942 (search checks its cancel flag) folded in. The playground panel and the coloured Search view are later (the second decision is still open).\n",
+      "created": "2026-11-27",
+      "updated": "2026-11-27",
+      "commits": []
+    },
+    {
+      "id": 4946,
+      "title": "VS Code extension test: 'per-group runs against a stub CLI report progressively' fails intermittently under load (order of A and B finishing)",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [
+        "bug"
+      ],
+      "epic": "editor-playground",
+      "body": "[DeepSeek] From SW-4943 (27 Nov): node --test test/runner.test.js; fails 1 in 3 alone, also on the old code. Make it order-independent.",
       "created": "2026-11-27",
       "updated": "2026-11-27",
       "commits": []
