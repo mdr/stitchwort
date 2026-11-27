@@ -7,8 +7,8 @@ use clap::{Parser, Subcommand};
 use rustyline::error::ReadlineError;
 use stitchwort_cli::driver::{Cache, Outcome, Session, TestResult};
 use stitchwort_cli::project::{
-    DiskFiles, Files, Load, Target, TheoremCount, analyse, find_project, namespace_of,
-    project_sources, run_unknown_namespace, unknown_namespace,
+    DiskFiles, Files, Load, Target, TheoremCount, find_project, namespace_of, project_sources,
+    run_unknown_namespace, unknown_namespace,
 };
 use stitchwort_cli::render::{ColorChoice, render};
 use stitchwort_cli::run::Main;
@@ -3585,7 +3585,7 @@ fn load_main(
                 return Err(ExitCode::FAILURE);
             }
         };
-        let analysis = analyse(&mut session, &project.name, sources);
+        let analysis = session.analyse_cached(&project.name, sources);
         if !analysis.diagnostics.is_empty() {
             report(&session.sources, &analysis.diagnostics);
             return Err(ExitCode::FAILURE);
@@ -4886,7 +4886,7 @@ fn search(
                             return ExitCode::from(2);
                         }
                     };
-                    let analysis = analyse(&mut session, &project.name, sources);
+                    let analysis = session.analyse_cached(&project.name, sources);
                     if !analysis.diagnostics.is_empty() {
                         report(&session.sources, &analysis.diagnostics);
                         return ExitCode::from(2);
@@ -5105,7 +5105,7 @@ fn audit(
                 return ExitCode::FAILURE;
             }
         };
-        let analysis = analyse(&mut session, &project.name, sources);
+        let analysis = session.analyse_cached(&project.name, sources);
         if !analysis.diagnostics.is_empty() {
             report(&session.sources, &analysis.diagnostics);
             return ExitCode::FAILURE;

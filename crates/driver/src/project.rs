@@ -94,15 +94,22 @@ impl Session {
         target: &Target,
         load: Load,
     ) -> Result<Loaded, Vec<Diagnostic>> {
-        let analysis = match self.elab.check_cache() {
+        let analysis = self.analyse_cached(project, files);
+        self.load_analysis_for(project, analysis, target, load)
+    }
+
+    /// [`analyse`], reading each file's sketch from the scan cache when
+    /// there is one (parsing only files the scan found errors in or hasn't
+    /// seen), else parsing every file.
+    pub fn analyse_cached(&mut self, project: &str, files: Vec<(String, String)>) -> Analysis {
+        match self.elab.check_cache() {
             Some(store) => {
                 let stack = self.elab.options.limits.stack;
                 let scan = Scan::new(files, stack, project, Some(&*store));
                 analyse_scan(self, project, &scan)
             }
             None => analyse(self, project, files),
-        };
-        self.load_analysis_for(project, analysis, target, load)
+        }
     }
 
     /// [`Session::load_project_sources`], from the files already read
