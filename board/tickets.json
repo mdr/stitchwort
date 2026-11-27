@@ -1,5 +1,5 @@
 {
-  "next": 4954,
+  "next": 4957,
   "tickets": [
     {
       "id": 47,
@@ -21839,6 +21839,49 @@
       ],
       "epic": "proof-search",
       "body": "[Sonnet] Stage 1 of SW-4947's plan, no decision needed. Est. 20 min.",
+      "created": "2026-11-27",
+      "updated": "2026-11-27",
+      "commits": []
+    },
+    {
+      "id": 4954,
+      "title": "search cache stage 2 (docs/proposals/search-cache.md): std's deferred equations in the check cache, a segment per definition, admitted as cached std theorems are (D3768)",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [
+        "perf"
+      ],
+      "epic": "proof-search",
+      "body": "[Opus] D3768 (Matt, 27 Nov 2026: \"yeah, that seems a no brainer tbh\"): trust cached equations as cached std declarations are trusted (D1660): exact stamp, file loaded, not yet made, definition final, dependency content hashes match; refused segments undone and made fresh. Est. 50 min. After SW-1204 merges (both edit crates/elab/src/cache/mod.rs). Fable review (stage 2r) before merge.",
+      "created": "2026-11-27",
+      "updated": "2026-11-27",
+      "commits": []
+    },
+    {
+      "id": 4955,
+      "title": "search cache stage 2r: Fable review of stage 2's trust argument and cache key",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "epic": "proof-search",
+      "body": "[Fable, paper] After SW-4954. Est. 20 min.",
+      "created": "2026-11-27",
+      "updated": "2026-11-27",
+      "commits": []
+    },
+    {
+      "id": 4956,
+      "title": "search cache stage 3: memoise type_index's folded read-back by content hash and save it with the equations entry",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [
+        "perf"
+      ],
+      "epic": "proof-search",
+      "body": "[Sonnet] After SW-4954. Est. 30 min.",
       "created": "2026-11-27",
       "updated": "2026-11-27",
       "commits": []
