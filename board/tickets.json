@@ -37053,8 +37053,8 @@
     {
       "id": 4902,
       "title": "[Sonnet] All-tier timeouts 27 Nov (at df69610cd, load 50-97 during the run): driver::library search_at_bench::stage_two_on_any_std_statement (1200 s limit) and driver::proofs differential::the_evaluators_agree_on_the_prelude_and_every_example (1800 s limit); also examples_wide::rewinding_changes_nothing_for_the_examples took 3,382 s. Rerun each alone on a quiet machine to see if it's load or a slowdown; if a slowdown, find the commit",
-      "status": "backlog",
-      "agent": "",
+      "status": "doing",
+      "agent": "Sonnet",
       "where": "",
       "labels": [],
       "epic": "test-infra",
