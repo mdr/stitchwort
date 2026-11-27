@@ -1,5 +1,5 @@
 {
-  "next": 4927,
+  "next": 4931,
   "tickets": [
     {
       "id": 47,
@@ -21388,17 +21388,20 @@
     {
       "id": 4925,
       "title": "Playground: typing in an AoC day lags up to a second per keystroke (2021 day 18)",
-      "status": "review",
+      "status": "done",
       "agent": "",
       "where": "",
       "labels": [
         "bug"
       ],
       "epic": "editor-playground",
-      "body": "[Opus] Matt, 27 Nov 2026: \"going around the advent of code puzzles seems quite sluggish, like up to a second per keystroke before it enters. For example on 2021 day 18\". On the public playground (released today, SW-4923). Day 18's files are small (Day18.sw 162 lines, its biggest proof file 225), so the cause is probably per-keystroke work on the page's main thread, not file size. Profile first: measure keystroke-to-paint latency in headless Chrome on 2021 day 18 and a small day, find the hotspot, fix only that, measure again.\n\n[Opus lane, 27 Nov] The second-long lag did not reproduce in headless Chrome (input-to-paint 16 to 24 ms per key, no long tasks, in every case tried, including the deployed site). Measured instead: typing in a project burns about 4 cores off the main thread. Cause found and fixed: each pause's outline request (parses all 726 AoC files, ~400 ms) was cancelled by the next by ending the compiler's worker, so typing 400 ms apart started a worker per key (19 for 20 keys), each reloading the library, and the outline never answered. A superseded outline now keeps its worker (web/index.html, Compiler.finish); browser test 'in a project, typing with pauses keeps the compiler's worker' (7 workers for 8 keys before). Chrome CPU for that typing 36 s -> 33 s; the rest is the language server's re-check and the outline itself. Entry in docs/performance/log.md.",
+      "body": "[Opus] Matt, 27 Nov 2026: \"going around the advent of code puzzles seems quite sluggish, like up to a second per keystroke before it enters. For example on 2021 day 18\". On the public playground (released today, SW-4923). Day 18's files are small (Day18.sw 162 lines, its biggest proof file 225), so the cause is probably per-keystroke work on the page's main thread, not file size. Profile first: measure keystroke-to-paint latency in headless Chrome on 2021 day 18 and a small day, find the hotspot, fix only that, measure again.\n\n[Opus lane, 27 Nov] The second-long lag did not reproduce in headless Chrome (input-to-paint 16 to 24 ms per key, no long tasks, in every case tried, including the deployed site). Measured instead: typing in a project burns about 4 cores off the main thread. Cause found and fixed: each pause's outline request (parses all 726 AoC files, ~400 ms) was cancelled by the next by ending the compiler's worker, so typing 400 ms apart started a worker per key (19 for 20 keys), each reloading the library, and the outline never answered. A superseded outline now keeps its worker (web/index.html, Compiler.finish); browser test 'in a project, typing with pauses keeps the compiler's worker' (7 workers for 8 keys before). Chrome CPU for that typing 36 s -> 33 s; the rest is the language server's re-check and the outline itself. Entry in docs/performance/log.md.\nRound 1 (Opus, headless Chrome 158): lag not reproduced (16-24 ms a key in every case, incl. the live site). Fixed a real waste: a superseded outline ended the compiler worker, so typing with pauses started a worker per key (19 for 20 keys; 19 of 21 outlines unanswered); now it keeps its worker. Chrome CPU 36.1 -> 33.3 s for the probe. Test \"in a project, typing with pauses keeps the compiler's worker\" (failed before). Verified on main with three other browser tests. D3760: Matt saw the lag in Firefox; a Firefox lane follows (new ticket). Model result: opus, worked (fix; lag not reproduced in Chrome), 32 min (est. 60).\n",
       "created": "2026-11-27",
       "updated": "2026-11-27",
-      "commits": []
+      "commits": [
+        "697161edc",
+        "64992baa1"
+      ]
     },
     {
       "id": 4926,
@@ -21411,6 +21414,66 @@
       ],
       "epic": "editor-playground",
       "body": "[Sonnet] Found by SW-4924 (27 Nov): the in-page fallback in web/index.html (around line 1001, used when the worker cannot start) calls compiler.*_project(...) without the `project` argument that web/playground-worker.js passes, so project requests (AoC days, the book, the roguelike) look broken in the fallback; no test covers it. Check against the worker, fix, and add a browser test that forces the fallback with a project open (the two \"the compiler runs in the page when...\" tests show how to force it).\n",
+      "created": "2026-11-27",
+      "updated": "2026-11-27",
+      "commits": []
+    },
+    {
+      "id": 4927,
+      "title": "Playground: the outline re-parses all 726 AoC files on every pause (~400 ms), only to find the day's tabs: keep each file's parse, or ask again only when a namespace or import line changes",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [
+        "perf"
+      ],
+      "epic": "editor-playground",
+      "body": "[Sonnet] From SW-4925 (27 Nov): outline_project -> analyse parses the whole project on every pause in typing. crates/web and the driver.",
+      "created": "2026-11-27",
+      "updated": "2026-11-27",
+      "commits": []
+    },
+    {
+      "id": 4928,
+      "title": "Playground: the language server re-checks the AoC day on every key and holds a core busy while typing: try a short wait before re-checking in a project",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [
+        "perf"
+      ],
+      "epic": "editor-playground",
+      "body": "[Sonnet] From SW-4925 (27 Nov): during 20 keys 400 ms apart in 2021 day 18, the language server worker ran 11.7 of 11.8 s. Measure before and after.",
+      "created": "2026-11-27",
+      "updated": "2026-11-27",
+      "commits": []
+    },
+    {
+      "id": 4929,
+      "title": "Playground: per-key page work: renderTabs rebuilds the 621-option Other files list on every key, and stateKey/keyOf JSON-encode all 726 file texts on every pause",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [
+        "perf"
+      ],
+      "epic": "editor-playground",
+      "body": "[DeepSeek] From SW-4925 (27 Nov): about 2 ms a key for renderTabs (15 ms at 4x CPU slowdown) and 10-19 ms a pause for stateKey/keyOf. Rebuild the list only when it changes; compare the edited file instead of all texts.",
+      "created": "2026-11-27",
+      "updated": "2026-11-27",
+      "commits": []
+    },
+    {
+      "id": 4930,
+      "title": "Playground: reproduce and fix the typing lag in Firefox (2021 day 18, D3760)",
+      "status": "doing",
+      "agent": "",
+      "where": "",
+      "labels": [
+        "bug"
+      ],
+      "epic": "editor-playground",
+      "body": "[Opus] D3760 (Matt, 27 Nov): the up-to-a-second-per-keystroke lag on 2021 day 18 was in Firefox. SW-4925 couldn't reproduce it in headless Chrome (16-24 ms a key) and fixed a worker-restart waste. Reproduce in headless Firefox (nixpkgs firefox-bin 159.0.1 and geckodriver are available on aarch64-darwin), idle and under load, profile, fix the measured cause.\n",
       "created": "2026-11-27",
       "updated": "2026-11-27",
       "commits": []
