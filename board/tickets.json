@@ -1,5 +1,5 @@
 {
-  "next": 4913,
+  "next": 4914,
   "tickets": [
     {
       "id": 47,
@@ -13828,9 +13828,9 @@
       "where": "",
       "labels": [],
       "epic": "audit-fuzzing",
-      "body": "",
+      "body": "\nSW-4910 (27 Nov): this repro is stale: `rfl` is no longer a name, so it gives E-UNKNOWN-NAME; with byComputing in its place the elaborator reports E-REFL itself. Needs a fresh reproducer (rerun the fuzz seed) before any fix; may already be fixed.\n",
       "created": "2026-11-13",
-      "updated": "2026-11-22",
+      "updated": "2026-11-27",
       "commits": []
     },
     {
@@ -37170,17 +37170,20 @@
     {
       "id": 4910,
       "title": "fuzz:elab oracle 3: false byComputing in match branches proving a let equation over a let-bound value reaches the kernel (E-REFL from the kernel, not the elaborator)",
-      "status": "doing",
+      "status": "done",
       "agent": "",
       "where": "",
       "labels": [
         "bug"
       ],
       "epic": "audit-fuzzing",
-      "body": "[Sonnet] Found by Overmind, fuzz batch 17 (`task fuzz:elab SEED=0x26112611 CASES=5000` at 98f88b21a, cases 1834 and 1945, mutants of examples/accept/opaque-unfolding-own-helpers.sw). Oracle 3: the kernel, not the elaborator, refuses a false `byComputing` in the branches of a `match` that proves a let-bound equation mentioning a let-bound value.\n\nRepro: docs/reviews/repros/fuzz-elab-26112611-1834.sw. The CLI gives the right E-REFL (\"`2` and `0` aren't equal\"), so no soundness or UX problem; the elaborator should check this `byComputing` itself, as it does in the close variants.\n\nVariants that do NOT trigger it (elaborator reports E-REFL, or the true version checks): `same` proved by plain `byComputing`; `pick` a top-level def; the match written in a theorem's type; `let same: 2 = 0 := match …` with no let-bound `pick`; `pick = 2`.\n\nNot new: r7's shape also reaches the kernel with the c3f9c13d4 binary. Likely the same family as SW-3115 (local lemma's rfl skips the elaborator's check). Fix: find why the match branch's byComputing under a let-bound value skips the elaborator check; add the repro as a reject example; failing-first.\n",
+      "body": "[Sonnet] Found by Overmind, fuzz batch 17 (`task fuzz:elab SEED=0x26112611 CASES=5000` at 98f88b21a, cases 1834 and 1945, mutants of examples/accept/opaque-unfolding-own-helpers.sw). Oracle 3: the kernel, not the elaborator, refuses a false `byComputing` in the branches of a `match` that proves a let-bound equation mentioning a let-bound value.\n\nRepro: docs/reviews/repros/fuzz-elab-26112611-1834.sw. The CLI gives the right E-REFL (\"`2` and `0` aren't equal\"), so no soundness or UX problem; the elaborator should check this `byComputing` itself, as it does in the close variants.\n\nVariants that do NOT trigger it (elaborator reports E-REFL, or the true version checks): `same` proved by plain `byComputing`; `pick` a top-level def; the match written in a theorem's type; `let same: 2 = 0 := match …` with no let-bound `pick`; `pick = 2`.\n\nNot new: r7's shape also reaches the kernel with the c3f9c13d4 binary. Likely the same family as SW-3115 (local lemma's rfl skips the elaborator's check). Fix: find why the match branch's byComputing under a let-bound value skips the elaborator check; add the repro as a reject example; failing-first.\n\nCause: the let-bound match is lifted to a helper; the arm's comparison waits for it (await_helpers) and was only redone in finish, after the owner went to the kernel. Fix: lift::resolve_batch redoes kept comparisons whose helpers are all defined right after each helper group, before the kernel. Test oracle_3_let_bound_value_in_match_arms (failed before), reject example match-arm-refl-let-bound-match. Joined-group shape left: SW-4913. SW-3115 repro stale (noted there). Verifier: examples::, hash_stability, oracle_3 tests, 17 passed. Model result: sonnet, worked, 27 min (est. 40).\n",
       "created": "2026-11-27",
       "updated": "2026-11-27",
-      "commits": []
+      "commits": [
+        "0afc7358a",
+        "7926ec4e3"
+      ]
     },
     {
       "id": 4911,
@@ -37217,6 +37220,21 @@
         "f0a12b883",
         "3731b209e"
       ]
+    },
+    {
+      "id": 4913,
+      "title": "[Sonnet] SW-4910 follow-up: a comparison kept for lifted helpers inside a joined group (a helper calling the pending owner) still reaches the kernel before the elaborator compares it; check with a repro whether oracle 3 can see it, fix if so",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [
+        "bug"
+      ],
+      "epic": "audit-fuzzing",
+      "body": "From SW-4910's report: lift::resolve_batch now redoes kept comparisons once their helpers are defined, but a joined group (join && pending) still defines the owner with the comparison pending. No test for that shape yet.",
+      "created": "2026-11-27",
+      "updated": "2026-11-27",
+      "commits": []
     }
   ]
 }
