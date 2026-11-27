@@ -995,9 +995,15 @@ impl Search {
                     Some((root, relative, open)) => project_closing_actions(
                         server, source, &root, &relative, open, range, cancel, &options,
                     ),
-                    None => {
-                        closing_actions(server, source, &target.path, &target.text, range, &options)
-                    }
+                    None => closing_actions(
+                        server,
+                        source,
+                        &target.path,
+                        &target.text,
+                        range,
+                        cancel,
+                        &options,
+                    ),
                 };
                 let proofs: Vec<_> = (found.unwrap_or_default().iter())
                     .map(|a| serde_json::json!({"title": a.title, "newText": a.new_text}))
@@ -1180,7 +1186,7 @@ fn expand_action(
         }
         None => {
             let mut session = search_session(server);
-            session.share_cancel_flag(cancel);
+            watch_cancel(&mut session, cancel);
             let name = (target.path.file_name())
                 .and_then(|n| n.to_str())
                 .unwrap_or("file.sw");
@@ -1248,12 +1254,11 @@ struct PendingSearch {
     /// What it was asked for (`codeAction`, `contextAt`).
     kind: &'static str,
     /// Skips a search still queued, and stops one in its pause
-    /// ([`Options::search_delay`]). A search by type already running stops
-    /// between candidates (`Session::search_in_text` and `search_in_project`
-    /// watch the flag); the others only carry the flag
-    /// (`Session::share_cancel_flag`), and nothing turns on the check of it
-    /// (`Session::cancellable`), so they run to their end and `searched`
-    /// answers null.
+    /// ([`Options::search_delay`]) or running: each search's sessions watch
+    /// it (`watch_cancel`), so a proof search, a context or a split stops
+    /// within a few thousand steps, and a search by type between candidates
+    /// (`Session::search_in_text` and `search_in_project`). `searched`
+    /// answers null for what it stopped.
     cancel: Arc<AtomicBool>,
     answered: AtomicBool,
     /// The progress token the client was shown for this search; ended with
@@ -5295,7 +5300,7 @@ fn with_context<R>(
         }
         None => {
             let mut session = search_session(server);
-            session.share_cancel_flag(cancel);
+            watch_cancel(&mut session, cancel);
             let name = target
                 .path
                 .file_name()
@@ -5305,6 +5310,16 @@ fn with_context<R>(
             Some(then(&session, found))
         }
     }
+}
+
+/// Makes `cancel` stop what `session` checks from now on, within a few
+/// thousand steps and between a search's candidates: a search whose request
+/// was cancelled or superseded gives its worker back (SW-4948). What it
+/// returns then is partial, and the caller's `searched` answers null for a
+/// cancelled request.
+fn watch_cancel(session: &mut Session, cancel: Arc<AtomicBool>) {
+    session.share_cancel_flag(cancel);
+    session.elab.kernel.machine.budget.watch_cancel(true);
 }
 
 /// A session for a proof search. With the library's check cache loaded
@@ -5378,8 +5393,9 @@ fn with_project_session<T>(
                 .elab
                 .set_check_cache(Rc::new(BundleStore(bundle.clone())));
         }
-        warm.session.share_cancel_flag(cancel);
+        watch_cancel(&mut warm.session, cancel);
         let found = f(&mut warm.session);
+        warm.session.elab.kernel.machine.budget.watch_cancel(false);
         warm.session.rewind(&warm.mark);
         WARM.with(|w| *w.borrow_mut() = Some(warm));
         Some(found)
@@ -5419,14 +5435,14 @@ fn members_at(
                         .file_name()
                         .map_or("project".to_string(), |n| n.to_string_lossy().into_owned());
                     let cache = source.project_cache(&root);
-                    with_project_session(server, cache.as_deref(), cancel, |session| {
+                    with_project_session(server, cache.as_deref(), cancel.clone(), |session| {
                         session.members_at_project(&name, &files, &relative, cache.as_deref(), dot)
                     })
                     .flatten()
                 }
                 None => {
                     let mut session = search_session(server);
-                    session.share_cancel_flag(cancel);
+                    watch_cancel(&mut session, cancel.clone());
                     if server.library.get().is_none()
                         && let Some(dir) =
                             target.path.parent().and_then(|dir| source.file_cache(dir))
@@ -5441,7 +5457,7 @@ fn members_at(
                     session.members_at_text(name, &target.text, dot, wanted)
                 }
             };
-            if let Some(found) = &found {
+            if let Some(found) = found.as_ref().filter(|_| !cancel.load(Ordering::Relaxed)) {
                 *lock(&server.members) = Some((key, found.clone()));
             }
             found
@@ -5540,6 +5556,7 @@ fn closing_actions(
     path: &Path,
     text: &str,
     range: lsp_types::Range,
+    cancel: Arc<AtomicBool>,
     options: &stitchwort_driver::search_at::AtOptions,
 ) -> Option<Vec<pos::Action>> {
     let name = path
@@ -5548,7 +5565,11 @@ fn closing_actions(
         .unwrap_or("file.sw");
     let cache = path.parent().and_then(|dir| source.file_cache(dir));
     pos::actions_at_text(
-        &|| search_session(server),
+        &|| {
+            let mut session = search_session(server);
+            watch_cancel(&mut session, cancel.clone());
+            session
+        },
         name,
         text,
         ranged(range),

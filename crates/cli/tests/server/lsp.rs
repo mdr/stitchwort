@@ -3179,6 +3179,49 @@ fn a_newer_action_request_supersedes_and_a_cancelled_one_is_answered() {
     let _ = std::fs::remove_dir_all(&dir);
 }
 
+/// A proof search whose request is cancelled stops part way and gives its
+/// worker back (SW-4948). With one worker and a search allowed two minutes
+/// to look for a thousand proofs, a context request behind the cancelled
+/// search is answered at once if the search stopped, and only when it
+/// finished otherwise.
+#[test]
+fn a_cancelled_proof_search_frees_its_worker() {
+    let dir = temp_dir("action-cancel-frees");
+    let file = dir.join("swap.sw");
+    std::fs::write(&file, SWAP).unwrap();
+    let uri = uri(&file);
+    let mut options = options();
+    options.search_workers = 1;
+    options.search_wanted = 1000;
+    options.search_time = Duration::from_secs(120);
+    let peak = options.search_peak.clone();
+    let mut client = Client::start_with(options);
+    client.open(&uri, SWAP);
+    client.diagnostics(&uri, 1);
+    let search = swap_search(&mut client, &uri);
+    let deadline = Instant::now() + Duration::from_secs(30);
+    while peak.load(Ordering::SeqCst) < 1 {
+        assert!(Instant::now() < deadline, "the search never ran");
+        std::thread::sleep(Duration::from_millis(10));
+    }
+    std::thread::sleep(Duration::from_millis(500));
+    client.notify("$/cancelRequest", json!({"id": search}));
+    assert_eq!(client.response(&search), Err(-32800));
+    let started = Instant::now();
+    let context = client.send(
+        "stitchwort/contextAt",
+        json!({"textDocument": {"uri": uri}, "position": {"line": 2, "character": 50}}),
+    );
+    let _ = client.response(&context);
+    assert!(
+        started.elapsed() < Duration::from_secs(20),
+        "the cancelled search kept the worker for {:?}",
+        started.elapsed()
+    );
+    client.shutdown();
+    let _ = std::fs::remove_dir_all(&dir);
+}
+
 /// Searches for several documents run at most `search_workers` at a time.
 #[test]
 fn proof_searches_are_bounded_by_the_pool() {
