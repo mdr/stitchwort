@@ -948,7 +948,7 @@ mod tests {
         let tests = test("test \"one\" := True\ntest \"two\" := False\n", "", true);
         assert!(
             tests.starts_with(
-                r#"{"ok":true,"tests":[{"name":"one","passed":true,"outcome":"passed","cached":false},{"name":"two","passed":false,"outcome":"failed","cached":false}],"added":""#
+                r#"{"ok":true,"tests":[{"name":"one","passed":true,"outcome":"passed","cached":false,"notRun":false},{"name":"two","passed":false,"outcome":"failed","cached":false,"notRun":false}],"added":""#
             ),
             "{tests}"
         );
@@ -969,7 +969,7 @@ mod tests {
         let tests = test(collatz, "", true);
         assert!(
             tests.starts_with(
-                r#"{"ok":true,"tests":[{"name":"27","passed":true,"outcome":"passed","cached":false}]"#
+                r#"{"ok":true,"tests":[{"name":"27","passed":true,"outcome":"passed","cached":false,"notRun":false}]"#
             ),
             "{tests}"
         );
@@ -1011,7 +1011,7 @@ mod tests {
             "{answer}"
         );
         assert!(
-            answer.contains(r#""name":"uses it","passed":false,"outcome":"failed","cached":false,"why":"it uses `broken`, which has an error"#),
+            answer.contains(r#""name":"uses it","passed":false,"outcome":"failed","cached":false,"notRun":false,"why":"it uses `broken`, which has an error"#),
             "{answer}"
         );
     }
