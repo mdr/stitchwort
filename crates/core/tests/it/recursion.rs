@@ -162,7 +162,6 @@ const ALLOWED: &[&str] = &[
     "crates/elab/src/equations/induct.rs:values",
     "crates/elab/src/facts.rs:add",
     "crates/elab/src/facts.rs:fit",
-    "crates/elab/src/facts.rs:is_fact",
     "crates/elab/src/facts.rs:split",
     "crates/elab/src/families.rs:leaf_spans",
     "crates/elab/src/goals.rs:loose_ctor",
