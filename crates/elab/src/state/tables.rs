@@ -207,6 +207,11 @@ pub(crate) struct Delta {
 }
 
 impl Delta {
+    /// The keys whose deferred equations the entry says it made.
+    pub(crate) fn equations_done(&self) -> &[String] {
+        &self.equations_done
+    }
+
     /// The helpers of the parameter defaults the entry holds: the kernel
     /// marks them ([`stitchwort_core::check::mark_param_default`]) as it
     /// admits them.

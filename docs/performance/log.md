@@ -46,6 +46,32 @@ in [../proposals/README.md](../proposals/README.md).
 
 ## 27 Nov 2026
 
+### SW-4954: std's deferred equations are kept in the check cache
+
+- **Problem.** Stage 2 of [../proposals/search-cache.md](../proposals/search-cache.md)
+  (§2): every `search`, `search --at` and `doc` made the core's and the library's
+  deferred equations again (`generate_deferred_equations`), 34% of a warm std search in
+  SW-4935's profile.
+- **Change.** An equations entry per library file (and the core), under the file's own
+  key, with a segment per definition, replayed through `admit_replayed` on the trusted
+  path (D3768); made fresh and written when missing (`cache/equations_entry.rs`; the
+  replay checks are in check-cache-trust.md, "Added for SW-4954").
+- **Results unchanged** (measured, repo root, release): `search --json --limit 100000
+  --in Std` for SW-4935's six queries, and `doc List.length`, `doc Nat.gcd`, `doc --json
+  List.zip`, byte-identical before and after (stdout, stderr, exit codes); `Nat → Nat →
+  Nat` with `--no-cache` the same too.
+- **Time** (measured, warm, best of 3, interleaved): `search --in Std '() → {Parse Char}
+  Int'` 1.27 s → 0.79 s (−0.48 s; the note estimated −0.43 s); `doc Nat.gcd` 1.56 s →
+  1.10 s. The first search after a std change or a new build writes the entries: 1.69 s
+  once (79 entries, 3.2 MB in all).
+- **Tests.** `check_cache::deferred_equations_replay_from_the_cache_unchanged`,
+  `recheck_sends_replayed_equations_through_the_kernel`,
+  `deferred_equations_are_never_carried_over`,
+  `an_equations_segment_whose_definition_changed_is_made_fresh` (fails with the
+  dependency-hash comparison in `decode` turned off),
+  `an_equations_segment_filed_under_another_definition_is_made_fresh` (fails without the
+  check that a segment marks its own key done).
+
 ### SW-4953: `search`, `audit` and `run` read the project through the scan cache
 
 - **Problem.** Stage 1 of [../proposals/search-cache.md](../proposals/search-cache.md)

@@ -6438,7 +6438,7 @@ impl Elaborator {
                         .map(|n| n.key.clone())
                 })
                 .collect();
-            self.ensure_equations(&keys)?;
+            self.ensure_file_equations(f, &keys)?;
         }
         Ok(())
     }

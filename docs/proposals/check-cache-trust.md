@@ -240,6 +240,35 @@ they hold any primitive. The core's primitives stay in the core's entry
 only, float ones in library files only, in both the encoder and `submit`.
 `FORMAT` went 47 → 48.
 
+**Added for SW-4954 (27 Nov 2026).** The deferred equations of each
+library file, and of the core, that `search` and `doc` make
+(`generate_deferred_equations`) are kept too, trusted as cached std
+declarations are (D3768: Matt, "that seems a no brainer"). An entry per
+file, unit `eqs.` and the file's unit, under the file's own library key,
+holds a segment per definition, each a whole entry in a library file's
+format, encoded from the write-set of making that definition's equations
+(`cache/equations_entry.rs`). So §1's three parts hold as for a library
+file: the key is the file's, which covers its text and what it needs, and
+each segment's dependency header names the definition itself and
+everything else it refers to by path and content hash, compared on decode,
+so a segment for a changed `f` is a miss whatever the key says; the entry
+is what this build's fresh generation admitted; and admission is
+`admit_replayed` with `library` false (no built-in bound, no primitive),
+undone by `forget_since` on a refusal. Beyond a library file's checks, a
+segment is admitted only as an exact hit (container and segment: never
+carried over, and none is written in a session that carried anything
+over), for a key of a loaded file whose definition is there and final,
+whose equations aren't made yet (`equations_done`, its first equation's
+name, every name the segment declares, every key it marks done), and
+which the segment itself marks done (the container's filing of segments
+by definition isn't trusted). Segments replay in fresh generation's order,
+so ids are the same. `--recheck` sends them through the kernel's checking
+calls (`Stats::equation_rechecked`); `--no-cache` makes them all fresh.
+A program's on-demand equations (`load_needs`) are always made fresh
+(search-cache.md §2.5), and so is anything inside a library file's load
+or a unit's capture. No `FORMAT` change: no existing entry's content
+changed.
+
 ### 3.2 Why not `Kernel::rewind`
 
 F1's suggested fix is "`self.kernel.mark()` before `submit` and

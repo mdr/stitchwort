@@ -70,6 +70,7 @@ pub(crate) mod codec;
 mod core_entry;
 mod deferral;
 mod dump;
+mod equations_entry;
 mod rows;
 
 use std::collections::BTreeSet;
@@ -308,6 +309,15 @@ pub struct Stats {
     pub core_misses: usize,
     pub core_written: usize,
     pub core_rechecked: usize,
+    /// Definitions whose deferred equations came from a file's equations
+    /// entry (`equations_entry`, for `search` and `doc`), of those how many
+    /// through this kernel's checking calls (`--recheck`), definitions whose
+    /// equations were made fresh with the cache on, and equations entries
+    /// written.
+    pub equation_hits: usize,
+    pub equation_rechecked: usize,
+    pub equation_misses: usize,
+    pub equation_entries_written: usize,
 }
 
 impl Stats {
