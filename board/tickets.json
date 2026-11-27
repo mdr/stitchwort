@@ -22027,17 +22027,21 @@
     {
       "id": 4964,
       "title": "Recursion check: three self-recursive search functions lack a guard or // Depth: reason (driver search.rs has_row and open_results::result, elab search.rs hole_applied); quick tier red at 83c42d0ba",
-      "status": "review",
+      "status": "done",
       "agent": "",
       "where": "",
       "labels": [
         "bug"
       ],
       "epic": "proof-search",
-      "body": "[Sonnet] Overmind 27 Nov: stitchwort-core::it recursion::self_recursion_is_guarded_or_stated fails (crates/core/tests/it/recursion.rs:713). Added by SW-4944 (open abilities). They walk a search pattern's AST; give each a guard (GUARDS in recursion.rs) or a true // Depth: bound.\n\nLane: StackLimit guards added to has_row, open_results, hole_applied; recursion test and 20 search_match tests pass.",
+      "body": "[Sonnet] Overmind 27 Nov: stitchwort-core::it recursion::self_recursion_is_guarded_or_stated fails (crates/core/tests/it/recursion.rs:713). Added by SW-4944 (open abilities). They walk a search pattern's AST; give each a guard (GUARDS in recursion.rs) or a true // Depth: bound.\n\nLane: StackLimit guards added to has_row, open_results, hole_applied; recursion test and 20 search_match tests pass.\nDone (Sonnet): StackLimit::from_here(DEFAULT_STACK / 2) at each walk's entry, stack.exceeded() per level (has_row: too deep counts as a row; open_results: rest unchanged; hole_applied: false). On main: the recursion check and search_match:: 21/21, wasm builds. Model result: sonnet, worked, 9 min (est. 15).\n",
       "created": "2026-11-27",
       "updated": "2026-11-27",
-      "commits": []
+      "commits": [
+        "60b6bd9e6",
+        "acf4ce933",
+        "206d4a540"
+      ]
     },
     {
       "id": 4965,
