@@ -14471,12 +14471,12 @@
     {
       "id": 3593,
       "title": "[Opus] Debug-build panic in hash_stability::examples: debug_assert at crates/core/src/value.rs:3515 'variable at level … read back with … in scope' (found by SW-3582 in a debug run; release builds skip it). Find the example, the cause, and whether release builds compute something wrong there",
-      "status": "doing",
+      "status": "review",
       "agent": "",
       "where": "",
       "labels": [],
       "epic": "elaborator-kernel",
-      "body": "",
+      "body": "Lane notes (27 Nov, Opus, ~25 min, est. 60): no longer reproduces at main 84e0ac68b (hash_stability::examples, all 785 examples, release with the assert made a plain assert!: passes). Cause found: the SW-3582 debug run predated SW-3592's fix 4366706f2, where Shown::unknown printed an unsolved instance's type with no names in scope (quote at level 0 of a value mentioning level 0). Putting `&[]` back reproduces it in examples/accept/rewrite-waits-for-dictionary.sw and map-set.sw (rewrite's nothing-found message, via pretty::value). In release the wrapped index printed as another name (`Add _`, `DecEq _k`) in messages a tactic retry discarded; no hash changed. Display only; the kernel rejects an out-of-scope Var (check.rs, E-MALFORMED) and eval's env indexing panics on one. Fix a3e7647ce: the assertion runs in release builds too, with a should_panic test that failed before it. Follow-up candidate: reference.rs:1049 reads back `level - 1 - l` unchecked the same way.\n",
       "created": "2026-11-16",
       "updated": "2026-11-27",
       "commits": []

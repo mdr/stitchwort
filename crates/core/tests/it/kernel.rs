@@ -2722,3 +2722,16 @@ fn check_app_forces_a_glued_expected_type_and_domain() {
     assert_eq!(infer_code(&p.g, &ok_ann), "ok");
     assert_eq!(infer_code(&p.g, &bad_ann), "E-TYPE-MISMATCH");
 }
+
+/// Reading back a variable from outside the context, `level - 1 - l` with
+/// `l ≥ level`, would wrap to an index no context has: a caller quoting in
+/// the wrong context. It is an internal error in every build, not only
+/// where debug assertions are on, so release test runs catch such a caller
+/// too (SW-3593: an unsolved instance's type printed with no names in
+/// scope, `Add b` with `b` at level 0, was seen only in a debug run).
+#[test]
+#[should_panic(expected = "variable at level 0 read back with 0 in scope")]
+fn a_variable_outside_the_context_does_not_read_back() {
+    let p = Prelude::new();
+    let _ = quote(&p.g.ev(), 0, &Value::var(0));
+}
