@@ -21730,17 +21730,20 @@
     {
       "id": 4946,
       "title": "VS Code extension test: 'per-group runs against a stub CLI report progressively' fails intermittently under load (order of A and B finishing)",
-      "status": "doing",
+      "status": "done",
       "agent": "",
       "where": "",
       "labels": [
         "bug"
       ],
       "epic": "editor-playground",
-      "body": "[DeepSeek] From SW-4943 (27 Nov): node --test test/runner.test.js; fails 1 in 3 alone, also on the old code. Make it order-independent.",
+      "body": "[DeepSeek] From SW-4943 (27 Nov): node --test test/runner.test.js; fails 1 in 3 alone, also on the old code. Make it order-independent.\nDone (DeepSeek): assertions by group (A, B in either order, then C, slow last cancelled); runner.js unchanged. Before: 3 of 5 runs failed; after: 5/5 idle and under load; 3/3 on main. Model result: deepseek, worked, ~8 min (est. 15).\n",
       "created": "2026-11-27",
       "updated": "2026-11-27",
-      "commits": []
+      "commits": [
+        "c8b7fb3a3",
+        "4a137de8f"
+      ]
     },
     {
       "id": 4947,
