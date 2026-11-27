@@ -21451,14 +21451,14 @@
     {
       "id": 4929,
       "title": "Playground: renderTabs rebuilds the 621-option Other files list and the tabs on every key, which costs up to a second a key in Firefox with accessibility on (SW-4930); also stateKey/keyOf JSON-encode all file texts on every pause",
-      "status": "doing",
+      "status": "review",
       "agent": "",
       "where": "",
       "labels": [
         "perf"
       ],
       "epic": "editor-playground",
-      "body": "[DeepSeek] From SW-4925 (27 Nov): about 2 ms a key for renderTabs (15 ms at 4x CPU slowdown) and 10-19 ms a pause for stateKey/keyOf. Rebuild the list only when it changes; compare the edited file instead of all texts.\nPromoted 27 Nov: this is the Firefox lag (SW-4930, D3761). Matt's Firefox 160 profile (2021 day 18, typing a short definition; copy at /Users/Shared/Firefox 2026-11-27 20.10 profile.json.gz): keys dispatched 300-1,100 ms late; in the typing window 2,914 of 3,710 main-thread samples are under renderTabs and 2,889 in accessibility code (aria::MapToState, ApplyARIAState, DocAccessible::ContentRemovedNode 44k markers, a11y show/hide 8.4k each): Firefox's accessibility engine is active on his Mac, so rebuilding the 621-option Other files list (and the tabs) on every key rebuilds ~1,300 accessibles. Fix renderTabs to change only what changed.\n",
+      "body": "[DeepSeek] From SW-4925 (27 Nov): about 2 ms a key for renderTabs (15 ms at 4x CPU slowdown) and 10-19 ms a pause for stateKey/keyOf. Rebuild the list only when it changes; compare the edited file instead of all texts.\nPromoted 27 Nov: this is the Firefox lag (SW-4930, D3761). Matt's Firefox 160 profile (2021 day 18, typing a short definition; copy at /Users/Shared/Firefox 2026-11-27 20.10 profile.json.gz): keys dispatched 300-1,100 ms late; in the typing window 2,914 of 3,710 main-thread samples are under renderTabs and 2,889 in accessibility code (aria::MapToState, ApplyARIAState, DocAccessible::ContentRemovedNode 44k markers, a11y show/hide 8.4k each): Firefox's accessibility engine is active on his Mac, so rebuilding the 621-option Other files list (and the tabs) on every key rebuilds ~1,300 accessibles. Fix renderTabs to change only what changed.\n\nLane (Opus, 27 Nov): reproduced in headless Firefox 159.0.1 with accessibility.force_disabled = -1 (force-enables the a11y service; accessible/base/Platform.h): Day18.sw 706 ms median key to frame, profile 98% under renderTabs/replaceChildren with a11y ContentRemovedNode markers, as in Matt's. Fixed: renderTabs rebuilds tabs only when their paths or day change, the Other files list only when its files change, marks in place. After, a11y on: 8 / 7 / 7 ms medians (Day18.sw, Explode.sw, 2024 day 1); off: 8 / 7 / 7. stateKey/keyOf left alone (not needed). New browser test 'in a project, typing keeps the file tabs and the Other files list' (fails before: 6,340 nodes for 10 keys). Firefox driver: scratchpad SW-4929/ff.mjs (A11Y=1, PROFILE=1).",
       "created": "2026-11-27",
       "updated": "2026-11-27",
       "commits": []
