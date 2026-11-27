@@ -21841,12 +21841,12 @@
     {
       "id": 4952,
       "title": "worktree:new builds the release CLI up front: 4 min 17 s at 22:13 on 27 Nov after a crates/core merge with two builds running; consider letting the lane build on first need",
-      "status": "doing",
+      "status": "review",
       "agent": "",
       "where": "",
       "labels": [],
       "epic": "dev-loop-speed",
-      "body": "[Sonnet] Matt asked why making worktrees was slow (27 Nov). kache makes it seconds when another checkout built the same code; after a core merge nothing is cached.\nMore evidence (27 Nov 22:27-22:30): worktree:new SW-4953 real 138 s (user 337 s), then scratch:new sw-4946 real 152 s (user 358 s), from the same main with no compiler change between them (only a docs merge): the second should have been kache hits in seconds, so kache looks to be missing, not just cold. Investigate first: kache hit/miss stats for those two builds (kache stats or its log), whether the paths or env in the cargo config differ between worktrees and scratch clones, and the stale-artifact switches. Reproduce: two worktree:new runs back to back on an unchanged main, timed.\n",
+      "body": "[Sonnet] Matt asked why making worktrees was slow (27 Nov). kache makes it seconds when another checkout built the same code; after a core merge nothing is cached.\nMore evidence (27 Nov 22:27-22:30): worktree:new SW-4953 real 138 s (user 337 s), then scratch:new sw-4946 real 152 s (user 358 s), from the same main with no compiler change between them (only a docs merge): the second should have been kache hits in seconds, so kache looks to be missing, not just cold. Investigate first: kache hit/miss stats for those two builds (kache stats or its log), whether the paths or env in the cargo config differ between worktrees and scratch clones, and the stale-artifact switches. Reproduce: two worktree:new runs back to back on an unchanged main, timed.\n\nCause: stitchwort_elab's std_dir.rs baked env!(\"CARGO_MANIFEST_DIR\") (absolute path; kache keys it unremapped: 'kept absolute: CARGO_MANIFEST_DIR is never path-only'), so elab missed in every checkout and driver, lsp, cli missed with it (extern hash). Dependencies and core/syntax/rt hit. Fix f6df4fb91: the executable passes the build tree (set_build_tree). Same-commit fresh worktree build: 106 s -> 20 s; kache:check ok. Remaining ~13 s: the final bin is an adaptive-incremental passthrough, never cached.",
       "created": "2026-11-27",
       "updated": "2026-11-27",
       "commits": []

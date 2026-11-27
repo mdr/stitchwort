@@ -11,8 +11,9 @@
 //! 3. the checkout's `crates/elab/src/std`: the first ancestor of the
 //!    executable (cargo's `target/` is inside it, so test binaries find it),
 //!    then of the current directory, that has one;
-//! 4. the tree the binary was built from (`CARGO_MANIFEST_DIR` at compile
-//!    time), if it is still on disk, so a copy of the binary kept elsewhere
+//! 4. the tree the binary was built from (the executable names it, from its
+//!    `CARGO_MANIFEST_DIR`, with [`set_build_tree`]), if it is still on disk,
+//!    so a copy of the binary kept elsewhere
 //!    (a "before" binary in a scratch folder) still finds the library
 //!    (SW-4789).
 //!
@@ -55,6 +56,19 @@ pub struct StdText {
 }
 
 static STD: OnceLock<StdText> = OnceLock::new();
+
+/// The checkout's root as of the build, given by the executable
+/// ([`set_build_tree`]).
+static BUILD_TREE: OnceLock<PathBuf> = OnceLock::new();
+
+/// Names the checkout this binary was built in, for the last place `locate`
+/// looks. The executable passes it (from its own `CARGO_MANIFEST_DIR`)
+/// rather than this crate reading it at compile time: that variable's
+/// absolute path is part of the compiler cache's key, so every checkout
+/// recompiled this crate and everything built on it (SW-4952).
+pub fn set_build_tree(root: &Path) {
+    let _ = BUILD_TREE.set(root.to_path_buf());
+}
 
 /// The standard library's text, from where the module's documentation says.
 /// Panics, saying where it looked, if there is none or it can't be read: a
@@ -176,11 +190,13 @@ fn locate() -> Result<PathBuf, String> {
             return Ok(dir);
         }
     }
-    let build_tree = Path::new(env!("CARGO_MANIFEST_DIR")).join("src/std");
-    if build_tree.join(CORE_ORDER).is_file() {
-        return Ok(build_tree);
+    if let Some(root) = BUILD_TREE.get() {
+        let build_tree = root.join(CHECKOUT);
+        if build_tree.join(CORE_ORDER).is_file() {
+            return Ok(build_tree);
+        }
+        tried.push(build_tree);
     }
-    tried.push(build_tree);
     let tried: Vec<String> = tried.iter().map(|d| d.display().to_string()).collect();
     Err(format!(
         "can't find the standard library: not at {} (an installed binary's, then the tree this binary was built from), nor in a \
