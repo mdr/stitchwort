@@ -599,13 +599,43 @@ impl<'a> Rules<'a> {
         let children: Vec<Element> = node.children().collect();
         let mut parts = Vec::new();
         let mut k = 0;
-        // S5: an attribute above a declaration has its own line.
+        // S5: an attribute above a declaration has its own line. In a block,
+        // though, a second group on a line at the declaration's column starts
+        // a new statement, which the parser refuses (SW-4912): keep the
+        // groups on one line there, unless a comment needs a line of its own.
+        let local = node.token_range().start != node.root().token_range().start;
         while let Some(&el) = children.get(k)
             && Self::kind(el) == Some(NodeKind::Attributes)
         {
-            parts.push(self.el(el));
-            parts.push(Doc::HardLine);
             k += 1;
+        }
+        let groups = &children[..k];
+        let joined = local
+            && groups.len() > 1
+            && groups.iter().enumerate().all(|(n, &el)| {
+                (n == 0 || self.trivia[Self::first(el)].leading.is_empty())
+                    && (n + 1 == groups.len() || self.comment_at_end(el).is_none())
+            });
+        if joined {
+            parts.push(self.join(groups));
+            parts.push(Doc::HardLine);
+        } else {
+            for (n, &el) in groups.iter().enumerate() {
+                if n > 0 {
+                    if local {
+                        // A comment before a group keeps its line, indented past
+                        // the block's column so the parser reads the group as a
+                        // continuation of the local definition.
+                        parts.push(Doc::nest(1, Doc::concat([Doc::HardLine, self.el(el)])));
+                        continue;
+                    }
+                    parts.push(Doc::HardLine);
+                }
+                parts.push(self.el(el));
+            }
+            if k > 0 {
+                parts.push(Doc::HardLine);
+            }
         }
         if k > 0
             && let Some(&el) = children.get(k)
