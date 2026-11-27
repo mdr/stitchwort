@@ -12,6 +12,8 @@ use stitchwort_driver::search::{Options, Report};
 use stitchwort_driver::search_in::Searched;
 
 use crate::source::Source;
+#[cfg(target_family = "wasm")]
+use crate::wasm::FileUrl as _;
 use crate::{SearchTarget, library_uri, range, with_project_session};
 
 /// The request: `{textDocument: {uri}, query, limit?, rewrite?}`.
