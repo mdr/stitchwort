@@ -132,7 +132,7 @@ self.onmessage = async ({ data }) => {
       outline: () => b.outline_project(data.project, data.paths, data.texts),
       check: () => b.check_project(data.project, data.paths, data.texts, data.targets),
       checkall: () => b.check_project(data.project, data.paths, data.texts, ""),
-      test: () => b.test_project(data.project, data.paths, data.texts, data.targets, data.known ?? ""),
+      test: () => b.test_project(data.project, data.paths, data.texts, data.targets, data.known ?? "", data.run !== false),
       evaluate: () => b.evaluate_project(data.project, data.paths, data.texts, data.targets, data.imports ?? "", data.expr),
       extract: () => b.extract_project(data.project, data.paths, data.texts, data.namespace),
       // Formats the open file only: `source` is its text.
@@ -140,7 +140,7 @@ self.onmessage = async ({ data }) => {
       run: () => b.run_project_streaming(data.project, data.paths, data.texts, data.name, data.input, data.maxOutput, sink),
     }[data.action] : {
       check: () => b.check(data.source),
-      test: () => b.test(data.source, data.known ?? ""),
+      test: () => b.test(data.source, data.known ?? "", data.run !== false),
       evaluate: () => b.evaluate(data.source, data.imports ?? "", data.expr),
       extract: () => b.extract(data.source),
       format: () => b.format(data.source),

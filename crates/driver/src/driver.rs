@@ -1619,6 +1619,9 @@ pub struct TestResult {
     /// D3525). Empty for a test that relies on none, and for a test that
     /// didn't pass: a failure keeps its own reason.
     pub assuming: Vec<crate::reliance::GoalPlace>,
+    /// Set by [`Session::list_tests_fast`] for a test it didn't run for want
+    /// of a cached result; `outcome` means nothing then.
+    pub not_run: bool,
 }
 
 /// Why a test failed, as far as it can be told: the part of the test that is
@@ -2203,6 +2206,7 @@ impl Session {
                 detail: None,
                 unfinished: Some(why),
                 assuming: Vec::new(),
+                not_run: false,
             };
             let span_of = |r: &TestResult| self.test_span(&r.namespace, &r.name).map(order);
             let same_namespace = |r: &TestResult| r.namespace == test.namespace;

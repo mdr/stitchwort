@@ -183,7 +183,7 @@ The playground is a browser page with an editor, the compiler (built to WebAssem
 ./web/serve.sh          # builds it, then serves web/ at http://127.0.0.1:8000
 ```
 
-Its tabs check the code, run its tests, evaluate an expression, show the generated JavaScript and TypeScript, and run `main` with input you type.
+Its tabs check the code, run its tests (on a click of Run tests; cached results show at once), evaluate an expression, show the generated JavaScript and TypeScript, and run `main` with input you type.
 
 In the browser, a namespace too deep for the engine's stack shows `E-RESOURCE`. The namespaces that import it aren't checked until it is edited, and each says so on its `import`.
 

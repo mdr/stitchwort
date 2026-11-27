@@ -471,6 +471,7 @@
   ul.tests .mark { font-weight: 700; width: 1.2em; text-align: center; }
   ul.tests .pass .mark { color: var(--ok); }
   ul.tests .fail .mark { color: var(--bad); }
+  ul.tests .notrun .mark, ul.tests .notrun .how { color: var(--muted); }
   ul.tests .how { color: var(--muted); font-size: 0.8rem; }
   .summary { font-variant-numeric: tabular-nums; color: var(--muted); font-size: 0.88rem; }
   button.hint { font-size: 0.8rem; font-weight: 500; padding: 4px 8px; }
@@ -849,6 +850,9 @@ export def area: Shape -> Nat
   const store = (key, value) => { try { localStorage.setItem(key, value); } catch {} };
   const forget = (key) => { try { localStorage.removeItem(key); } catch {} };
 
+  /** The source (`stateKey()`) whose tests the Run tests button was clicked for. */
+  let testsRunFor = null;
+
   /** Where the tests' cached results are kept, one `KEY passed` per line. */
   const TEST_CACHE = "stitchwort.testCache";
 
@@ -998,14 +1002,14 @@ export def area: Shape -> Nat
           outline: () => compiler.outline_project(request.paths, request.texts),
           check: () => compiler.check_project(request.paths, request.texts, request.targets),
           checkall: () => compiler.check_project(request.paths, request.texts, ""),
-          test: () => compiler.test_project(request.paths, request.texts, request.targets, request.known ?? ""),
+          test: () => compiler.test_project(request.paths, request.texts, request.targets, request.known ?? "", request.run !== false),
           evaluate: () => compiler.evaluate_project(request.paths, request.texts, request.targets, request.imports ?? "", request.expr),
           extract: () => compiler.extract_project(request.paths, request.texts, request.namespace),
           format: () => compiler.format(request.source),
           run: () => compiler.run_project_streaming(request.paths, request.texts, request.name, request.input, request.maxOutput, sink),
         }[request.action] : {
           check: () => compiler.check(request.source),
-          test: () => compiler.test(request.source, request.known ?? ""),
+          test: () => compiler.test(request.source, request.known ?? "", request.run !== false),
           evaluate: () => compiler.evaluate(request.source, request.imports ?? "", request.expr),
           extract: () => compiler.extract(request.source),
           format: () => compiler.format(request.source),
@@ -1069,7 +1073,7 @@ export def area: Shape -> Nat
   const REMEMBERED = new Set(["check", "test", "extract", "outline"]);
   /** What an answer is for: the source, or a project's files and targets. */
   const keyOf = (request) => request.paths
-    ? JSON.stringify([request.texts, request.targets, request.namespace]) : request.source;
+    ? JSON.stringify([request.texts, request.targets, request.namespace, request.run]) : request.source + (request.run === false ? "\0list" : "");
 
   async function ask(request) {
     const remember = REMEMBERED.has(request.action);
@@ -1139,10 +1143,10 @@ export def area: Shape -> Nat
   /** The run panel's explanation, for `main` of the program or of a project's day. */
   function setRunHint() {
     if (!canRun()) {
-      runButton.title = "Chapters are checked, not run: the Tests tab checks the chapter's tests";
+      runButton.title = "Chapters are checked, not run: the Tests tab runs the chapter's tests when you click Run tests";
       runHint.textContent =
         "This chapter has no program to run. The Check tab shows what is proved and which goals (the ?s) are still open; " +
-        "the Tests tab checks the chapter's tests.";
+        "the Tests tab runs the chapter's tests when you click Run tests.";
       runInput.hidden = false;
       setRunEnabled(false);
       return;
@@ -2575,8 +2579,11 @@ export def area: Shape -> Nat
     }
 
     if (view === "tests") {
-      output.append(el("p", { className: "hint" }, "Running the tests…"));
-      const result = await ask(requestFor("test", { known: stored(TEST_CACHE) ?? "" }));
+      // Only this source's tests run, and only once Run tests was clicked for
+      // it; otherwise the tab lists them with their cached results.
+      const run = testsRunFor === src;
+      if (run) output.replaceChildren(el("p", { className: "hint" }, "Running the tests…"));
+      const result = await ask(requestFor("test", { known: stored(TEST_CACHE) ?? "", run }));
       if (result?.ok) rememberTests(result.added);
       if (current !== rendering || !result) return;
       output.replaceChildren();
@@ -2590,11 +2597,14 @@ export def area: Shape -> Nat
         output.append(el("p", { className: "hint" }, 'No tests yet. Add one: test "name" := leq (1 + 1) 2'));
         return;
       }
+      const runButton = el("button", { id: "run-tests", className: "primary", type: "button" }, "Run tests");
+      runButton.addEventListener("click", () => { testsRunFor = src; render(); });
+      if (!run) output.append(el("p", { className: "hint" }, "The tests run when you click Run tests; cached results show at once."), runButton);
       const lists = [];
       let list = null;
       let group = null;
       for (const t of result.tests) {
-        const unfinished = t.outcome !== "passed" && t.outcome !== "failed";
+        const unfinished = !t.notRun && t.outcome !== "passed" && t.outcome !== "failed";
         // In a project, the tests are grouped by namespace, as the CLI prints them.
         if (!list || (project && t.namespace !== group)) {
           group = t.namespace;
@@ -2602,25 +2612,27 @@ export def area: Shape -> Nat
           if (project) list.dataset.namespace = group;
           lists.push(list);
         }
-        list.append(el("li", { className: t.passed ? "pass" : "fail" },
-          el("span", { className: "mark" }, t.passed ? "✓" : unfinished ? "!" : "✗"),
-          el("span", {}, t.name + (t.passed ? "" : unfinished ? ` (${t.outcome})` : t.why ? ` (${t.why})` : t.detail ? ` (\`${t.detail.op}\` is False)` : " (evaluated to False)")),
-          el("span", { className: "how" }, t.cached ? "cached" : "ran"),
+        list.append(el("li", { className: t.notRun ? "notrun" : t.passed ? "pass" : "fail" },
+          el("span", { className: "mark" }, t.notRun ? "○" : t.passed ? "✓" : unfinished ? "!" : "✗"),
+          el("span", {}, t.name + (t.passed || t.notRun ? "" : unfinished ? ` (${t.outcome})` : t.why ? ` (${t.why})` : t.detail ? ` (\`${t.detail.op}\` is False)` : " (evaluated to False)")),
+          el("span", { className: "how" }, t.notRun ? "not run" : t.cached ? "cached" : "ran"),
           ...(t.detail || t.part ? [el("div", { className: "detail" }, [
             ...(t.detail ? [`left:  ${t.detail.left}`, `right: ${t.detail.right}`] : []),
             ...(t.detail?.difference ? [t.detail.difference] : []),
             ...(t.part ? [`in: ${t.part.text}  (${t.part.file}:${t.part.line}:${t.part.column})`] : []),
           ].join("\n"))] : [])));
       }
-      const failed = result.tests.filter((t) => t.outcome === "failed").length;
-      const unfinished = result.tests.filter((t) => !t.passed && t.outcome !== "failed").length;
+      const notRun = result.tests.filter((t) => t.notRun).length;
+      const failed = result.tests.filter((t) => !t.notRun && t.outcome === "failed").length;
+      const unfinished = result.tests.filter((t) => !t.notRun && !t.passed && t.outcome !== "failed").length;
       const cached = result.tests.filter((t) => t.cached).length;
       const forgetButton = el("button", { id: "forget-cache", className: "hint", type: "button" }, "Forget cached results");
-      forgetButton.addEventListener("click", () => { forget(TEST_CACHE); answers.delete("test"); render(); });
+      forgetButton.addEventListener("click", () => { forget(TEST_CACHE); answers.delete("test"); testsRunFor = null; render(); });
       const shown = project
         ? lists.flatMap((l) => [el("h3", { className: "testgroup" }, l.dataset.namespace), l]) : lists;
       output.append(...shown, el("p", { className: "summary" },
-        `${result.tests.length} test${result.tests.length === 1 ? "" : "s"}: ${result.tests.length - failed - unfinished} passed, ${failed} failed` +
+        `${result.tests.length} test${result.tests.length === 1 ? "" : "s"}: ${result.tests.length - failed - unfinished - notRun} passed, ${failed} failed` +
+        (notRun ? `, ${notRun} not run` : "") +
         (unfinished ? `, ${unfinished} ran out of resources` : "") +
         (cached ? ` (${cached} from the cache)` : "")), forgetButton);
       return;
@@ -3060,6 +3072,7 @@ export def area: Shape -> Nat
   function selectView(name) {
     if (view === name) return;
     view = name;
+    testsRunFor = null;
     for (const t of tabs) t.setAttribute("aria-selected", String(t.dataset.view === name));
     store("stitchwort.view", view);
     render();

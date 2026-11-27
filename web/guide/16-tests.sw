@@ -1,5 +1,5 @@
--- A test is a named `Bool` expression that must be `True`. Run them from
--- the Tests tab. Each result is remembered until something it depends on
+-- A test is a named `Bool` expression that must be `True`. Run them with
+-- Run tests in the Tests tab. Each result is remembered until something it depends on
 -- changes.
 def isLeap (year: Nat): Bool := (year % 4 == 0 ∧ year % 100 ≠ 0) ∨ year % 400 == 0
 

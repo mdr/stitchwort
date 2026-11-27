@@ -280,9 +280,11 @@ pub fn std_source(path: &str) -> String {
 /// an unfinished `?` also has a `why`), or what the test
 /// ran out of. `known` is one `KEY passed` or `KEY failed` per line, and
 /// malformed lines are ignored; `added` is the results that weren't cached,
-/// in the same format (empty if none).
+/// in the same format (empty if none). With `run` false nothing is
+/// evaluated: a test without a cached result has `"notRun": true` (so does
+/// one that can't run for an error or a `?`) and its outcome means nothing.
 #[wasm_bindgen]
-pub fn test(source: &str, known: &str) -> String {
+pub fn test(source: &str, known: &str, run: bool) -> String {
     let session = match load_shared(source) {
         Ok(session) => session,
         // The errors, with the results of the tests that don't use what has
@@ -292,31 +294,41 @@ pub fn test(source: &str, known: &str) -> String {
             let tests = session.elab.tests().len() + session.elab.broken_tests().len();
             return match failed.strip_suffix('}') {
                 Some(errors) if tests > 0 => {
-                    format!("{errors},{}}}", test_fields(&session, known, false))
+                    format!("{errors},{}}}", test_fields(&session, known, false, run))
                 }
                 _ => failed,
             };
         }
     };
-    test_answer(&session, known, false)
+    test_answer(&session, known, false, run)
 }
 
 /// [`test`]'s answer for a loaded session; each result also has its
 /// `namespace` if `with_namespace`.
-fn test_answer(session: &Session, known: &str, with_namespace: bool) -> String {
+fn test_answer(session: &Session, known: &str, with_namespace: bool, run: bool) -> String {
     format!(
         r#"{{"ok":true,{}}}"#,
-        test_fields(session, known, with_namespace)
+        test_fields(session, known, with_namespace, run)
     )
 }
 
 /// `"tests": […], "added": "…"`, the part of [`test_answer`] that is the
 /// results.
-fn test_fields(session: &Session, known: &str, with_namespace: bool) -> String {
+fn test_fields(session: &Session, known: &str, with_namespace: bool, run: bool) -> String {
     let cache = Cache::memory(known_results(known));
-    let results = session.run_tests_fast(&cache);
-    let tests: Vec<String> = session
-        .with_broken_tests(results, |_| true)
+    let results = if run {
+        session.run_tests_fast(&cache)
+    } else {
+        session.list_tests_fast(&cache)
+    };
+    let mut results = session.with_broken_tests(results, |_| true);
+    if !run {
+        // Not run, so not yet known to fail.
+        for r in results.iter_mut().filter(|r| r.unfinished.is_some()) {
+            r.not_run = true;
+        }
+    }
+    let tests: Vec<String> = results
         .iter()
         .map(|r| {
             let outcome = match r.outcome {
@@ -335,11 +347,12 @@ fn test_fields(session: &Session, known: &str, with_namespace: bool) -> String {
                 None => detail,
             };
             format!(
-                r#"{{"name":{}{namespace},"passed":{},"outcome":{},"cached":{}{detail}}}"#,
+                r#"{{"name":{}{namespace},"passed":{},"outcome":{},"cached":{},"notRun":{}{detail}}}"#,
                 json_string(&r.name),
                 r.outcome == Outcome::Passed,
                 json_string(&outcome),
-                r.cached
+                r.cached,
+                r.not_run
             )
         })
         .collect();
@@ -932,7 +945,7 @@ mod tests {
             errors.starts_with(r#"{"ok":false,"errors":"[E-TYPE-MISMATCH]"#),
             "{errors}"
         );
-        let tests = test("test \"one\" := True\ntest \"two\" := False\n", "");
+        let tests = test("test \"one\" := True\ntest \"two\" := False\n", "", true);
         assert!(
             tests.starts_with(
                 r#"{"ok":true,"tests":[{"name":"one","passed":true,"outcome":"passed","cached":false},{"name":"two","passed":false,"outcome":"failed","cached":false}],"added":""#
@@ -953,7 +966,7 @@ mod tests {
     #[test]
     fn partial_tests_run_only_in_the_tests_tab() {
         let collatz = "def collatzSteps: Nat -> {Partial} Nat\n  | 0 => 0\n  | 1 => 0\n  | n => 1 + collatzSteps (if n % 2 == 0 then n / 2 else 3 * n + 1)\n\ntest \"27\" := collatzSteps 27 == 111\n";
-        let tests = test(collatz, "");
+        let tests = test(collatz, "", true);
         assert!(
             tests.starts_with(
                 r#"{"ok":true,"tests":[{"name":"27","passed":true,"outcome":"passed","cached":false}]"#
@@ -970,7 +983,7 @@ mod tests {
     #[test]
     fn a_failed_test_carries_its_part_and_the_values_of_its_sides() {
         let source = "test \"both\" := 1 + 1 == 2 && [1, 2, 4] == [1, 2, 3]\n";
-        let answer = test(source, "");
+        let answer = test(source, "", true);
         assert!(
             answer.contains(
                 r#""detail":{"op":"==","left":"[1, 2, 4]","right":"[1, 2, 3]","difference":"first difference at [2]: 4 vs 3"},"part":{"text":"[1, 2, 4] == [1, 2, 3]","file":"#
@@ -979,7 +992,7 @@ mod tests {
         );
         assert!(answer.contains(r#""line":1,"column":30}"#), "{answer}");
         // No part when the comparison is the whole test.
-        let whole = test("test \"plain\" := 1 + 1 == 3\n", "");
+        let whole = test("test \"plain\" := 1 + 1 == 3\n", "", true);
         assert!(
             whole.contains(r#""detail":{"op":"==","left":"2","right":"3"}"#),
             "{whole}"
@@ -991,7 +1004,7 @@ mod tests {
     fn tests_run_beside_an_error_that_they_dont_use() {
         let source = "def good: Nat := 1\ndef broken: Nat := \"x\"\n\
                       test \"fine\" := good == 1\ntest \"uses it\" := broken == 1\n";
-        let answer = test(source, "");
+        let answer = test(source, "", true);
         assert!(answer.starts_with(r#"{"ok":false,"errors":"#), "{answer}");
         assert!(
             answer.contains(r#""name":"fine","passed":true,"outcome":"passed""#),
@@ -1020,12 +1033,12 @@ mod tests {
         let failing = "def x : Nat := byComputing\n";
         for source in [passing, failing] {
             reset_loads();
-            let fresh_test = test(source, "");
+            let fresh_test = test(source, "", true);
             reset_loads();
             let fresh_check = check(source);
             reset_loads();
             let shared_check = check(source);
-            let shared_test = test(source, "");
+            let shared_test = test(source, "", true);
             assert_eq!(shared_check, fresh_check, "{source}");
             assert_eq!(shared_test, fresh_test, "{source}");
         }
@@ -1078,7 +1091,7 @@ mod tests {
         let source = "test \"one\" := True\n";
         reset_loads();
         check(source);
-        test(source, "");
+        test(source, "", true);
         extract(source);
         assert_eq!(loads(), 1);
 
@@ -1096,7 +1109,7 @@ mod tests {
     #[test]
     fn reuses_known_test_results_and_reports_new_ones() {
         let source = "test \"one\" := True\ntest \"two\" := False\n";
-        let first = test(source, "");
+        let first = test(source, "", true);
         assert!(!first.contains(r#""cached":true"#), "{first}");
         let start = first.find(r#""added":""#).expect("added") + r#""added":""#.len();
         let end = start + first[start..].find('"').expect("the string ends");
@@ -1108,12 +1121,28 @@ mod tests {
                 .all(|line| line.ends_with(" passed") || line.ends_with(" failed")),
             "{added}"
         );
-        let second = test(source, &added);
+        let second = test(source, &added, true);
         assert!(!second.contains(r#""cached":false"#), "{second}");
         assert!(second.contains(r#""added":"""#), "{second}");
         // Malformed lines are ignored.
-        let third = test(source, &format!("nonsense\n{added}"));
+        let third = test(source, &format!("nonsense\n{added}"), true);
         assert!(!third.contains(r#""cached":false"#), "{third}");
+    }
+
+    #[test]
+    fn lists_tests_without_running_them() {
+        let source = "test \"one\" := True\ntest \"two\" := False\n";
+        let listed = test(source, "", false);
+        assert_eq!(listed.matches(r#""notRun":true"#).count(), 2, "{listed}");
+        assert!(listed.contains(r#""added":"""#), "{listed}");
+        // A cached result shows, under the key running it would use.
+        let ran = test(source, "", true);
+        let start = ran.find(r#""added":""#).expect("added") + r#""added":""#.len();
+        let end = start + ran[start..].find('"').expect("the string ends");
+        let added = ran[start..end].replace(r#"\n"#, "\n");
+        let listed = test(source, &added, false);
+        assert_eq!(listed.matches(r#""notRun":false"#).count(), 2, "{listed}");
+        assert_eq!(listed.matches(r#""cached":true"#).count(), 2, "{listed}");
     }
 
     #[test]
@@ -1160,7 +1189,7 @@ mod tests {
         );
         // Other answers have them when the source doesn't load.
         assert!(
-            test(&format!("{warned}def bad : Nat := byComputing\n"), "")
+            test(&format!("{warned}def bad : Nat := byComputing\n"), "", true)
                 .contains("[W-MODULE-NAME]")
         );
     }
@@ -1502,7 +1531,7 @@ mod tests {
         assert!(examples.len() >= 6, "{examples:?}");
         for (id, source) in &examples {
             assert_eq!(check(source), r#"{"ok":true}"#, "{id}");
-            let tests = test(source, "");
+            let tests = test(source, "", true);
             // The tests example has one failing test on purpose.
             let failures = tests.matches(r#""passed":false"#).count();
             assert_eq!(failures, usize::from(*id == "ex-tests"), "{id}: {tests}");
@@ -1595,7 +1624,7 @@ mod tests {
             let source = std::fs::read_to_string(dir.join(file)).expect("an example");
             let answer = check(&source);
             assert!(answer.starts_with(r#"{"ok":true"#), "{file}: {answer}");
-            let tests = test(&source, "");
+            let tests = test(&source, "", true);
             assert!(tests.starts_with(r#"{"ok":true"#), "{file}: {tests}");
             let failures = tests.matches(r#""passed":false"#).count();
             if let Some((_, shown_output)) = failing.iter().find(|(f, _)| f == file) {

@@ -318,9 +318,10 @@ pub fn test_project(
     texts: Vec<String>,
     targets: &str,
     known: &str,
+    run: bool,
 ) -> String {
     match load_shared(project, &paths, &texts, targets) {
-        Ok(loaded) => test_answer(&loaded.session, known, true),
+        Ok(loaded) => test_answer(&loaded.session, known, true, run),
         Err(failed) => failed,
     }
 }
@@ -553,7 +554,7 @@ mod tests {
             let targets = day_targets(&outline, day);
             let checked = check_project(PROJECT, paths.clone(), texts.clone(), &targets);
             assert!(checked.starts_with(r#"{"ok":true"#), "day {day}: {checked}");
-            let tests = test_project(PROJECT, paths.clone(), texts.clone(), &targets, "");
+            let tests = test_project(PROJECT, paths.clone(), texts.clone(), &targets, "", true);
             assert!(tests.starts_with(r#"{"ok":true,"tests":["#), "day {day}");
             assert!(!tests.contains(r#""passed":false"#), "day {day}: {tests}");
             assert!(
