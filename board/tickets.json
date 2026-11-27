@@ -21781,7 +21781,7 @@
     {
       "id": 4948,
       "title": "Proof searches (Search for a proof, the goal panel's context, splits) don't stop when cancelled: wrap actions_at_project and the others in cancellable",
-      "status": "backlog",
+      "status": "doing",
       "agent": "",
       "where": "",
       "labels": [],
@@ -21948,7 +21948,7 @@
     {
       "id": 4959,
       "title": "search: the pure-pattern fallback to open abilities takes about 6 s for () → Int",
-      "status": "backlog",
+      "status": "doing",
       "agent": "",
       "where": "",
       "labels": [
@@ -22012,7 +22012,7 @@
     {
       "id": 4963,
       "title": "kache: the stitchwort binary compiles ~13 s on every build because kache's adaptive-incremental mode never caches it; try CARGO_PROFILE_RELEASE_INCREMENTAL=false or adaptive_incremental = false for worktree builds, and turn on explain_miss",
-      "status": "backlog",
+      "status": "doing",
       "agent": "",
       "where": "",
       "labels": [
