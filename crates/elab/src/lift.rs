@@ -310,8 +310,33 @@ impl Elaborator {
     /// Makes again the comparisons [`await_helpers`] kept, now that the
     /// helpers are lifted: one that fails is an error.
     pub(crate) fn compare_awaiting_helpers(&self) -> Result<()> {
+        self.compare_awaiting(false)
+    }
+
+    /// [`Elaborator::compare_awaiting_helpers`] for the comparisons whose
+    /// helpers are all defined, the rest staying kept. Run before a
+    /// helper's body is given to the kernel, so that a proof whose
+    /// comparison fails is refused here, not by the kernel (SW-4910).
+    fn compare_awaiting_defined(&self) -> Result<()> {
+        self.compare_awaiting(true)
+    }
+
+    fn compare_awaiting(&self, defined_only: bool) -> Result<()> {
         let awaiting = std::mem::take(&mut *self.attempt.awaiting_helpers.borrow_mut());
+        let g = self.ev();
+        let mut kept = Vec::new();
         for item in awaiting {
+            if defined_only {
+                let mut unfinished = false;
+                for side in [&item.found, &item.expected] {
+                    let term = quote_folded(&g, item.env.len(), side)?;
+                    unfinished |= defs(&term).any(|d| self.kernel.def(d).state() == State::Pending);
+                }
+                if unfinished {
+                    kept.push(item);
+                    continue;
+                }
+            }
             let mut cx = Ctx::from_parts(self, item.env, item.types, item.names, item.span);
             if !crate::undo::unify(&mut cx, &item.found, &item.expected)? {
                 return Err(match item.failure {
@@ -320,6 +345,7 @@ impl Elaborator {
                 });
             }
         }
+        self.attempt.awaiting_helpers.borrow_mut().extend(kept);
         Ok(())
     }
 }
@@ -945,6 +971,10 @@ impl Elaborator {
             } else {
                 kernel::define_group(&mut self.kernel, &self.tables, &bodies)
                     .map_err(|d| self.explain_lifted(d))?;
+                // A proof that waited for these helpers is refused by the
+                // elaborator now, before the kernel is given it with the
+                // body that holds it.
+                self.compare_awaiting_defined()?;
                 for (_, id) in &members {
                     self.opaque_helper_admitted(*id);
                 }

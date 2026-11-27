@@ -1,0 +1,13 @@
+---
+source: crates/cli/tests/running/examples.rs
+expression: output
+---
+[E-REFL] Error: `byComputing` can't prove this
+    ╭─[ reject/match-arm-refl-let-bound-match.sw:11:16 ]
+    │
+ 11 │     | False => byComputing
+    │                ─────┬─────  
+    │                     ╰─────── `2` and `0` aren't equal
+    │ 
+    │ Note: `byComputing` proves `a = b` only when both sides compute to the same value
+────╯
