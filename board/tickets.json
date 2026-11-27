@@ -21948,14 +21948,14 @@
     {
       "id": 4959,
       "title": "search: the pure-pattern fallback to open abilities takes about 6 s for () → Int",
-      "status": "doing",
+      "status": "done",
       "agent": "",
       "where": "",
       "labels": [
         "perf"
       ],
       "epic": "proof-search",
-      "body": "[Sonnet] From SW-4944 (27 Nov). Profile first.",
+      "body": "[Sonnet] From SW-4944 (27 Nov). Profile first.\nNot reproduced (Sonnet, 27 Nov): warm best of 3 at load ~10: () → Int 1.36-1.43 s vs () → {_} Int 1.32-1.33 s, List.map 1.32-1.37 s; the fallback costs ~0.05 s. The 6 s came from SW-4944's lane on a cold cache at load 26. The 1.3 s floor is library load, which SW-4954 (cached equations) cuts. No code change. Model result: sonnet, worked (not reproduced, closed), 5 min (est. 35).\n",
       "created": "2026-11-27",
       "updated": "2026-11-27",
       "commits": []
