@@ -37185,17 +37185,20 @@
     {
       "id": 4911,
       "title": "fmt: a comment inside empty brackets that start an or-pattern is moved after them, splitting the pattern so the output doesn't parse (fmt refuses)",
-      "status": "doing",
+      "status": "done",
       "agent": "",
       "where": "",
       "labels": [
         "bug"
       ],
       "epic": "syntax-language",
-      "body": "[DeepSeek] Found by Overmind, fuzz batch 23 (`task fuzz:fmt SEED=0x26112617 CASES=1000000 COMMENTS=0.3` at 98f88b21a, case 59013). Internal error: \"the output doesn't parse: expected `=>`, but found `|`\". Fails safe: fmt refuses (rc=2) and leaves the file unchanged. Unrelated to SW-4853.\n\nRepro: docs/reviews/repros/fuzz-fmt-26112617-59013.sw (checks fine with the CLI).\n\nCause (Overmind): the formatter moves a comment inside empty brackets to after them, `[-- c⏎]` → `[] -- c`. As the first alternative of an or-pattern, the comment's line break splits `[]` from `| [_, .._] => 0`, and a `|` continuing the pattern on a new line there is an E-PARSE. Harmless when `=>` follows the brackets, or for a plain `[-- c⏎]` value.\n\nFix: place the comment so the output re-parses (e.g. keep it inside the brackets, or put the or-pattern's continuation where the parser takes it), in crates/fmt; check the self-hosted formatter (tools/fmt) for the same placement and match it (formatters stay in sync). Add the repro as a fmt test, failing first.\n",
+      "body": "[DeepSeek] Found by Overmind, fuzz batch 23 (`task fuzz:fmt SEED=0x26112617 CASES=1000000 COMMENTS=0.3` at 98f88b21a, case 59013). Internal error: \"the output doesn't parse: expected `=>`, but found `|`\". Fails safe: fmt refuses (rc=2) and leaves the file unchanged. Unrelated to SW-4853.\n\nRepro: docs/reviews/repros/fuzz-fmt-26112617-59013.sw (checks fine with the CLI).\n\nCause (Overmind): the formatter moves a comment inside empty brackets to after them, `[-- c⏎]` → `[] -- c`. As the first alternative of an or-pattern, the comment's line break splits `[]` from `| [_, .._] => 0`, and a `|` continuing the pattern on a new line there is an E-PARSE. Harmless when `=>` follows the brackets, or for a plain `[-- c⏎]` value.\n\nFix: place the comment so the output re-parses (e.g. keep it inside the brackets, or put the or-pattern's continuation where the parser takes it), in crates/fmt; check the self-hosted formatter (tools/fmt) for the same placement and match it (formatters stay in sync). Add the repro as a fmt test, failing first.\n\nFix: in an or-pattern, a comment before the closer that ends an alternative followed by `|` stays inside the brackets (the closer starts a line), so the next `|` stays on the closer's line. Golden or-pattern-bracket-comment (failed before; covers the repro, a non-empty bracket, and unchanged `=>` and plain-value layouts). Layout for this rare input is vertical but parses and is idempotent. fuzz:fmt 20k COMMENTS=0.3 at the seed clean. tools/fmt refuses the input (outside slice 6a), so the formatters agree. Model result: deepseek, worked, 17 min (est. 25).\n",
       "created": "2026-11-27",
       "updated": "2026-11-27",
-      "commits": []
+      "commits": [
+        "756518c3b",
+        "45884a4ff"
+      ]
     },
     {
       "id": 4912,
