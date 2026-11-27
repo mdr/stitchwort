@@ -354,11 +354,13 @@ priority = 100
 
 # The evaluator differential runs every example through each evaluator and
 # takes several minutes on a quiet machine, more beside a fuzzer or build;
-# it gets a 30-minute hang cap instead of the default ten (SW-1960). Default
-# overrides apply to every profile.
+# it gets a one-hour hang cap instead of the default ten (SW-1960; the all
+# tier's run took 831 s on 4 threads of a quiet machine on 27 Nov 2026 and
+# passed 1,800 s only beside a loaded suite, SW-4902). Default overrides
+# apply to every profile.
 [[profile.default.overrides]]
 filter = 'binary(proofs) & test(/^differential::/)'
-slow-timeout = { period = "60s", terminate-after = 30 }
+slow-timeout = { period = "60s", terminate-after = 60 }
 
 # The all tier's bench tests run the whole example sweep: `baseline` once
 # (1045 s on 22 Nov 2026, beside the rest of the tier) and `repeat` twice
@@ -374,6 +376,13 @@ slow-timeout = { period = "120s", terminate-after = 30 }
 # broad sample at 205 s on 2 threads, about 1,640 s projected for all).
 [[profile.default.overrides]]
 filter = "(package(stitchwort-driver) & binary(projects) & test(/^(examples_wide::the_cache_changes_nothing_for_the_examples|examples_wide::rewinding_changes_nothing_for_the_examples|examples_wide::emptying_the_caches_changes_nothing_for_the_examples)$/)) | (package(stitchwort-driver) & binary(library) & test(=fmt_hashes::formatting_changes_no_declaration_hash))"
+slow-timeout = { period = "120s", terminate-after = 30 }
+
+# Stage 2 on every tenth std statement: one thread, 430 goals, 968 s on a
+# quiet machine on 27 Nov 2026 (SW-4902), so the 20-minute cap sat at 80% of
+# it and a loaded run passed it. Its time grows with std.
+[[profile.default.overrides]]
+filter = "package(stitchwort-driver) & binary(library) & test(=search_at_bench::stage_two_on_any_std_statement)"
 slow-timeout = { period = "120s", terminate-after = 30 }
 
 # The fuzzers run as single long tests sized by their task's counts
