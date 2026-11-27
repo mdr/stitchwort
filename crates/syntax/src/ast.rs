@@ -427,8 +427,22 @@ pub struct LocalDef {
 #[derive(Clone, Debug)]
 pub struct Row {
     pub abilities: Vec<Expr>,
+    /// The row variable; `_` for a search pattern's "and maybe more" (`{A |
+    /// _}`), which [`Row::open_tail`] tells.
     pub tail: Option<Name>,
     pub span: Span,
+}
+
+impl Row {
+    /// Whether the tail is `_` (`{A | _}`).
+    pub fn open_tail(&self) -> bool {
+        self.tail.as_ref().is_some_and(|t| t.text == "_")
+    }
+
+    /// Whether it is a row variable alone (`{e}`).
+    pub fn is_bare_tail(&self) -> bool {
+        self.abilities.is_empty() && self.tail.is_some() && !self.open_tail()
+    }
 }
 
 /// A handler clause.

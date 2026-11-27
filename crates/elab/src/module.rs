@@ -4417,7 +4417,7 @@ fn names_and_proofs(work: Vec<Work<'_>>) -> Vec<Ref<'_>> {
             }
             Expr::Effect(row, ty) => {
                 let mut steps: Vec<Work> = row.abilities.iter().map(Work::Expr).collect();
-                steps.extend(row.tail.iter().map(Work::Name));
+                steps.extend(row.tail.iter().filter(|_| !row.open_tail()).map(Work::Name));
                 steps.push(Work::Expr(ty));
                 then(&mut stack, steps);
             }

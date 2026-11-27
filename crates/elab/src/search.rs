@@ -78,6 +78,28 @@ impl Via {
     }
 }
 
+/// A row of a search pattern with its abilities left open: `{_}`, `{e}` or
+/// `{A, B | _}` (docs/proposals/search-open-abilities.md), elaborated as
+/// `CompD ?d ?r t`. Unification solves `?r` and `?d` from the candidate's
+/// computation type (a pure type makes `?r` the empty row; a `Delay` makes
+/// `?d` `MayDiverge`); the abilities written are then looked for, in any
+/// order, among those `?r` became.
+#[derive(Clone)]
+pub struct RowHole {
+    /// The row's unknown, of type `Effects`: a named row's search hole.
+    pub(crate) row: usize,
+    /// Its divergence's unknown, of type `Divergence`.
+    pub(crate) div: usize,
+    /// The abilities written before `| _`: each one's operation data type
+    /// and arguments.
+    pub(crate) required: Vec<Label>,
+    /// `Partial` was written before `| _`.
+    pub(crate) partial: bool,
+    /// Named (`{e}`, `{?e}`): one that took abilities makes the match a
+    /// generalisation, as a named hole that took structure does.
+    pub(crate) named: bool,
+}
+
 /// An elaborated pattern.
 pub struct Pattern {
     pub(crate) value: Value,
@@ -119,6 +141,15 @@ pub struct Pattern {
     /// Which half of the instance double search this is; `None` when the
     /// pattern resolved no dictionary.
     pub via: Option<Via>,
+    /// Its rows with abilities left open.
+    pub(crate) rows: Vec<RowHole>,
+}
+
+impl Pattern {
+    /// Whether it has a row with abilities left open.
+    pub fn opens_rows(&self) -> bool {
+        !self.rows.is_empty()
+    }
 }
 
 impl Pattern {
@@ -663,6 +694,9 @@ pub struct Hit {
     pub open: bool,
     /// Which halves of the instance double search found it.
     pub via: Vec<Via>,
+    /// How many abilities the pattern's open rows took beyond those it
+    /// wrote, `Partial` counting as one: fewer ranks first, after the place.
+    pub abilities: usize,
 }
 
 /// A hit's sort key: see [`Hit::key`].
@@ -670,6 +704,7 @@ pub type Key = (
     Relation,
     bool,
     Place,
+    usize,
     bool,
     bool,
     usize,
@@ -683,7 +718,9 @@ pub type Key = (
 impl Hit {
     /// The ranking (draft 3 §5.1, S1a): the relation, then whether the
     /// candidate absorbed the pattern whole, where it matched (a left and a
-    /// right side alike), a declaration before a conjunct of one (SW-993),
+    /// right side alike), fewer abilities taken by the pattern's open rows
+    /// (docs/proposals/search-open-abilities.md), a declaration before a
+    /// conjunct of one (SW-993),
     /// a written theorem before a generated equation (`f.eqK`,
     /// docs/proposals/function-equations.md §3.4: a hand-written lemma is
     /// the one meant, and the equations stay found after it), specificity,
@@ -698,6 +735,7 @@ impl Hit {
             self.relation,
             self.absorbs,
             place,
+            self.abilities,
             self.item.part().is_some(),
             self.item.generated_equation(g),
             self.absorbed,
@@ -753,6 +791,10 @@ pub enum SearchTier {
     Relaxed,
     /// The pattern names nothing to filter by (or the filter was off).
     Unfiltered,
+    /// A pattern without rows found nothing filtered, so it was searched
+    /// again filtered with each result's abilities left open, as `{_}`
+    /// leaves them (docs/proposals/search-open-abilities.md).
+    OpenAbilities,
 }
 
 impl SearchTier {
@@ -761,6 +803,7 @@ impl SearchTier {
             SearchTier::Filtered => "filtered",
             SearchTier::Relaxed => "relaxed",
             SearchTier::Unfiltered => "unfiltered",
+            SearchTier::OpenAbilities => "openAbilities",
         }
     }
 }
@@ -865,7 +908,7 @@ fn measure(
     // isn't `Nat.minLeRight` with its `m` and `n` made one.
     if !pattern.distinct {
         let mut seen = Vec::new();
-        for m in &pattern.decisive {
+        for m in (pattern.decisive.iter()).filter(|m| !pattern.rows.iter().any(|h| h.row == **m)) {
             if let Now::Meta(r) = rep(g, *m)? {
                 if seen.contains(&r) {
                     return Ok(None);
@@ -902,7 +945,10 @@ fn measure(
     let mut instantiated = 0;
     let mut decisive = 0;
     let mut classes: Vec<usize> = Vec::new();
-    for m in &pattern.free {
+    // An open row's unknowns are counted as abilities taken instead
+    // (`row_fit`).
+    let row_meta = |m: &usize| (pattern.rows.iter()).any(|h| h.row == *m || h.div == *m);
+    for m in pattern.free.iter().filter(|m| !row_meta(m)) {
         match rep(g, *m)? {
             Now::Size(_) => {
                 instantiated += 1;
@@ -931,6 +977,161 @@ fn relation_of(absorbed: usize, decisive: usize) -> Relation {
     } else {
         Relation::Common
     }
+}
+
+/// The definitions and data types that make up rows and computation types
+/// (`CompD`, `CompIn`, `Comp`, `Plus`, …), which a pattern with an open row
+/// names but needn't ask a candidate for.
+fn row_plumbing(g: &Ev) -> (BTreeSet<DefId>, BTreeSet<usize>) {
+    use stitchwort_core::registry::Builtin;
+    let r = g.env.registry();
+    let defs = [
+        Builtin::CompD,
+        Builtin::CompIn,
+        Builtin::RowOp,
+        Builtin::RowRes,
+        Builtin::PlusRes,
+        Builtin::NoRes,
+    ]
+    .into_iter()
+    .filter_map(|b| r.def(b))
+    .chain(
+        g.env
+            .builtins()
+            .primitive_id(stitchwort_core::partial::Primitive::Delay),
+    )
+    .collect();
+    let data = [
+        Builtin::Comp,
+        Builtin::Plus,
+        Builtin::NoOp,
+        Builtin::Row,
+        Builtin::Divergence,
+    ]
+    .into_iter()
+    .filter_map(|b| r.data(b))
+    .map(|d| d.0)
+    .collect();
+    (defs, data)
+}
+
+/// An ability in a row: its operation data type and arguments.
+type Label = (DataId, Vec<Value>);
+
+/// The abilities an `Effects` value is: each one's operation data type and
+/// arguments, and whether it ends in something other than the empty row (a
+/// candidate's row variable, or an unknown).
+fn row_labels(g: &Ev, row: Value) -> Res<(Vec<Label>, bool)> {
+    use stitchwort_core::registry::Builtin;
+    let r = g.env.registry();
+    let (Some(empty), Some(ops), Some(plus), Some(no_op)) = (
+        r.ctor(Builtin::RowEmpty),
+        r.ctor(Builtin::RowOps),
+        r.data(Builtin::Plus),
+        r.data(Builtin::NoOp),
+    ) else {
+        return Ok((Vec::new(), true));
+    };
+    let mut op = match force(g, row)? {
+        Value::Ctor(d, c, _) if (d, c) == empty => return Ok((Vec::new(), false)),
+        Value::Ctor(d, c, fields) if (d, c) == ops => fields[0].clone(),
+        _ => return Ok((Vec::new(), true)),
+    };
+    let mut labels = Vec::new();
+    loop {
+        match force(g, op)? {
+            Value::Data(p, args) if p == plus && args.len() == 2 => {
+                if let Value::Data(d, label) = force(g, args[0].clone())? {
+                    labels.push((d, label.to_vec()));
+                }
+                op = args[1].clone();
+            }
+            Value::Data(n, _) if n == no_op => return Ok((labels, false)),
+            _ => return Ok((labels, true)),
+        }
+    }
+}
+
+/// After a successful unification, how the pattern's open rows fit what
+/// they became: `None` if one lacks an ability it wrote (or `Partial`);
+/// otherwise how many abilities they took beyond those written (`Partial`
+/// counting as one), whether one of the candidate's row variables had to
+/// stand for an ability written (it absorbs the pattern, as a variable
+/// that took the whole pattern does), and whether a named row took
+/// abilities. Each written ability is unified with the one of the same
+/// ability in the row, in any order; a row has each ability at most once.
+fn row_fit(g: &crate::unify::Unifier<'_>, pattern: &Pattern) -> Res<Option<(usize, bool, bool)>> {
+    use stitchwort_core::registry::Builtin;
+    let may = g.env.registry().ctor(Builtin::DivMay);
+    let mut taken = 0;
+    let mut absorbs = false;
+    let mut named_took = false;
+    for hole in &pattern.rows {
+        let partial = matches!(
+            force(g, eval(g, &[], &Term::Meta(hole.div))?)?,
+            Value::Ctor(d, c, _) if Some((d, c)) == may
+        );
+        if hole.partial && !partial {
+            return Ok(None);
+        }
+        let (labels, open) = row_labels(g, eval(g, &[], &Term::Meta(hole.row))?)?;
+        let mut used = vec![false; labels.len()];
+        for (data, args) in &hole.required {
+            let found = labels.iter().position(|(d, _)| d == data);
+            match found {
+                Some(i) => {
+                    for (a, b) in args.iter().zip(&labels[i].1) {
+                        if !crate::unify::unify_solving_arguments(g, 0, a, b)? {
+                            return Ok(None);
+                        }
+                    }
+                    used[i] = true;
+                }
+                None if open => absorbs = true,
+                None => return Ok(None),
+            }
+        }
+        let extra = used.iter().filter(|u| !**u).count() + usize::from(partial && !hole.partial);
+        named_took |= hole.named && extra > 0;
+        taken += extra;
+    }
+    Ok(Some((taken, absorbs, named_took)))
+}
+
+/// A pattern that doesn't elaborate because it applies `_` to a type (`()
+/// → _ Int`, the habit of languages whose effects are type constructors)
+/// gets a note on where abilities go.
+fn abilities_note(expr: &Expr, d: Diagnostic) -> Diagnostic {
+    if d.code != "E-NOT-A-TYPE" {
+        return d;
+    }
+    let Some(at) = d.labels.first().map(|l| l.span) else {
+        return d;
+    };
+    // Through the forms a type is written with.
+    fn hole_applied(e: &Expr, at: Span) -> bool {
+        match e {
+            Expr::App(f, a) => {
+                (matches!(**f, Expr::Hole(_)) && e.span() == at)
+                    || hole_applied(f, at)
+                    || hole_applied(a, at)
+            }
+            Expr::Arrow(a, b)
+            | Expr::Tuple(a, b, _)
+            | Expr::Binary(_, a, b)
+            | Expr::Ann(a, b, _) => hole_applied(a, at) || hole_applied(b, at),
+            Expr::Pi { dom, cod, .. } => hole_applied(dom, at) || hole_applied(cod, at),
+            Expr::Effect(_, t) => hole_applied(t, at),
+            _ => false,
+        }
+    }
+    if !hole_applied(expr, at) {
+        return d;
+    }
+    d.with_note(
+        "a computation's abilities go in braces before its type: `{_} Int` is an `Int` \
+         with any abilities",
+    )
 }
 
 /// Whether the filter lets a candidate whose type names `index` through for
@@ -988,6 +1189,7 @@ impl Elaborator {
         self.clear_metas();
         let was = self.kernel.machine.glue.replace(self.gluing());
         let saved = self.kernel.machine.budget.start(self.options.limits);
+        *self.decl.search_rows.borrow_mut() = Some(Vec::new());
         let result = (|| -> Result<Vec<Pattern>> {
             let span = expr.span();
             let mut cx = Ctx::new(self, span);
@@ -1007,7 +1209,7 @@ impl Elaborator {
                 )?;
                 decisive.push(hole);
             }
-            let (term, mut ty) = infer(&mut cx, expr)?;
+            let (term, mut ty) = infer(&mut cx, expr).map_err(|d| abilities_note(expr, d))?;
             // A pattern is a closed pattern, as a `rewrite` rule is
             // (invariant 7, D2087): its own waiting checks are settled,
             // defaults included, before it is searched for, so `_ + 0 = _`
@@ -1053,15 +1255,36 @@ impl Elaborator {
                      type (`List _ → Nat`)",
                 ));
             }
+            let rows = (self.decl.search_rows.borrow().clone()).unwrap_or_default();
+            // The filter doesn't ask for the rows' machinery (`CompD`,
+            // `Comp`, `Plus`, …), which a pure candidate doesn't name, but
+            // for the abilities written.
+            let (plumbing_defs, plumbing_data) = row_plumbing(g);
+            let strip = |mut names: BTreeSet<DefId>| {
+                if !rows.is_empty() {
+                    names.retain(|d| !plumbing_defs.contains(d));
+                }
+                names
+            };
+            let strip_data = |mut data: BTreeSet<usize>| {
+                if !rows.is_empty() {
+                    data.retain(|d| !plumbing_data.contains(d));
+                    data.extend(
+                        rows.iter()
+                            .flat_map(|h| h.required.iter().map(|(d, _)| d.0)),
+                    );
+                }
+                data
+            };
             let make = |value: Value, via: Option<Via>| -> Pattern {
                 let zonked =
                     crate::check::quote_folded(g, 0, &value).unwrap_or_else(|_| term.clone());
                 let metas = self.metas().metas.borrow().len();
                 Pattern {
                     head: head_key(&zonked),
-                    constants: constants(&zonked),
-                    written: Some(constants(&term)),
-                    data: data_types(&zonked),
+                    constants: strip(constants(&zonked)),
+                    written: Some(strip(constants(&term))),
+                    data: strip_data(data_types(&zonked)),
                     size: size(&zonked),
                     value,
                     metas,
@@ -1072,6 +1295,7 @@ impl Elaborator {
                     distinct: false,
                     ty: ty.clone(),
                     via,
+                    rows: rows.clone(),
                 }
             };
             // The instance double search: each dictionary elaboration
@@ -1133,12 +1357,13 @@ impl Elaborator {
                     // `Nat`): the filter asks only for the data types the
                     // pattern names outside implicit arguments and
                     // ascriptions.
-                    generic.data = explicit_data(&generic_term);
+                    generic.data = strip_data(explicit_data(&generic_term));
                     Ok(vec![resolved, generic])
                 }
                 _ => Ok(vec![make(value, None)]),
             }
         })();
+        self.decl.search_rows.borrow_mut().take();
         self.kernel.machine.budget.restore(saved);
         self.kernel.machine.glue.set(was);
         result
@@ -1383,6 +1608,7 @@ impl Elaborator {
             distinct: true,
             ty,
             via: None,
+            rows: Vec::new(),
         }))
     }
 
@@ -1488,6 +1714,20 @@ impl Elaborator {
         opts: &Opts,
         keep: &dyn Fn(&Candidate) -> bool,
     ) -> Found {
+        self.search_passes(patterns, candidates, opts, keep, true)
+    }
+
+    /// [`Elaborator::search`], with the relaxed pass only if `relax`: a
+    /// caller with another pass to try first (`search`'s fallback with
+    /// abilities left open) gets back an empty filtered result instead.
+    pub fn search_passes(
+        &self,
+        patterns: &[Pattern],
+        candidates: &[Candidate],
+        opts: &Opts,
+        keep: &dyn Fn(&Candidate) -> bool,
+        relax: bool,
+    ) -> Found {
         let g = &self.ev();
         let names_something = patterns
             .iter()
@@ -1567,7 +1807,7 @@ impl Elaborator {
                 }
             }
             let mut hits: Vec<Hit> = best.into_iter().flatten().collect();
-            if hits.is_empty() && tier == SearchTier::Filtered {
+            if hits.is_empty() && tier == SearchTier::Filtered && relax {
                 tier = SearchTier::Relaxed;
                 continue;
             }
@@ -1758,19 +1998,23 @@ impl Elaborator {
                     stats.unifications -= 1;
                     continue;
                 };
-                let measured = if same {
-                    measure(&g.ev, pattern, &opened)?
-                } else {
-                    None
+                let fit = if same { row_fit(g, pattern)? } else { None };
+                let measured = match fit {
+                    Some(_) => measure(&g.ev, pattern, &opened)?,
+                    None => None,
                 };
                 crate::unify::undo_since(g, inner);
-                let Some((mut absorbed, mut instantiated, decisive, whole)) = measured else {
+                let (Some((mut absorbed, mut instantiated, decisive, whole)), Some(fit)) =
+                    (measured, fit)
+                else {
                     continue;
                 };
+                let (abilities, row_absorbs, named_took) = fit;
                 // A variable of the candidate took the whole pattern (`a`
-                // in a conclusion `{row} a`): as good as no match, so it
-                // ranks after the relation's other matches.
-                absorbs |= whole;
+                // in a conclusion `{row} a`), or a row variable of its
+                // stands for an ability the pattern wrote: as good as no
+                // match, so it ranks after the relation's other matches.
+                absorbs |= whole || row_absorbs;
                 let mut relation = relation_of(absorbed, decisive);
                 // Two-way unification may have found a crossed solution
                 // where a one-way one exists (its first-order approximation
@@ -1790,7 +2034,9 @@ impl Elaborator {
                     let tried = try_target(place, &target, at);
                     g.store.frozen_metas.borrow_mut().truncate(frozen);
                     let m = match tried? {
-                        Some((true, _)) => measure(&g.ev, pattern, &opened)?,
+                        Some((true, _)) if row_fit(g, pattern)?.is_some() => {
+                            measure(&g.ev, pattern, &opened)?
+                        }
                         _ => None,
                     };
                     crate::unify::undo_since(g, inner);
@@ -1801,6 +2047,9 @@ impl Elaborator {
                         instantiated = i;
                         break;
                     }
+                }
+                if named_took && relation == Relation::Instance {
+                    relation = Relation::Generalisation;
                 }
                 let better = match &best {
                     None => true,
@@ -1819,6 +2068,7 @@ impl Elaborator {
                         premises: candidate.premises,
                         open: candidate.open,
                         via: Vec::new(),
+                        abilities,
                     });
                 }
             }

@@ -162,6 +162,20 @@ test "hooks" := collectLog (() => doubled 5) == (10, ["before 5", "after 10"])
 
 The row is worked out where the value is used; there's no syntax yet for writing a particular row, such as `Hooks {Log}`, as a type argument.
 
+### Finding a function when you don't know its abilities
+
+`stitchwort search` finds functions by the shape of their type, and abilities are part of a type. When you don't know which abilities a function performs, write `_` for its row: `{_}` is any abilities, none included.
+
+```text
+$ stitchwort search --in Std '() → {_} Int'
+1 match for  () → {_} Int
+
+int : () → {Parse Char} Int  Std.Parse  std/Parse/Chars.sw:59
+    A whole number with an optional '+' or '-' in front, else "expected a number".
+```
+
+`{Parse _ | _}` is `Parse` and maybe more, as `{Log | e}` is in a type; `{Parse _}` is exactly `Parse`. The results whose rows have fewer abilities you didn't write come first. A pattern without braces, `() → Int`, means a pure function, as the type does; when nothing pure matches, the search tries again with the abilities left open and says so. The details are in [syntax.md](../syntax.md#lemma-search-stitchwort-search).
+
 ## Failing: `Fail` and `Abort`
 
 `Fail` is the library's ability for operations that can fail with a message, like exceptions, but visible in the type. `need` takes the value out of an `Option` or fails with a message, `ensure` fails when a condition is false, and `fail` fails wherever a value of any type is expected. `toResult` handles it, turning the computation into a `Result`:

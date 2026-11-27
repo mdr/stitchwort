@@ -1851,6 +1851,12 @@ pub fn effect_type(
     if row.abilities.is_empty() && row.tail.is_none() {
         return Ok((result, sort));
     }
+    let searching = cx.e.decl.search_rows.borrow().is_some();
+    if (open_row(row) || (searching && row.is_bare_tail()))
+        && let Some(open) = open_row_type(cx, row, &result, sort)?
+    {
+        return Ok(open);
+    }
     let mut labels: Vec<Label> = Vec::new();
     let mut partial = false;
     for ability in &row.abilities {
@@ -1930,6 +1936,129 @@ pub fn effect_type(
         ));
     }
     Ok((cx.quote_folded(&ty)?, stitchwort_core::Sort::Type(0)))
+}
+
+/// Whether `row` is written with a `_` for abilities not known: `{_}`, `{A
+/// | _}`, or `{A, _}` (refused, with a pointer to `|`).
+fn open_row(row: &stitchwort_syntax::ast::Row) -> bool {
+    row.open_tail() || row.abilities.iter().any(|a| matches!(a, Expr::Hole(_)))
+}
+
+/// A search pattern's row with abilities left open
+/// (docs/proposals/search-open-abilities.md): `{_}` (any row, the empty
+/// one and `Partial` included), `{e}` (a named one, the same at each
+/// place) or `{A, B | _}` (at least `A` and `B`), as `CompD ?d ?r t` with
+/// `?r` and `?d` unknowns made outside the pattern's binders. The
+/// abilities written are recorded with them (`Decl::search_rows`) for the
+/// match to look for in whatever `?r` becomes. Outside a search pattern,
+/// `_` in a row is an error. `None` for a bare `{e}` whose `e` isn't one of
+/// the pattern's holes (a row variable bound in it): an ordinary row.
+fn open_row_type(
+    cx: &mut Ctx,
+    row: &stitchwort_syntax::ast::Row,
+    result: &Term,
+    sort: stitchwort_core::Sort,
+) -> Result<Option<(Term, stitchwort_core::Sort)>> {
+    let sole = matches!(row.abilities.as_slice(), [Expr::Hole(_)]) && row.tail.is_none();
+    let hole_span = (row.abilities.iter())
+        .find_map(|a| match a {
+            Expr::Hole(span) => Some(*span),
+            _ => None,
+        })
+        .or_else(|| {
+            row.tail
+                .as_ref()
+                .filter(|_| row.open_tail())
+                .map(|t| t.span)
+        })
+        .unwrap_or(row.span);
+    if cx.e.decl.search_rows.borrow().is_none() {
+        return Err(Diagnostic::error(
+            "E-ABILITY",
+            "`_` for any abilities is only for search patterns",
+        )
+        .with_label(hole_span, "here")
+        .with_note(
+            "in a signature, a row variable says \"whatever else\": `{e}`, or `{Fail | e}`",
+        ));
+    }
+    if !sole && row.abilities.iter().any(|a| matches!(a, Expr::Hole(_))) {
+        return Err(
+            Diagnostic::error("E-SEARCH-PATTERN", "`_` can't be one of a row's abilities")
+                .with_label(hole_span, "this `_`")
+                .with_note(
+                    "for these abilities and any others, write the rest after a `|`: \
+                     `{Parse _ | _}`; for any abilities at all, `{_}`",
+                ),
+        );
+    }
+    let mut required = Vec::new();
+    let mut partial = false;
+    if !sole {
+        for ability in &row.abilities {
+            if let Expr::Var(name) = ability
+                && name.text == "Partial"
+            {
+                partial = true;
+                continue;
+            }
+            let label = ability_label(cx, ability)?;
+            required.push((cx.e.tables.abilities[label.ability].op_data, label.args));
+        }
+    }
+    let row_type = Value::Data(data(cx, Builtin::Row)?, Vec::new().into());
+    let div_type = Value::Data(data(cx, Builtin::Divergence)?, Vec::new().into());
+    // A named row (`{e}`, `{?e}`) is the search hole of that name.
+    let named = match &row.tail {
+        Some(name) if !row.open_tail() && row.abilities.is_empty() => {
+            let term = check(cx, &Expr::Var(name.clone()), &row_type)?;
+            match force(&cx.g(), cx.eval(&term)?)? {
+                Value::Neutral(Head::Meta(m), s) if s.is_empty() => Some(m),
+                _ => None,
+            }
+        }
+        _ => None,
+    };
+    if row.is_bare_tail() && named.is_none() {
+        return Ok(None);
+    }
+    let fresh = |ty: &Value| {
+        let m = cx.metas().new_meta(row.span);
+        cx.metas().set_meta_type(m, ty.clone(), 0);
+        m
+    };
+    let earlier = named.and_then(|m| {
+        (cx.e.decl.search_rows.borrow().as_ref()?.iter())
+            .find(|h| h.row == m)
+            .map(|h| h.div)
+    });
+    let row_meta = named.unwrap_or_else(|| fresh(&row_type));
+    let div_meta = earlier.unwrap_or_else(|| fresh(&div_type));
+    if let Some(rows) = cx.e.decl.search_rows.borrow_mut().as_mut() {
+        rows.push(crate::search::RowHole {
+            row: row_meta,
+            div: div_meta,
+            required,
+            partial,
+            named: named.is_some(),
+        });
+    }
+    if !matches!(sort, stitchwort_core::Sort::Type(0)) {
+        return Err(cx.error(
+            "E-UNIVERSE",
+            "an effectful function's result must be a type of data",
+            "this is in a larger universe, or a proposition",
+        ));
+    }
+    let comp_d = Term::Def(def(cx, Builtin::CompD)?);
+    let ty = Term::app(
+        Term::app(
+            Term::app(comp_d, Term::Meta(div_meta)),
+            Term::Meta(row_meta),
+        ),
+        result.clone(),
+    );
+    Ok(Some((ty, stitchwort_core::Sort::Type(0))))
 }
 
 /// `State s` in a row.

@@ -360,6 +360,10 @@ pub(crate) struct Decl {
     /// The failed instance the last instance search reached, if any: a
     /// derive records it so a use waits for it (SW-3078).
     pub(crate) failed_instance: RefCell<Option<DefId>>,
+    /// While a search pattern is elaborated: its rows with abilities left
+    /// open (`effects::open_row_type`); `None` otherwise, when `_` in a row
+    /// is an error.
+    pub(crate) search_rows: RefCell<Option<Vec<crate::search::RowHole>>>,
 }
 
 /// [`Decl::conjunction`].
@@ -489,6 +493,7 @@ impl Decl {
             builds,
             ne_ascii,
             failed_instance,
+            search_rows,
         } = self;
         let fields = [
             ("sides_capture", sides_capture.borrow().is_empty()),
@@ -553,6 +558,7 @@ impl Decl {
             ("builds", builds.borrow().is_empty()),
             ("ne_ascii", ne_ascii.borrow().is_empty()),
             ("failed_instance", failed_instance.borrow().is_none()),
+            ("search_rows", search_rows.borrow().is_none()),
         ];
         fields
             .into_iter()

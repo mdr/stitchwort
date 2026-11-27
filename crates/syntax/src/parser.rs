@@ -2561,7 +2561,7 @@ impl<'t> Parser<'t> {
         Ok(())
     }
 
-    /// `{A, B args | e}`, `{e}` or `{}`.
+    /// `{A, B args | e}`, `{A | _}`, `{e}` or `{}`.
     fn row(&mut self) -> Result<()> {
         let start = self.expect(Tok::LBrace, "`{`")?.span;
         if matches!(self.peek(), Some(Tok::Lower(_))) && self.peek_at(1) == Some(&Tok::Colon) {
@@ -2582,7 +2582,10 @@ impl<'t> Parser<'t> {
                 self.app()?;
             }
         }
-        if self.eat(&Tok::Pipe) {
+        // `_` after `|` is a search pattern's "and maybe more"
+        // (docs/proposals/search-open-abilities.md); the elaborator refuses it
+        // elsewhere.
+        if self.eat(&Tok::Pipe) && !self.eat(&Tok::Underscore) {
             self.lower("a row variable")?;
         }
         self.expect(Tok::RBrace, "`}`")?;

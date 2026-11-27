@@ -441,7 +441,8 @@ fn split_top(text: &str) -> Vec<String> {
 pub struct Report {
     pub version: u32,
     pub query: QueryJson,
-    /// `filtered`, `relaxed` or `unfiltered`; absent without a pattern.
+    /// `filtered`, `relaxed`, `unfiltered` or `openAbilities`; absent
+    /// without a pattern.
     #[serde(rename = "searchTier", skip_serializing_if = "Option::is_none")]
     pub search_tier: Option<&'static str>,
     pub results: Vec<Result1>,
@@ -521,6 +522,73 @@ pub struct Result1 {
     pub instantiated: usize,
     pub premises: usize,
     pub size: usize,
+    /// How many abilities the pattern's open rows (`{_}`, `{A | _}`) took
+    /// beyond those written, `Partial` counting as one; absent when none.
+    #[serde(rename = "abilitiesTaken", skip_serializing_if = "is_zero")]
+    pub abilities_taken: usize,
+}
+
+fn is_zero(n: &usize) -> bool {
+    *n == 0
+}
+
+/// Whether a pattern writes a row anywhere (`{Fail} Nat`).
+fn has_row(e: &Expr) -> bool {
+    match e {
+        Expr::Effect(..) => true,
+        Expr::App(a, b)
+        | Expr::Arrow(a, b)
+        | Expr::Tuple(a, b, _)
+        | Expr::Binary(_, a, b)
+        | Expr::Ann(a, b, _) => has_row(a) || has_row(b),
+        Expr::Pi { dom, cod, .. } => has_row(dom) || has_row(cod),
+        _ => false,
+    }
+}
+
+/// A function pattern with `{_}` on the result of each arrow chain, its
+/// callbacks' included (`(?a → ?b) → List ?a → List ?b` becomes `(?a → {_}
+/// ?b) → List ?a → {_} List ?b`); `None` for a pattern that isn't a
+/// function type.
+fn open_results(e: &Expr) -> Option<Expr> {
+    fn result(e: &Expr) -> Expr {
+        match e {
+            Expr::Arrow(a, b) => Expr::Arrow(Box::new(inside(a)), Box::new(result(b))),
+            Expr::Pi {
+                name,
+                implicit,
+                auto,
+                dom,
+                cod,
+                span,
+            } => Expr::Pi {
+                name: name.clone(),
+                implicit: *implicit,
+                auto: *auto,
+                dom: Box::new(inside(dom)),
+                cod: Box::new(result(cod)),
+                span: *span,
+            },
+            other => {
+                let span = other.span();
+                Expr::Effect(
+                    stitchwort_syntax::ast::Row {
+                        abilities: vec![Expr::Hole(span)],
+                        tail: None,
+                        span,
+                    },
+                    Box::new(other.clone()),
+                )
+            }
+        }
+    }
+    fn inside(e: &Expr) -> Expr {
+        match e {
+            Expr::Arrow(..) | Expr::Pi { .. } => result(e),
+            other => other.clone(),
+        }
+    }
+    matches!(e, Expr::Arrow(..) | Expr::Pi { .. }).then(|| result(e))
 }
 
 #[derive(Serialize, Debug, Default)]
@@ -681,12 +749,20 @@ impl Session {
                         if readings.iter().any(|(_, c, _)| holes_renumbered(c) == key) {
                             continue;
                         }
-                        for h in named {
-                            if !holes.contains(&h) {
-                                holes.push(h);
+                        for h in &named {
+                            if !holes.contains(h) {
+                                holes.push(h.clone());
                             }
                         }
-                        let found = self.elab.search(&patterns, &candidates, &opts, &keep);
+                        let found = self.search_reading(
+                            &reading,
+                            patterns,
+                            &named,
+                            &candidates,
+                            &opts,
+                            &keep,
+                            &mut warnings,
+                        )?;
                         readings.push((shown, calls, found));
                     }
                     Err(d) => {
@@ -817,6 +893,56 @@ impl Session {
         diagnostics
     }
 
+    /// Searches one reading of a pattern, `patterns` its elaboration. A
+    /// function pattern written without rows (`() → Int`) is pure, as the
+    /// type is; when its filtered pass finds nothing, it is searched again
+    /// filtered with `{_}` on each arrow's result, before the relaxed pass
+    /// (D3765, docs/proposals/search-open-abilities.md).
+    #[allow(clippy::too_many_arguments)]
+    fn search_reading(
+        &mut self,
+        reading: &str,
+        patterns: Vec<Pattern>,
+        named: &[String],
+        candidates: &[Candidate],
+        opts: &Opts,
+        keep: &dyn Fn(&Candidate) -> bool,
+        warnings: &mut Vec<String>,
+    ) -> Result<Found, Diagnostic> {
+        let expr = self.parse_expression("<pattern>", reading)?;
+        let open = match open_results(&expr) {
+            Some(open) if !has_row(&expr) && !patterns.iter().any(Pattern::opens_rows) => open,
+            _ => return Ok(self.elab.search(&patterns, candidates, opts, keep)),
+        };
+        let first = self
+            .elab
+            .search_passes(&patterns, candidates, opts, keep, false);
+        if !(first.hits.is_empty() && first.tier == SearchTier::Filtered) {
+            return Ok(first);
+        }
+        // Elaborating another pattern clears the first's unknowns: each
+        // is elaborated again before it is searched.
+        if let Ok(opened) = self.elab.search_pattern(&open, named) {
+            let found = self
+                .elab
+                .search_passes(&opened, candidates, opts, keep, false);
+            if !found.hits.is_empty() {
+                let g = &self.elab.ev();
+                warnings.push(format!(
+                    "nothing pure matched, so the results' abilities were left open, as `{}` \
+                     does",
+                    opened[0].show(g)
+                ));
+                return Ok(Found {
+                    tier: SearchTier::OpenAbilities,
+                    ..found
+                });
+            }
+        }
+        let (patterns, _) = self.search_patterns(reading, named)?;
+        Ok(self.elab.search(&patterns, candidates, opts, keep))
+    }
+
     /// Elaborates a pattern, a lowercase name that means nothing in scope
     /// becoming a named hole (as `?x`): the patterns (the instance double
     /// search's halves) and every named hole.
@@ -882,6 +1008,7 @@ impl Session {
             instantiated: hit.instantiated,
             premises: hit.premises,
             size: hit.size,
+            abilities_taken: hit.abilities,
             name: path,
             conjunct: item.part().map(|p| p.name()),
         }
@@ -987,6 +1114,7 @@ fn list(
             premises: c.premises,
             open: c.open,
             via: Vec::new(),
+            abilities: 0,
         })
         .collect();
     stats.candidates = candidates.len();
