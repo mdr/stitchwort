@@ -21209,7 +21209,7 @@
     {
       "id": 4914,
       "title": "[Opus] Kernel: bound a comparison's binder depth to its level range: conv goes under binders with a plain level + 1, so a test more than 2^24 binders deep (e.g. a type computed by recursion, T (Succ n) = (x: Nat) → T n) shares levels with a nested test's and w => w vs w => x can answer equal (finding A again; subject reduction lost, not directly False); on 32-bit a top-level comparison could reach 2^31. Build the repro and measure first; then one helper for the four level + 1 sites returning a resource error at the range's top; docs/core.md states the bound. Fable review (SW-4679 review N1)",
-      "status": "backlog",
+      "status": "doing",
       "agent": "",
       "where": "",
       "labels": [
