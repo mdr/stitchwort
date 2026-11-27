@@ -1,5 +1,5 @@
 {
-  "next": 4965,
+  "next": 4969,
   "tickets": [
     {
       "id": 47,
@@ -21993,7 +21993,7 @@
     {
       "id": 4962,
       "title": "Design: infinite streams in Stitchwort (coinductive types or a library encoding), how to prove things about them, compared with Agda, Idris, Lean, Rocq and Haskell",
-      "status": "doing",
+      "status": "done",
       "agent": "",
       "where": "",
       "labels": [],
@@ -22001,7 +22001,9 @@
       "body": "[Fable, paper] Matt asked, 27 Nov 2026: how might we best implement infinite streams, how might we prove things about them, how can we augment our capabilities in this area. Note in docs/proposals/.",
       "created": "2026-11-27",
       "updated": "2026-11-27",
-      "commits": []
+      "commits": [
+        "656d2ee42"
+      ]
     },
     {
       "id": 4963,
@@ -22029,6 +22031,60 @@
       ],
       "epic": "proof-search",
       "body": "[Sonnet] Overmind 27 Nov: stitchwort-core::it recursion::self_recursion_is_guarded_or_stated fails (crates/core/tests/it/recursion.rs:713). Added by SW-4944 (open abilities). They walk a search pattern's AST; give each a guard (GUARDS in recursion.rs) or a true // Depth: bound.",
+      "created": "2026-11-27",
+      "updated": "2026-11-27",
+      "commits": []
+    },
+    {
+      "id": 4965,
+      "title": "A self-recursive record (type Co (a: Type) = { head: a, tail: Co a }) is accepted silently though it has no values: warn",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "epic": "diagnostics",
+      "body": "[Sonnet] From SW-4962 (27 Nov).",
+      "created": "2026-11-27",
+      "updated": "2026-11-27",
+      "commits": []
+    },
+    {
+      "id": 4966,
+      "title": "stitchwort axioms NAME in a project prints every other namespace's errors before its answer",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [
+        "bug"
+      ],
+      "epic": "diagnostics",
+      "body": "[Sonnet] From SW-4962 (27 Nov).",
+      "created": "2026-11-27",
+      "updated": "2026-11-27",
+      "commits": []
+    },
+    {
+      "id": 4967,
+      "title": "E-REWRITE-NO-GOAL for rewrite hs, ht on its own block line before the result: the notes should suggest rewrite … then",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "epic": "diagnostics",
+      "body": "[Sonnet] From SW-4962 (27 Nov).",
+      "created": "2026-11-27",
+      "updated": "2026-11-27",
+      "commits": []
+    },
+    {
+      "id": 4968,
+      "title": "docs/syntax.md crib: add the proposition constructors (Both, Witness), h.flipped and Pair's fields (.fst/.snd)",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "epic": "docs-tutorials",
+      "body": "[DeepSeek] From SW-4962 (27 Nov): a lane guessed And.intro, Exists.intro, Eq.symm, .first.",
       "created": "2026-11-27",
       "updated": "2026-11-27",
       "commits": []
