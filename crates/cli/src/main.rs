@@ -4813,6 +4813,22 @@ fn search(
 ) -> ExitCode {
     use stitchwort_driver::search::{Scope, render_text};
     let started = std::time::Instant::now();
+    // The project, if any, is found before the session starts: its cache
+    // directory holds the library's name index and the core, which are
+    // read as the session starts (SW-4935).
+    let found = match (file, project) {
+        (Some(_), _) => None,
+        (None, Some(_)) => match locate_project(project, "search", "search 'PATTERN' hello.sw") {
+            Some(found) => Some(found),
+            None => return ExitCode::from(2),
+        },
+        (None, None) => {
+            let cwd = std::env::current_dir().unwrap_or_else(|_| PathBuf::from("."));
+            stitchwort_driver::project::find_project(&cwd)
+                .and_then(|dir| locate_project(Some(&dir), "search", ""))
+        }
+    };
+    use_index_cache(cache, found.as_ref().map_or(Path::new("."), |p| &p.dir));
     let mut session = new_session(false);
     let scope = match file {
         Some(path) => {
@@ -4849,14 +4865,6 @@ fn search(
             Scope::File
         }
         None => {
-            let found = match project {
-                Some(_) => locate_project(project, "search", "search 'PATTERN' hello.sw"),
-                None => {
-                    let cwd = std::env::current_dir().unwrap_or_else(|_| PathBuf::from("."));
-                    stitchwort_driver::project::find_project(&cwd)
-                        .and_then(|dir| locate_project(Some(&dir), "search", ""))
-                }
-            };
             match found {
                 Some(project) => {
                     use_cache(&mut session, cache, &project.dir);
@@ -4897,7 +4905,6 @@ fn search(
                     session.elab.leave_namespace();
                     Scope::Project(names)
                 }
-                None if project.is_some() => return ExitCode::from(2),
                 None => {
                     use_cache(&mut session, cache, Path::new("."));
                     Scope::Project(Vec::new())

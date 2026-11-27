@@ -46,6 +46,48 @@ in [../proposals/README.md](../proposals/README.md).
 
 ## 27 Nov 2026
 
+### SW-4935: `search` reads the library's name index and the core from the cache
+
+- **Problem.** Matt: `stitchwort search --in Std '() → {Parse Char} Int'` in his AoC
+  checkout took 2.7 s. Reproduced on Speedwell with a release build: 1.66 s std-only,
+  2.56 s in `aoc/` with `--in Std`, 2.69 s in `aoc/` without it (warm, best of 3).
+- **Profile** (samply 0.13.1, 2 kHz, the std-only search, warm; shares of the main
+  thread): the deferred equations of the core and every library file, made again on each
+  search (`generate_deferred_equations`, 3,009 definitions from 897 keys) 34%; loading the
+  library 33%, of which re-elaborating `std/Float/Float.sw`, which the check cache can't
+  hold (SW-1204), 14% and replaying the other 10,479 definitions 19%; starting the session
+  20%, of which parsing all of std to build the name index 13% and checking the core from
+  source 6%; each candidate's type index (`type_index`, a fold of every type) 11%;
+  comparing, ranking and printing under 1%. In `aoc/` the project's namespaces add about
+  0.9 s (loaded even with `--in Std`).
+- **Cause of the 6.4%+12.6%.** `check`, `run`, `test` and the language server read the
+  name index (SW-4812, SW-4821) and the core (SW-4814) from the cache directory; `search`
+  never asked for them, so each search parsed all of std and checked the core.
+- **Change.** `search` finds its project first and calls `use_index_cache` on its cache
+  directory before the session starts, as `test` does. The parse of a library file the
+  search still needs (for its equations) now happens lazily, so the saving is less than
+  the start's 20%.
+- **Measured (warm, best of 3, wall).**
+
+  | Case | Before | After |
+  |---|---|---|
+  | std-only, `--in Std '() → {Parse Char} Int'` | 1.66 s | 1.49 s |
+  | `aoc/`, `--in Std` (Matt's) | 2.55 s | 2.25 s |
+  | `aoc/`, no `--in` | 2.67 s | 2.38 s |
+
+  `--json --limit 100000` output byte-identical before and after for six queries
+  (`() → {Parse Char} Int`, `Nat → Nat → Nat`, `_ + _ = _ + _`, `List.length (_ ++ _)`,
+  `"reverse"`, `List.map`), std-only and in `aoc/`.
+- **Cold runs.** The 23 to 61 s first searches are the check cache missing: after a build
+  whose compiler sources differ, or in a new folder, a search loads every library file, so
+  it re-checks all of std (23 s), where a `check` re-checks only what its file imports.
+  Not changed here (SW-2163, a shipped std cache).
+- **Left (design changes, reported to the orchestrator).** Keeping the deferred equations
+  in the check cache (an entry of their own, keyed by the library's keys: about -0.45 s,
+  estimated from the replay rate); SW-1204 (-0.2 s, and for every check that loads
+  `Float.sw`); not loading a project's namespaces when `--in` leaves them out (-0.8 s in
+  `aoc/`, but a pattern could then no longer name the project's types).
+
 ### SW-4929: typing in a project no longer rebuilds the file tabs and the Other files list
 
 - **Problem.** Matt's Firefox 160 profile of the lag (SW-4930): keys dispatched 300 to
