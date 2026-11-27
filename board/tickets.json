@@ -21261,17 +21261,21 @@
     {
       "id": 4917,
       "title": "fmt: an own-line comment between let x := and its value, with ; after the value, formats to text that doesn't parse (fmt refuses); a trailing comment there moves before :=",
-      "status": "doing",
+      "status": "done",
       "agent": "",
       "where": "",
       "labels": [
         "bug"
       ],
       "epic": "syntax-language",
-      "body": "[DeepSeek] Found by Overmind, fuzz batch 43 (`task fuzz:fmt SEED=0x2611262b CASES=1000000 COMMENTS=0.3` at 288f4cffb, case 67321). Internal error: \"the output doesn't parse: `;` needs an expression after it\". Fails safe: fmt refuses and leaves the file unchanged. Not new (98f88b21a fails the same way).\n\nRepro: docs/reviews/repros/fuzz-fmt-2611262b-67321.sw (checks fine). Trigger: an own-line comment between `let x :=` and the value, with `;` after the value; same without the brackets. Doesn't fail: no comment; comment after the `;`. A trailing comment on the `let x := -- c` line formats but oddly (`let x` / `-- c` / `:= 1;` / `x`, comment moved before `:=`): fix that too if it's the same rule.\n\nCapture the bad output first. Fix in crates/fmt; check tools/fmt (likely refuses: outside its slices) and say so. Golden test, failing first; fuzz:fmt 20k at the seed with COMMENTS=0.3.\n",
+      "body": "[DeepSeek] Found by Overmind, fuzz batch 43 (`task fuzz:fmt SEED=0x2611262b CASES=1000000 COMMENTS=0.3` at 288f4cffb, case 67321). Internal error: \"the output doesn't parse: `;` needs an expression after it\". Fails safe: fmt refuses and leaves the file unchanged. Not new (98f88b21a fails the same way).\n\nRepro: docs/reviews/repros/fuzz-fmt-2611262b-67321.sw (checks fine). Trigger: an own-line comment between `let x :=` and the value, with `;` after the value; same without the brackets. Doesn't fail: no comment; comment after the `;`. A trailing comment on the `let x := -- c` line formats but oddly (`let x` / `-- c` / `:= 1;` / `x`, comment moved before `:=`): fix that too if it's the same rule.\n\nCapture the bad output first. Fix in crates/fmt; check tools/fmt (likely refuses: outside its slices) and say so. Golden test, failing first; fuzz:fmt 20k at the seed with COMMENTS=0.3.\n\nFix: an own-line comment between an expression let's := and its value keeps the value at the block's column (a continuation, not a block) and the body after the ; on its line; SW-3750's tidy lift kept (round 1 removed it; sent back). Golden let-value-own-line-comment (failed before). fuzz:fmt 20k COMMENTS=0.3 at the seed clean. tools/fmt prints unparseable text for the repro (the old Rust layout, no run-time re-parse; outside proved slice 1): SW-4922. Verifier: all 157 stitchwort-fmt tests incl. repo::every_repo_file_formats_idempotently_or_is_refused. Model result: deepseek, needed fixes (removed an unrelated rule; review sent back), 17 + 15 min (est. 25).\n",
       "created": "2026-11-27",
       "updated": "2026-11-27",
-      "commits": []
+      "commits": [
+        "5792b3351",
+        "b53a9669d",
+        "d91e3e416"
+      ]
     },
     {
       "id": 4918,
