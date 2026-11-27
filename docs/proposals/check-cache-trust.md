@@ -225,6 +225,21 @@ The gap is the two rows marked **no**: the `Builtins` struct
 handles all of it. Only `Kernel::rewind` calls it, and replay doesn't use
 that.
 
+**Added for SW-1204 (27 Nov 2026).** A library file's entry may now hold
+float primitives (`Float.toText`, the one today), so `std/Float/Float.sw` is
+cached. Replay admits one as elaborating does: its signature declared
+(checked on a recheck), then `float::define_primitive`, which compares its
+type with the one the compiler expects and refuses a second `toText`, then
+`registry::bind_def` with its shape checked (`admit_primitive` in
+`core_entry.rs`). That adds a `float_defs` entry to what replay writes,
+taken back on a refusal with the natives' by `Kernel::forget_since`, which rewinds `Builtins` to the mark (SW-1925).
+Which entries may hold one is the caller-set `library` flag of
+`admit_replayed`: true when a library file is replayed (`mod.rs:4622`),
+false from `replay_namespace` (`mod.rs:1869`), whose entries are refused if
+they hold any primitive. The core's primitives stay in the core's entry
+only, float ones in library files only, in both the encoder and `submit`.
+`FORMAT` went 47 → 48.
+
 ### 3.2 Why not `Kernel::rewind`
 
 F1's suggested fix is "`self.kernel.mark()` before `submit` and
@@ -342,8 +357,11 @@ move, which a test has to arrange on purpose.
 4. **The scenario test.** Load the library with a cache, forcing a refusal
    in `std/Float/Float.sw` after the group that binds `Float.add`. Check
    that item 2's assertion holds and that the final dump equals a fresh
-   run's. (SW-1204 says that file isn't cached today. If it still isn't,
-   use the first cached file that binds a native or a primitive.) A second
+   run's. (As built, `a_refused_library_entry_takes_back_its_float_bindings`
+   first used a cut copy of the file, since it wasn't cached; since
+   SW-1204 it uses the real file, refused after `Float.isFinite`, the first
+   group after the primitive `Float.toText`, so that binding is taken back
+   too.) A second
    case, a namespace entry forced to refuse after its first group, checks
    that the late-miss path still gives the fresh result.
 5. **M1's test** (§2.2) and **the zero-refusals assertion** (§3.3) in the

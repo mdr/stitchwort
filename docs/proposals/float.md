@@ -222,9 +222,11 @@ the same in both modes. 107 checks, on both kernels.
   can't work without `Float` and `decEq`'s native names `bitsExt` and `bitsNe`. The runtimes use
   the kernel's binding, plus `Float.ieeeEq`, bound by hash in `crates/rt/src/natives.rs` (it has
   no kernel native).
-- **`std/Float/Float.sw` isn't cached** by the check cache: it declares primitives and binds
-  natives, which replay can't do. It checks in a fraction of a second. The check-cache test now
-  expects exactly this file to be uncacheable.
+- **`std/Float/Float.sw` is cached** by the check cache like every other library file
+  (SW-1204): replay admits `Float.toText` by the rule elaborating uses
+  (`float::define_primitive`, which checks its type) and binds the natives through
+  `bind_builtin_def`, with their pins checked again. Until SW-1204 the encoder refused the
+  primitive, and re-checking the file took about 0.2 s of every check that loaded it.
 - **D58** (no decision procedure in a library file): `Float.decEq` and `Float.decEqFrom` are one,
   because the native needs a definition of its own. They decide only equations between `Float`s,
   which can't be written without loading the file, so `auto` still can't depend on what else is

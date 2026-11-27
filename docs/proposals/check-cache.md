@@ -520,7 +520,9 @@ everything the replay added is removed again first.
    `followers`.
 3. **Some loads can't be cached, and are just elaborated.** That happens
    when a declaration isn't final, when something is exported or has
-   validators, when a core built-in or a primitive is bound, when a test
+   validators, when a core built-in is bound or a primitive is declared
+   outside the unit that may hold it (the core's in the core, float ones in
+   library files), when a test
    is kept, when an
    older instance or table row changed, or when a path names two
    declarations. Today no library file hits any of these, and the

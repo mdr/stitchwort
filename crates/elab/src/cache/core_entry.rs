@@ -307,17 +307,30 @@ impl Elaborator {
         }
     }
 
-    /// Admits primitive `def` as elaborating the core does: declared by its
+    /// Admits primitive `def` as elaborating does: declared by its
     /// signature (checked with `check`), then defined by the kernel's own
-    /// rule for it (`partial::define_primitive`, which checks its type) and
-    /// bound with its shape checked.
+    /// rule for it, which checks its type, and bound with its shape
+    /// checked. In the core's entry (`core`) it must be one of the core's
+    /// primitives (`partial::define_primitive`); in a library file's, a
+    /// float primitive (`float::define_primitive`), as `std/Float`
+    /// declares.
     pub(super) fn admit_primitive(
         &mut self,
         def: &DefEntry,
         expected: DefId,
         check: bool,
+        core: bool,
     ) -> Result<(), Diagnostic> {
-        let Some(prim) = stitchwort_core::partial::Primitive::named(&def.name) else {
+        enum Rule {
+            Core(stitchwort_core::partial::Primitive),
+            Float(stitchwort_core::float::FloatOp),
+        }
+        let rule = if core {
+            stitchwort_core::partial::Primitive::named(&def.name).map(Rule::Core)
+        } else {
+            stitchwort_core::float::FloatOp::named(&def.name).map(Rule::Float)
+        };
+        let Some(rule) = rule else {
             return Err(Diagnostic::error(
                 "E-MALFORMED",
                 format!("`{}` isn't a primitive", def.path),
@@ -352,7 +365,12 @@ impl Elaborator {
                 "a primitive came out differently",
             ));
         }
-        stitchwort_core::partial::define_primitive(&mut self.kernel, id, prim)?;
+        match rule {
+            Rule::Core(prim) => {
+                stitchwort_core::partial::define_primitive(&mut self.kernel, id, prim)?
+            }
+            Rule::Float(op) => stitchwort_core::float::define_primitive(&mut self.kernel, id, op)?,
+        }
         if let Some(b) = stitchwort_core::registry::bind_def(&mut self.kernel, id) {
             stitchwort_core::registry::check_shape(&mut self.kernel, id, b)?;
         }

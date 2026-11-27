@@ -65,6 +65,29 @@ in [../proposals/README.md](../proposals/README.md).
   goes. The saving needs stage 4, which leaves the project out of a search.
 - **Test.** `a_project_search_writes_the_scan_entry` (a search leaves a scan entry in its
   cache folder; fails before).
+### SW-1204: `std/Float/Float.sw` is kept in the check cache
+
+- **Problem.** SW-4935's profile put re-elaborating `std/Float/Float.sw` at 14% of a warm
+  std search, and every `check` that loads it paid the same: it was the one library file
+  the check cache refused.
+- **Cause.** The encoder refused any definition without a body outside the core, and
+  `Float.toText`, the float primitive, has none (`STITCHWORT_CACHE_DEBUG`: "`Std.Float.toText`
+  isn't admitted with a body"). The ticket's first cause, `Float.mul` without a body, had
+  gone since `Float.mul` became an ordinary definition with a native.
+- **Change.** A library file's entry may hold float primitives, flagged as the core's
+  primitives are; replay admits one as elaborating does (its signature declared, checked on
+  a recheck, then `float::define_primitive`, which checks its type, and `bind_def` with its
+  shape checked). The core's primitives stay in the core's entry only, float ones in
+  library files only. A refused replay's undo already took back float bindings (SW-1925).
+- **Measured (release, warm, best of 3, wall; Speedwell was loaded by other lanes, load
+  12 to 24, so the two rounds are given).**
+
+  | Case | Before | After |
+  |---|---|---|
+  | `search --in Std '() → {Parse Char} Int'`, repo root | 1.45 s, 1.56 s | 1.33 s, 1.34 s |
+  | `check` of a one-file namespace importing `Std (Float)`, its own file edited each run | 0.34 s, 0.35 s | 0.13 s, 0.11 s |
+
+  The search's output is byte-identical before and after.
 
 ### SW-4935: `search` reads the library's name index and the core from the cache
 
