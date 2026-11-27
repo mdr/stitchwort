@@ -1,5 +1,5 @@
 {
-  "next": 4962,
+  "next": 4963,
   "tickets": [
     {
       "id": 47,
@@ -21982,6 +21982,19 @@
       ],
       "epic": "proof-search",
       "body": "[Sonnet] D3769 (Matt, 27 Nov 2026: \"yes\"). Results byte-identical incl. patterns naming project types; est. -0.9 s in aoc/ with --in Std. Check that the skip stops Target::Everything loading the whole project (SW-4953's note). Est. 30 min.",
+      "created": "2026-11-27",
+      "updated": "2026-11-27",
+      "commits": []
+    },
+    {
+      "id": 4962,
+      "title": "Design: infinite streams in Stitchwort (coinductive types or a library encoding), how to prove things about them, compared with Agda, Idris, Lean, Rocq and Haskell",
+      "status": "doing",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "epic": "syntax-language",
+      "body": "[Fable, paper] Matt asked, 27 Nov 2026: how might we best implement infinite streams, how might we prove things about them, how can we augment our capabilities in this area. Note in docs/proposals/.",
       "created": "2026-11-27",
       "updated": "2026-11-27",
       "commits": []
