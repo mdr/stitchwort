@@ -1458,6 +1458,21 @@ impl<'a> Rules<'a> {
         Doc::concat(parts)
     }
 
+    /// Whether an expression `let`'s value starts below its `:=` because an
+    /// own-line comment waits before it.
+    fn let_value_comment_below(&self, node: Node<'_>) -> bool {
+        let children: Vec<Element> = node.children().collect();
+        let Some(assign) = children
+            .iter()
+            .position(|&el| self.is_tok(el, &Tok::ColonEq))
+        else {
+            return false;
+        };
+        children
+            .get(assign + 1)
+            .is_some_and(|&el| self.has_leading(el))
+    }
+
     /// `let p := value` (S17): the value as a body after `:=` (S12).
     fn let_line(&mut self, node: Node<'_>) -> Doc {
         let children: Vec<Element> = node.children().collect();
@@ -1477,15 +1492,24 @@ impl<'a> Rules<'a> {
             // Not even when the value itself breaks over a comment: it
             // starts on the `:=` line and goes on below.
             let value = &children[assign + 1..];
-            let starts_below = value.first().is_some_and(|&el| {
-                let first = Self::first(el);
-                self.has_leading(el)
-                    || Self::kind(el) == Some(NodeKind::Block)
-                    || self.ends_line_with_comment_before(first)
-            });
+            let comment_below = value.first().is_some_and(|&el| self.has_leading(el));
+            let starts_below = comment_below
+                || value.first().is_some_and(|&el| {
+                    let first = Self::first(el);
+                    Self::kind(el) == Some(NodeKind::Block)
+                        || self.ends_line_with_comment_before(first)
+                });
             if !starts_below {
                 let value = self.join(value);
                 return Doc::concat([head, Doc::text(" "), value]);
+            }
+            if comment_below {
+                // An own-line comment between the `:=` and the value keeps
+                // the value on the line below at the indentation in force,
+                // where it is a continuation of the `:=` line rather than a
+                // block: the `;` after it still belongs to the `let`
+                // (SW-4917). The sequence leaves its later lines there too.
+                return Doc::concat([head, Doc::HardLine, self.join(value)]);
             }
             return Doc::concat([head, choice]);
         }
@@ -1886,11 +1910,23 @@ impl<'a> Rules<'a> {
     /// first starts, one column inside the bracket.
     fn sequence(&mut self, node: Node<'_>) -> Doc {
         let children: Vec<Element> = node.children().collect();
+        // An expression `let` whose value waits below a comment keeps its
+        // later lines at the value's own indentation, not at the `let`'s:
+        // one at the `let`'s column would end the value's block and leave
+        // the `;` without a body (SW-4917).
+        let let_below = node.kind() == NodeKind::LetExpr
+            && children
+                .first()
+                .is_some_and(|&el| matches!(el, Element::Node(header) if header.kind() == NodeKind::Let && self.let_value_comment_below(header)));
         let mut parts = Vec::new();
         for (k, &el) in children.iter().enumerate() {
             if k > 0 {
                 if self.is_tok(children[k - 1], &Tok::Semi) {
-                    parts.push(Doc::Line);
+                    // A `let` whose value waits below a comment keeps its
+                    // body on the value's line: a break after this `;` would
+                    // start the body at a line that ends the value's block
+                    // (SW-4917). Breaks inside the body itself still work.
+                    parts.push(if let_below { Doc::text(" ") } else { Doc::Line });
                 } else {
                     parts.push(self.space_el(children[k - 1], el));
                 }
@@ -1906,9 +1942,13 @@ impl<'a> Rules<'a> {
         let parts = Doc::concat(parts);
         // A `let` body may continue at the `let`'s own column; a plain
         // sequence's later lines may not (the parser reads the `;` as ending
-        // the block), so where one starts a line they go in by 2.
+        // the block), so where one starts a line they go in by 2. A `let`
+        // whose value waits below a comment keeps the indentation in force
+        // instead, where its value started (SW-4917).
         Doc::group(if node.kind() == NodeKind::Seq {
             Doc::align_inset(parts)
+        } else if let_below {
+            parts
         } else {
             Doc::align(parts)
         })
