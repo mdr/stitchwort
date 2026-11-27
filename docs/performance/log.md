@@ -44,6 +44,37 @@ in [../proposals/README.md](../proposals/README.md).
 
 ---
 
+## 27 Nov 2026
+
+### SW-4925: typing in a playground project no longer restarts the compiler's worker on every key
+
+- **Problem.** Matt: typing in an AoC day (2021 day 18) on the public playground lagged up to
+  a second a key. Not reproduced: in headless Chrome here (Chrome 158, this Mac, load 8 to 10)
+  a keystroke's input-to-paint stays 16 to 24 ms (Event Timing), with no long tasks, in a lone
+  file, 2024 day 1, each of 2021 day 18's files, after a tour of 17 days, typing at once after
+  opening, through the service worker, without isolation, on the deployed site, and with the
+  accessibility tree on. Only at 4x and 8x CPU throttling does the main thread show it (48 and
+  168 ms medians; `renderTabs` and `stateKey`/`keyOf` the top script items). What the page did
+  burn was CPU off the main thread: 20 keys typed 400 ms apart in Day18.sw cost Chrome 36 to
+  40 s of CPU in 10 s (about 4 of the 10 cores; a lone file costs 1.3 s), which may be what
+  slowed typing on a machine already busy with lanes (estimated, not shown).
+- **Cause (measured).** After each pause the page asks the compiler's worker for the
+  project's outline (`render`), which parses all 726 files of the AoC project: about 400 ms
+  warm. A newer request cancelled the one in flight by ending the worker, and the next worker
+  loaded the library and its check cache again before answering. Typed 400 ms apart, each
+  outline was still running when the next came: 19 new workers for 20 keys, 19 of 21 outlines
+  never answered (so the tabs didn't follow either).
+- **Change.** `Compiler.finish` keeps the worker when the request cancelled is an outline; the
+  next request waits behind it.
+- **Measured (one run each, same probe, 20 keys 400 ms apart in Day18.sw).** Before: 19
+  workers started, 2 of 21 outlines answered, 36.1 s of Chrome CPU. After: no workers
+  started, every outline answered (397 to 424 ms, 857 for the first), 33.3 s of CPU. The
+  rest is the language server re-checking the day on each key (one core, the whole time) and
+  the outlines (about 9.5 s of the worker's 11.7 s). Pinned by the browser test "in a
+  project, typing with pauses keeps the compiler's worker" (7 workers for 8 keys before).
+- **Not done.** Making the outline itself cheaper (it parses the whole project on each
+  pause, for the tabs only) is a driver change, filed apart.
+
 ## 26 Nov 2026
 
 ### SW-4892: the effects pre-pass remembers its answers for the declaration

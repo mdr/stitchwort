@@ -924,7 +924,7 @@ export def area: Shape -> Nat
       return new Promise((resolve) => {
         const id = ++this.nextId;
         const timer = setTimeout(() => this.finish(id, { timedOut: true, seconds }), seconds * 1000);
-        this.pending = { id, resolve, timer, onOutput };
+        this.pending = { id, resolve, timer, onOutput, action: request.action };
         try {
           if (!this.worker) this.start();
           this.worker.postMessage({ ...request, id, module });
@@ -958,10 +958,15 @@ export def area: Shape -> Nat
 
     finish(id, result) {
       if (!this.pending || this.pending.id !== id) return;
-      const { resolve, timer } = this.pending;
+      const { resolve, timer, action } = this.pending;
       this.pending = null;
       clearTimeout(timer);
-      if (!result.out) {
+      // A superseded outline keeps its worker: it only parses, so it ends in
+      // moments once the worker has loaded the library, and the next request
+      // waits behind it. Ending the worker would throw that load away (seconds
+      // of work); typing in a project then started a new worker on every key,
+      // each cancelled while still loading by the next key's outline.
+      if (!result.out && !(result.cancelled && action === "outline")) {
         // Crashed, too slow or cancelled: this worker can't be trusted, or
         // is still busy. Start afresh next time.
         this.worker?.terminate();
