@@ -21795,7 +21795,7 @@
     {
       "id": 4950,
       "title": "search: a constructor mention filters nothing (search --in Std MkPair lists all 9,732 std declarations); the type index seems to skip constructors",
-      "status": "backlog",
+      "status": "doing",
       "agent": "",
       "where": "",
       "labels": [
@@ -21838,17 +21838,21 @@
     {
       "id": 4953,
       "title": "search cache stage 1 (docs/proposals/search-cache.md): read the project through the scan cache in search, audit and load_main instead of parsing every file",
-      "status": "review",
+      "status": "done",
       "agent": "",
       "where": "",
       "labels": [
         "perf"
       ],
       "epic": "proof-search",
-      "body": "[Sonnet] Stage 1 of SW-4947's plan, no decision needed. Est. 20 min.",
+      "body": "[Sonnet] Stage 1 of SW-4947's plan, no decision needed. Est. 20 min.\nDone (Sonnet): Session::analyse_cached (project.rs) used by search, audit, load_main. No measured speedup (search 3.03 -> 3.05 s, audit 5.65 -> 5.57 s, noise ±0.3 s): search loads every namespace so the parse moves; the saving needs stage 4 (project skip). Output byte-identical. Note corrected. Model result: sonnet, worked (no gain, as measured), 14 min (est. 20).\n",
       "created": "2026-11-27",
       "updated": "2026-11-27",
-      "commits": []
+      "commits": [
+        "b11ff6292",
+        "10722b383",
+        "5bd12d4dd"
+      ]
     },
     {
       "id": 4954,

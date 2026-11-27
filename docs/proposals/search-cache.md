@@ -299,6 +299,11 @@ namespaces it checks (`load_project_sources_for`, `project.rs:90`,
 SW-4813). Using the scan in `search` (and in `audit`, `main.rs:5108`, and
 `load_main`, `main.rs:3588`, which do the same) saves the parse: 175 to 207 ms in
 aoc/ (measured for `check` in SW-4813). It is needed for §4.2 anyway.
+Measured once built (SW-4953, 27 Nov 2026): no saving in `search` or
+`audit` (3.03 s and 3.05 s; 5.65 s and 5.57 s, within noise). `search`
+loads every namespace, and a namespace the scan only sketched is parsed
+when it loads, so the parse moves rather than goes. The saving comes with
+§4.2's project skip.
 
 ## 5. Estimates and the end state
 
