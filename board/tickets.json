@@ -1,5 +1,5 @@
 {
-  "next": 4961,
+  "next": 4962,
   "tickets": [
     {
       "id": 47,
@@ -21967,6 +21967,21 @@
       ],
       "epic": "dev-loop-speed",
       "body": "[Sonnet] From SW-2163 (27 Nov): the bundle holds the CLI's mode only; the reader already serves any std.* unit, so the build adds stitchwort_lsp::library_bundle entries. Watch the server's native limits: a key mismatch is a silent all-miss, so test a hit count.",
+      "created": "2026-11-27",
+      "updated": "2026-11-27",
+      "commits": []
+    },
+    {
+      "id": 4961,
+      "title": "search cache stage 4 (docs/proposals/search-cache.md §4.3): under --in Std, load the project only when --in names something outside Std or the pattern names something the project declares (scan cache name lists); sort the two load-order lists (D3769)",
+      "status": "doing",
+      "agent": "",
+      "where": "",
+      "labels": [
+        "perf"
+      ],
+      "epic": "proof-search",
+      "body": "[Sonnet] D3769 (Matt, 27 Nov 2026: \"yes\"). Results byte-identical incl. patterns naming project types; est. -0.9 s in aoc/ with --in Std. Check that the skip stops Target::Everything loading the whole project (SW-4953's note). Est. 30 min.",
       "created": "2026-11-27",
       "updated": "2026-11-27",
       "commits": []
