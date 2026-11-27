@@ -21781,15 +21781,19 @@
     {
       "id": 4948,
       "title": "Proof searches (Search for a proof, the goal panel's context, splits) don't stop when cancelled: wrap actions_at_project and the others in cancellable",
-      "status": "review",
+      "status": "done",
       "agent": "",
       "where": "",
       "labels": [],
       "epic": "proof-search",
-      "body": "[Sonnet] From SW-4945 (27 Nov); the type search half of SW-4942 is done.\n\nLane: watch_cancel on every lsp search session (proofs, context, splits, members, expand); test a_cancelled_proof_search_frees_its_worker failed before (worker held 27s), passes after. Wasm check OK.",
+      "body": "[Sonnet] From SW-4945 (27 Nov); the type search half of SW-4942 is done.\n\nLane: watch_cancel on every lsp search session (proofs, context, splits, members, expand); test a_cancelled_proof_search_frees_its_worker failed before (worker held 27s), passes after. Wasm check OK.\nDone (Sonnet): watch_cancel(session, cancel) on with_project_session, closing_actions, with_context, expand_action, members_at (a cancelled members list is not cached). Test a_cancelled_proof_search_frees_its_worker: the next request waited 27.7 s before, 1.1 s after. On main: 7 lsp tests, wasm builds. The playground Searcher still passes a never-set flag (existing behaviour). Model result: sonnet, worked, 8 min (est. 35).\n",
       "created": "2026-11-27",
       "updated": "2026-11-27",
-      "commits": []
+      "commits": [
+        "0602b7751",
+        "6962fb676",
+        "98deec1d0"
+      ]
     },
     {
       "id": 4949,
