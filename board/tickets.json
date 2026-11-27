@@ -36911,9 +36911,9 @@
       "where": "",
       "labels": [],
       "epic": "performance",
-      "body": "Orchestrator review: undo_since bumps meta_epoch (memo empties); metas dropped without trail undo are caught by the stamp (a recreated number below entry.metas that's solved invalidates). Overmind to run STITCHWORT_SHADOW_MEMO=1 over examples, std, AoC (D3755). Finding SW-4898. Model result: opus, worked, 32 min (est. 60).",
+      "body": "Orchestrator review: undo_since bumps meta_epoch (memo empties); metas dropped without trail undo are caught by the stamp (a recreated number below entry.metas that's solved invalidates). Overmind to run STITCHWORT_SHADOW_MEMO=1 over examples, std, AoC (D3755). Finding SW-4898. Model result: opus, worked, 32 min (est. 60).\n\nOvermind shadow run at df69610cd (27 Nov): no panic, no difference. aoc 99/97 s, std 47/47 s, all 2,061 single-file examples by CLI (exit codes only) 4,677/4,761 s summed (+1.8%). cli::running accepted_examples_check timed out at 600 s on Overmind in both modes (passed on Speedwell's all tier).",
       "created": "2026-11-26",
-      "updated": "2026-11-26",
+      "updated": "2026-11-27",
       "commits": [
         "f2d253ebd",
         "5ee60921a",
