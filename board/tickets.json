@@ -22012,14 +22012,14 @@
     {
       "id": 4963,
       "title": "kache: the stitchwort binary compiles ~13 s on every build because kache's adaptive-incremental mode never caches it; try CARGO_PROFILE_RELEASE_INCREMENTAL=false or adaptive_incremental = false for worktree builds, and turn on explain_miss",
-      "status": "doing",
+      "status": "done",
       "agent": "",
       "where": "",
       "labels": [
         "perf"
       ],
       "epic": "dev-loop-speed",
-      "body": "[Sonnet] From SW-4952 (27 Nov). Measure before/after with two worktree:new runs on the same commit.",
+      "body": "[Sonnet] From SW-4952 (27 Nov). Measure before/after with two worktree:new runs on the same commit.\nResult (Sonnet, 27 Nov): no setting helps; nothing changed. The binary's kache key holds three worktree-absolute paths: env_dep CARGO_MANIFEST_DIR (crates/cli/src/main.rs:1213, set_build_tree) and two native_archive paths (libmimalloc.a, libblake3_neon.a) that kache 1.0.0 keeps absolute (KACHE_BASE_DIR did not help). Fresh worktree 21 s with the binary the one miss (11-13 s); edit-rebuild in crates/cli ~14-17 s whatever the incremental settings (noise). Later options: a kache release normalising native_archive paths plus reading the build tree at run time; or keeping the bundled static archives out of the binary's link inputs. Model result: sonnet, worked (negative result), 8 min (est. 30).\n",
       "created": "2026-11-27",
       "updated": "2026-11-27",
       "commits": []
