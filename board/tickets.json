@@ -1,5 +1,5 @@
 {
-  "next": 4905,
+  "next": 4908,
   "tickets": [
     {
       "id": 47,
@@ -37027,15 +37027,19 @@
     {
       "id": 4900,
       "title": "[Opus] All-tier failures 27 Nov (D3755, at df69610cd; suite log /private/tmp/claude-550/-Users-agent-repos-mdr-stitchwort/8230e28a-2fab-4832-920d-c5160adb7e00/scratchpad/test-all.log), elaboration results changed: (1) driver::elaboration operators::golden_terms_on_nat_and_int (operators.rs:161, useNat): auto's proof is now '((Std.Decidable.sound implicit ((True) = (True))) (%mk …)) Refl' where Refl was expected; (2) driver::library derive_cost::derived_instances_of_wide_constructors_stay_cheap (derive_cost.rs:177): 16 constructors of 3 fields took 3,109,360 steps, over 3 M; (3) driver::search_at_aoc search_at_on_real_2021_goals (search_at_aoc.rs:565): Day10/Proofs/Middle.sw '(y < x) = False := arithmetic' no longer suggested. Last all-tier run 22 Nov passed. Bisect each by its one test over first-parent merges since 22 Nov, decide intended vs regression, fix",
-      "status": "review",
+      "status": "done",
       "agent": "Opus",
       "where": "",
       "labels": [],
       "epic": "elaborator-kernel",
-      "body": "Lane 27 Nov 01:50-02:20 (Opus). (1) and (2) bisect to the SW-4674 merge 5470da5f4 (rule F): pass at 83d702e86 (SW-4673), fail at 5470da5f4; SW-4683 between touches only search and cache. Intended consequences of rule F: useNat/useInt's auto proof is Decidable.sound kept as a call (goldens updated); derive_cost 2.28 M -> 3.11 M steps, all in read-back: value_forms' unfolded form of %sameIff's %d and %k lets now hits cheap_limits' size cap and is dropped, 32 times (bound 3.5 M, reason in the test). (3) not elaboration: SW-2167 (5da8f6a89) removed Day10's notBelow, which the test case anchored on; the case now inserts the theorem as it was; a stray doc line SW-2167 left on countBelowSorted removed. SW-4892 and SW-4864 are not the cause. Commit a24596fa5. Possible follow-up: skip value_forms for a proof-valued let (rule I, erased at run time), saving the 32 dropped read-backs.",
+      "body": "Lane 27 Nov 01:50-02:20 (Opus). (1) and (2) bisect to the SW-4674 merge 5470da5f4 (rule F): pass at 83d702e86 (SW-4673), fail at 5470da5f4; SW-4683 between touches only search and cache. Intended consequences of rule F: useNat/useInt's auto proof is Decidable.sound kept as a call (goldens updated); derive_cost 2.28 M -> 3.11 M steps, all in read-back: value_forms' unfolded form of %sameIff's %d and %k lets now hits cheap_limits' size cap and is dropped, 32 times (bound 3.5 M, reason in the test). (3) not elaboration: SW-2167 (5da8f6a89) removed Day10's notBelow, which the test case anchored on; the case now inserts the theorem as it was; a stray doc line SW-2167 left on countBelowSorted removed. SW-4892 and SW-4864 are not the cause. Commit a24596fa5. Possible follow-up: skip value_forms for a proof-valued let (rule I, erased at run time), saving the 32 dropped read-backs.\n\nCauses: SW-4674 rule F (5470da5f4) for the goldens and derive steps (read-back of a thrown-away unfolded form); SW-2167 deleted Day10 notBelow. Bound 3 M -> 3.5 M accepted (orchestrator's call; test bound, not a proved tool); follow-up SW-4905. Model result: opus, worked, 26 min (est. 60).",
       "created": "2026-11-27",
       "updated": "2026-11-27",
-      "commits": []
+      "commits": [
+        "a24596fa5",
+        "cf027d99d",
+        "0063aad83"
+      ]
     },
     {
       "id": 4901,
@@ -37088,6 +37092,45 @@
       "where": "",
       "labels": [],
       "epic": "test-infra",
+      "body": "",
+      "created": "2026-11-27",
+      "updated": "2026-11-27",
+      "commits": []
+    },
+    {
+      "id": 4905,
+      "title": "[Sonnet] unify::value_forms tries an unfolded form of a proof-valued let (e.g. %sameIff's %k) when zonking; with rule F keeping proof calls this read-back now exceeds cheap_limits' cap and is thrown away (32 x ~26 K steps for 16 constructors of 3 fields; derive_cost bound raised 3 M -> 3.5 M in SW-4900). Skip the unfolded form for proof-valued lets (rule I makes proofs equal; erased at run time); re-record hash snapshots if terms change; restore the 3 M bound",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "epic": "performance",
+      "body": "",
+      "created": "2026-11-27",
+      "updated": "2026-11-27",
+      "commits": []
+    },
+    {
+      "id": 4906,
+      "title": "[DeepSeek] Put derive_cost::derived_instances_of_wide_constructors_stay_cheap (step-bound test) in the quick tier (.config/nextest.toml) if it's under ~5 s, so a step regression like SW-4674's shows the same day; SW-4900 finding",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "epic": "test-infra",
+      "body": "",
+      "created": "2026-11-27",
+      "updated": "2026-11-27",
+      "commits": []
+    },
+    {
+      "id": 4907,
+      "title": "[DeepSeek] docs/workflow.md 'Writing a brief': a sweep that deletes AoC lemmas greps crates/driver/tests/search_at_aoc.rs for the names it drops (its cases anchor on file text; SW-2167 broke one); and a bisect worktree outside .claude/worktrees needs .claude/worktrees/.cargo/config.toml copied to a parent folder for kache (SW-4900 findings)",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "epic": "docs-tutorials",
       "body": "",
       "created": "2026-11-27",
       "updated": "2026-11-27",
