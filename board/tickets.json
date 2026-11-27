@@ -21837,7 +21837,7 @@
     {
       "id": 4952,
       "title": "worktree:new builds the release CLI up front: 4 min 17 s at 22:13 on 27 Nov after a crates/core merge with two builds running; consider letting the lane build on first need",
-      "status": "backlog",
+      "status": "doing",
       "agent": "",
       "where": "",
       "labels": [],
