@@ -7279,7 +7279,7 @@
     {
       "id": 2163,
       "title": "[Sonnet] Cold std stage 4: ship a prebuilt std cache with installed binaries, built by the flake, trusted as the playground's std.cache is",
-      "status": "backlog",
+      "status": "doing",
       "agent": "",
       "where": "",
       "labels": [
@@ -7288,7 +7288,7 @@
       "epic": "dev-loop-speed",
       "body": "From docs/proposals/cold-std-check.md. Waits on D3120 (Matt). 90 min.\n\nD3120 — Matt, 7 Nov 2026: \"I have no issues shipping a pre-built cache to speed things up. That seems totally reasonable. I mean, if you're trusting the binary, you might as well trust the cache, right?\"\n\nAudit note (22 Nov): 22 Nov 2026 audit: Still true: D3120 (Matt) says yes to a shipped cache; nothing built.\n",
       "created": "2026-11-07",
-      "updated": "2026-11-22",
+      "updated": "2026-11-27",
       "commits": []
     },
     {
