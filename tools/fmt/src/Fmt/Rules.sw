@@ -1167,7 +1167,8 @@ def letDoc (binding: Let) (exprLet: Bool) (around: Around): Doc := match binding
     let valueAround := around.next assign.trails (assignAt + 1)
     let (below, choice) := bodyAfter value assign valueAround exprLet
     if exprLet then
-      if assign.trails || value.noted || value.isBlock then Doc.concat [head, choice]
+      if assign.trails || value.noted then Doc.concat [head, HardLine, value.el valueAround]
+      else if value.isBlock then Doc.concat [head, choice]
       else Doc.concat [head, Doc.text " ", valueEl value valueAround True]
     else
       let id := around.at + 1
@@ -1180,9 +1181,16 @@ def letInDoc (binding: Let) (semicolon: Comments) (body: Expr) (around: Around):
   let semi := fixedWord ";" semicolon
   let letPart := framedBy (fixedWord "let" binding.keyword) around (letDoc binding True around)
   let semiAround := around.next (trailsBack (letWords binding).reverse) size
-  Doc.group
-    (Align
-      (Doc.concat [letPart, semi.leaf semiAround semiAround.at, Line, body.el (around.next semi.trails (size + 1))]))
+  let bodyEl := body.el (around.next semi.trails (size + 1))
+  if binding.valueBelow then Doc.group (Doc.concat [letPart, semi.leaf semiAround semiAround.at, Doc.text " ", bodyEl])
+  else Doc.group (Align (Doc.concat [letPart, semi.leaf semiAround semiAround.at, Line, bodyEl]))
+
+--| Whether a comment puts an expression `let`'s value on the line below its `:=`: an own-line comment before it,
+--| or a trailing comment ending the `:=` line. The value then stays at the indentation in force, a continuation of
+--| the `:=` line, and the body after the `;` stays on the value's line: a line starting at the `let`'s column, or
+--| a value at +2, would be a block that ends at the `;` (SW-4922, `let_value_comment_below`).
+def Let.valueBelow (binding: Let): Bool := match binding with
+  | { colonEq, value, .. } => colonEq.after.isSome || value.noted
 
 --| `if c then a else b` (`if_`, S19), its clauses not yet grouped: on one
 --| line if it fits, otherwise one clause a line at the `if`'s column, each
