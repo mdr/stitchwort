@@ -90,14 +90,23 @@ function register(context, cliPath, serverTests) {
     runTerminal.show(true);
   }
 
+  const panel = registerTestingPanel(context, cliPath, serverTests);
+
+  // In a project file the icons start an ordinary Testing run, so that VS
+  // Code's Rerun Last Run and Rerun Failed Tests repeat it (SW-4943); a file
+  // outside a project, or one the panel hasn't listed yet, keeps the direct run.
+  const lens = async (uri, name) => {
+    if (!(await panel.runFile(fileOf(uri), name))) await runTestsOfFile(uri, name);
+  };
+
   context.subscriptions.push(
-    vscode.commands.registerCommand(run.RUN_TEST, (uri, name) => runTestsOfFile(uri, name)),
-    vscode.commands.registerCommand(run.RUN_TESTS, (uri) => runTestsOfFile(uri)),
+    vscode.commands.registerCommand(run.RUN_TEST, (uri, name) => lens(uri, name)),
+    vscode.commands.registerCommand(run.RUN_TESTS, (uri) => lens(uri)),
+    vscode.commands.registerCommand(run.RUN_PROJECT_TESTS, () => panel.runActiveProject()),
+    vscode.commands.registerCommand(run.TOGGLE_RUN_ON_SAVE, () => panel.toggleContinuous()),
     vscode.commands.registerCommand(run.RUN_MAIN, (uri) => runMain(uri)),
     vscode.workspace.onDidChangeTextDocument((e) => failures.delete(e.document.uri)),
   );
-
-  registerTestingPanel(context, cliPath, serverTests);
 }
 
 // The Testing panel: a controller whose items are the tests of the project's
@@ -173,7 +182,9 @@ function registerTestingPanel(context, cliPath, serverTests) {
         info.set(child, { project: info.get(item).project, file: uri.fsPath, name: t.name });
         item.children.add(child);
       }
-      child.range = new vscode.Range(t.line, t.character, t.line, t.character);
+      // The declaration's whole range, so Run Test at Cursor finds the test
+      // the cursor is in; the text fallback knows only the start.
+      child.range = new vscode.Range(t.line, t.character, t.endLine ?? t.line, t.endCharacter ?? t.character);
     }
     item.canResolveChildren = false;
   }
@@ -275,8 +286,13 @@ function registerTestingPanel(context, cliPath, serverTests) {
   };
 
   // Reports one finished CLI run on the items it covered.
+  // A `fresh` job (a continuous rerun) reports only what ran now and failures.
   function report(testRun, job, result) {
     const { covered } = job;
+    if (job.fresh && (result.cancelled || result.error)) {
+      if (result.error && !result.cancelled) testRun.appendOutput(result.error.replace(/\r?\n/g, '\r\n') + '\r\n');
+      return;
+    }
     if (result.cancelled) {
       covered.forEach((i) => testRun.skipped(i));
       return;
@@ -287,7 +303,7 @@ function registerTestingPanel(context, cliPath, serverTests) {
       return;
     }
     const reported = new Set();
-    for (const t of result.tests) {
+    for (const t of job.fresh ? run.freshResults(result.tests) : result.tests) {
       const abs = t.file ? run.reportedPath(job.project, job.project, t.file) : job.file;
       const item = covered.find((i) => info.get(i).name === t.name && (!abs || info.get(i).file === abs));
       testRun.appendOutput(`${run.summaryLine(t)}\r\n`);
@@ -311,20 +327,76 @@ function registerTestingPanel(context, cliPath, serverTests) {
       }
     }
     // Tests the run did not mention (the file was edited meanwhile).
-    for (const i of covered) if (!reported.has(i.id)) testRun.skipped(i);
+    if (!job.fresh) for (const i of covered) if (!reported.has(i.id)) testRun.skipped(i);
+  }
+
+  async function saveDirty(project) {
+    for (const doc of vscode.workspace.textDocuments) {
+      if (doc.isDirty && doc.languageId === cfg.LANGUAGE && doc.uri.fsPath.startsWith(`${project}${path.sep}`)) await doc.save();
+    }
   }
 
   async function runHandler(request, token) {
+    if (request.continuous) return continuousRun(request, token);
+    return runOnce(request, token);
+  }
+
+  // Run on save: one run now, then each save of a `.sw` file in a project the
+  // request covers reruns that project's tests (one `stitchwort test` each,
+  // the test cache answering for the tests the edit didn't touch). Returns
+  // when VS Code stops the continuous run.
+  let continuousOn = false;
+  async function continuousRun(request, token) {
+    continuousOn = true;
+    const scope = request.include && request.include.length ? [...new Set(request.include.map((i) => info.get(i).project))] : undefined;
+    await runOnce(request, token);
+    if (token.isCancellationRequested) {
+      continuousOn = false;
+      return;
+    }
+    await new Promise((resolve) => {
+      const pending = new Set();
+      let abort;
+      const rerun = run.debounce(async () => {
+        const projects = [...pending];
+        pending.clear();
+        if (abort) abort.abort();
+        const mine = (abort = new AbortController());
+        const testRun = controller.createTestRun(request);
+        const jobs = projects.map((dir) => ({ project: dir, fresh: true, covered: leaves(projectItem(dir)).filter((i) => info.get(i).name !== undefined) }));
+        await run.runPool(
+          jobs,
+          run.PARALLEL_RUNS,
+          (job) => run.runTestsJson(cliPath(), run.testArgs({}), job.project, mine.signal),
+          (job, result) => report(testRun, job, result),
+          () => mine.signal.aborted,
+        );
+        testRun.end();
+      }, 300);
+      const onSave = vscode.workspace.onDidSaveTextDocument((doc) => {
+        if (doc.languageId !== cfg.LANGUAGE) return;
+        const job = run.continuousJob(doc.uri.fsPath, [...projects.keys()], scope);
+        if (!job) return;
+        pending.add(job.project);
+        rerun();
+      });
+      token.onCancellationRequested(() => {
+        continuousOn = false;
+        rerun.cancel();
+        if (abort) abort.abort();
+        onSave.dispose();
+        resolve();
+      });
+    });
+  }
+
+  async function runOnce(request, token) {
     const testRun = controller.createTestRun(request);
     const abort = new AbortController();
     token.onCancellationRequested(() => abort.abort());
+    if (testRun.token) testRun.token.onCancellationRequested(() => abort.abort());
     const jobs = plan(request);
-    for (const job of jobs) {
-      if (job.file) {
-        const doc = vscode.workspace.textDocuments.find((d) => d.uri.fsPath === job.file);
-        if (doc && doc.isDirty) await doc.save();
-      }
-    }
+    for (const project of new Set(jobs.map((j) => j.project))) await saveDirty(project);
     const runnable = [];
     for (const job of jobs) {
       if (job.error) {
@@ -349,7 +421,45 @@ function registerTestingPanel(context, cliPath, serverTests) {
     testRun.end();
   }
 
-  controller.createRunProfile('Run', vscode.TestRunProfileKind.Run, runHandler, true);
+  // Continuous run is VS Code's run on save; it starts off, when the user
+  // turns it on (Stitchwort: Toggle Run Tests on Save, or the eye on an item).
+  const profile = controller.createRunProfile('Run', vscode.TestRunProfileKind.Run, runHandler, true, undefined, true);
+
+  // A run started from code names the profile, which is what makes VS Code
+  // count it as the last run (Rerun Last Run, Rerun Failed Tests).
+  async function start(items) {
+    const source = new vscode.CancellationTokenSource();
+    try {
+      await runHandler(new vscode.TestRunRequest(items, undefined, profile), source.token);
+    } finally {
+      source.dispose();
+    }
+  }
+
+  return {
+    // Runs a file's tests (one test with `name`) as a Testing run; false when
+    // the panel doesn't list the file (outside a project, or not found yet).
+    async runFile(uri, name) {
+      const dir = rootOf(uri);
+      const parent = dir && projects.get(dir);
+      const file = parent && parent.children.get(uri.toString());
+      const item = file && (name === undefined ? file : file.children.get(`${uri.toString()}#${name}`));
+      if (!item) return false;
+      await start([item]);
+      return true;
+    },
+    async runActiveProject() {
+      const editor = vscode.window.activeTextEditor;
+      const dir = editor && rootOf(editor.document.uri);
+      const item = dir && projects.get(dir);
+      if (!item) {
+        vscode.window.showInformationMessage('Stitchwort: this file is not in a project with tests.');
+        return;
+      }
+      await start([item]);
+    },
+    toggleContinuous: () => vscode.commands.executeCommand(continuousOn ? 'testing.stopContinuousRun' : 'testing.startContinuousRun'),
+  };
 }
 
 function range(line, column) {

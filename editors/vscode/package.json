@@ -13,7 +13,13 @@
   "contributes": {
     "commands": [
       { "command": "stitchwort.showGoals", "title": "Stitchwort: Show Goals" },
-      { "command": "stitchwort.restartServer", "title": "Stitchwort: Restart Server" }
+      { "command": "stitchwort.restartServer", "title": "Stitchwort: Restart Server" },
+      { "command": "stitchwort.runProjectTests", "title": "Stitchwort: Run Project Tests" },
+      { "command": "stitchwort.toggleRunOnSave", "title": "Stitchwort: Toggle Run Tests on Save" }
+    ],
+    "keybindings": [
+      { "command": "stitchwort.runProjectTests", "key": "ctrl+; p", "mac": "cmd+; p", "when": "editorLangId == stitchwort" },
+      { "command": "stitchwort.toggleRunOnSave", "key": "ctrl+; w", "mac": "cmd+; w", "when": "editorLangId == stitchwort" }
     ],
     "languages": [
       {
