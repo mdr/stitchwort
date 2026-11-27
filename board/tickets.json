@@ -21807,17 +21807,21 @@
     {
       "id": 4950,
       "title": "search: a constructor mention filters nothing (search --in Std MkPair lists all 9,732 std declarations); the type index seems to skip constructors",
-      "status": "review",
+      "status": "done",
       "agent": "",
       "where": "",
       "labels": [
         "bug"
       ],
       "epic": "proof-search",
-      "body": "[Sonnet] From SW-4947 (27 Nov).\n\nSW-4950 lane: cause was that constructors (Term::Ctor) were recorded neither in the pattern's names nor in the candidate type index (only defs and data types); added a ctors set to both, used by the mention filter (not by pattern matching, where MkPair _ _ also matches variables of the pair type by eta). std MkPair: 9732 -> 523 results; MkPair _ _ = _ unchanged at 91.\n",
+      "body": "[Sonnet] From SW-4947 (27 Nov).\n\nSW-4950 lane: cause was that constructors (Term::Ctor) were recorded neither in the pattern's names nor in the candidate type index (only defs and data types); added a ctors set to both, used by the mention filter (not by pattern matching, where MkPair _ _ also matches variables of the pair type by eta). std MkPair: 9732 -> 523 results; MkPair _ _ = _ unchanged at 91.\n\nDone (Sonnet): constants()/data_types() skipped Term::Ctor, so a bare constructor named nothing; ctors sets on Pattern and Index, required by the mention filter (keep) only, not passes() (eta matches through pair-typed variables would be lost). MkPair 9,732 -> 523; MkPair _ _ = _ 91 -> 91 same set. On main: 41 search tests, wasm builds. Model result: sonnet, worked, 12 min (est. 30).\n",
       "created": "2026-11-27",
       "updated": "2026-11-27",
-      "commits": []
+      "commits": [
+        "7e99e5382",
+        "73c3c75d5",
+        "fb2b58081"
+      ]
     },
     {
       "id": 4951,
