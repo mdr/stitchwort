@@ -3002,6 +3002,36 @@ test("in a project, an error in the day's program is underlined", async (page) =
   assert.equal(await page.ev(`window.editor.stats.restarts`), 0, "the server didn't crash");
 }, { ms: 280000 });
 
+// The page asks the compiler's worker for the project's outline after each
+// pause in typing (index.html's `render`), and the outline parses every file
+// of the project: about 400 ms for the AoC project here. A newer outline used
+// to end the worker still busy with the last, so typing a key every 300 ms
+// started a new worker for each key, each loading the library again and
+// cancelled before it answered (SW-4925).
+test("in a project, typing with pauses keeps the compiler's worker", async (page) => {
+  await page.open({ patch: `(() => {
+    const W = window.Worker; window.__compilerWorkers = 0;
+    window.Worker = class extends W {
+      constructor(url, options) { super(url, options); if (String(url).includes("playground-worker.js")) window.__compilerWorkers++; }
+    };
+  })()` });
+  await page.untilChecked();
+  await openDay(page, 2);
+  await page.until(DAY2_TABS_READY);
+  await sleep(1000);
+  const before = await page.ev(`window.__compilerWorkers`);
+  await caretAtEnd(page);
+  for (const ch of "abcdefgh") {
+    await page.type(ch);
+    await sleep(300);
+  }
+  await sleep(2000);
+  // Before the fix, about one new worker a key (7 or 8); one is allowed for
+  // a crash or timeout of its own.
+  const made = (await page.ev(`window.__compilerWorkers`)) - before;
+  assert.ok(made <= 1, `${made} compiler workers started while typing 8 keys`);
+}, { ms: 180000 });
+
 test("the roguelike's files open without false errors", async (page) => {
   await page.open();
   await page.untilChecked();

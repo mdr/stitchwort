@@ -21388,14 +21388,14 @@
     {
       "id": 4925,
       "title": "Playground: typing in an AoC day lags up to a second per keystroke (2021 day 18)",
-      "status": "doing",
+      "status": "review",
       "agent": "",
       "where": "",
       "labels": [
         "bug"
       ],
       "epic": "editor-playground",
-      "body": "[Opus] Matt, 27 Nov 2026: \"going around the advent of code puzzles seems quite sluggish, like up to a second per keystroke before it enters. For example on 2021 day 18\". On the public playground (released today, SW-4923). Day 18's files are small (Day18.sw 162 lines, its biggest proof file 225), so the cause is probably per-keystroke work on the page's main thread, not file size. Profile first: measure keystroke-to-paint latency in headless Chrome on 2021 day 18 and a small day, find the hotspot, fix only that, measure again.\n",
+      "body": "[Opus] Matt, 27 Nov 2026: \"going around the advent of code puzzles seems quite sluggish, like up to a second per keystroke before it enters. For example on 2021 day 18\". On the public playground (released today, SW-4923). Day 18's files are small (Day18.sw 162 lines, its biggest proof file 225), so the cause is probably per-keystroke work on the page's main thread, not file size. Profile first: measure keystroke-to-paint latency in headless Chrome on 2021 day 18 and a small day, find the hotspot, fix only that, measure again.\n\n[Opus lane, 27 Nov] The second-long lag did not reproduce in headless Chrome (input-to-paint 16 to 24 ms per key, no long tasks, in every case tried, including the deployed site). Measured instead: typing in a project burns about 4 cores off the main thread. Cause found and fixed: each pause's outline request (parses all 726 AoC files, ~400 ms) was cancelled by the next by ending the compiler's worker, so typing 400 ms apart started a worker per key (19 for 20 keys), each reloading the library, and the outline never answered. A superseded outline now keeps its worker (web/index.html, Compiler.finish); browser test 'in a project, typing with pauses keeps the compiler's worker' (7 workers for 8 keys before). Chrome CPU for that typing 36 s -> 33 s; the rest is the language server's re-check and the outline itself. Entry in docs/performance/log.md.",
       "created": "2026-11-27",
       "updated": "2026-11-27",
       "commits": []
