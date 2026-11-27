@@ -226,6 +226,31 @@ fn run_and_test_of_a_project_use_the_name_index_cache() {
     let _ = std::fs::remove_dir_all(&scratch);
 }
 
+/// `search` in a project starts its session from the project's cache, as
+/// `check` does (SW-4935): it writes the library's name index there before
+/// it reads the project. The project's namespaces clash, so the search
+/// stops at that error, without loading the library.
+#[test]
+fn search_in_a_project_uses_the_name_index_cache() {
+    let scratch = scratch_dir("index-search");
+    std::fs::write(scratch.join("stitchwort.yaml"), "sources: [src]\n").unwrap();
+    std::fs::create_dir_all(scratch.join("src/P")).unwrap();
+    std::fs::write(scratch.join("src/P.sw"), "namespace P\n\ndef Q: Nat := 1\n").unwrap();
+    std::fs::write(
+        scratch.join("src/P/Q.sw"),
+        "namespace P.Q\n\ndef x: Nat := 1\n",
+    )
+    .unwrap();
+    let (ok, text) = stitchwort_in(&scratch, &["search", "Nat"]);
+    assert!(!ok && text.contains("E-NAMESPACE-CLASH"), "search:\n{text}");
+    assert_eq!(
+        indexes_in(&scratch.join(".stitchwort/cache")),
+        1,
+        "search writes the index"
+    );
+    let _ = std::fs::remove_dir_all(&scratch);
+}
+
 /// An edited `--std-dir` copy gets an index of its own under `run`, as under
 /// `check`: the cache is keyed by the library's text.
 #[test]

@@ -21547,14 +21547,14 @@
     {
       "id": 4935,
       "title": "stitchwort search takes about 1.7 s warm and 24 s cold for a std-only query (check of a one-line file: 0.34 s): profile and speed it up (indexes, caches)",
-      "status": "doing",
+      "status": "review",
       "agent": "",
       "where": "",
       "labels": [
         "perf"
       ],
       "epic": "proof-search",
-      "body": "[Opus] Matt, 27 Nov 2026: \"searching is relatively slow. Is there any way we can optimize searching? Use some indexes, caches, that kind of thing?\" His run: `stitchwort search --in Std '() → {Parse Char} Int'`, 2.7 s.\n\nMeasured by the orchestrator on Speedwell (release CLI at main, one run each): the first search after today's merges took 23.9 s (cold: presumably std's check cache rebuilt); warm, the same search 1.7 s and `search --in Std 'Nat → Nat → Nat'` 1.8 s, against 0.34 s for `check` of a one-line file. So about 1.4 s a warm search is search's own work, and a cold one far more.\n\nProfile first (warm and cold, std-only and in a project such as aoc/), change only a measured hotspot, measure again. Related backlog: SW-1491 (search_at_text loads all of std eagerly for every search), SW-2161, SW-2163 (prebuilt std cache).\n",
+      "body": "[Opus] Matt, 27 Nov 2026: \"searching is relatively slow. Is there any way we can optimize searching? Use some indexes, caches, that kind of thing?\" His run: `stitchwort search --in Std '() → {Parse Char} Int'`, 2.7 s.\n\nMeasured by the orchestrator on Speedwell (release CLI at main, one run each): the first search after today's merges took 23.9 s (cold: presumably std's check cache rebuilt); warm, the same search 1.7 s and `search --in Std 'Nat → Nat → Nat'` 1.8 s, against 0.34 s for `check` of a one-line file. So about 1.4 s a warm search is search's own work, and a cold one far more.\n\nProfile first (warm and cold, std-only and in a project such as aoc/), change only a measured hotspot, measure again. Related backlog: SW-1491 (search_at_text loads all of std eagerly for every search), SW-2161, SW-2163 (prebuilt std cache).\n\n\nLane (Opus, 27 Nov, fe67bcfd3): profiled with samply. Warm std-only search: deferred equations 34%, library load 33% (Float.sw re-elaborated, SW-1204, 14%), session start 20% (std parsed for the name index 13%, core checked from source 6%), type_index 11%. search never used the name-index and core caches check/run/test use; now it does: std-only 1.66 -> 1.49 s, aoc --in Std 2.55 -> 2.25 s, --json identical on six queries. Cold runs (23-61 s) are the check cache missing after a compiler change: search loads all std. Left as design options: cache the deferred equations (~-0.45 s est.), SW-1204 (-0.2 s), skip the project under --in Std (-0.8 s in aoc/, changes what a pattern can name). Log: docs/performance/log.md.\n",
       "created": "2026-11-27",
       "updated": "2026-11-27",
       "commits": []
