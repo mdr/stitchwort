@@ -1,5 +1,5 @@
 {
-  "next": 4937,
+  "next": 4938,
   "tickets": [
     {
       "id": 47,
@@ -21568,6 +21568,19 @@
       "labels": [],
       "epic": "proof-search",
       "body": "[Sonnet] D3763 (Matt, 27 Nov 2026): reshape `stitchwort search`'s human output as variant C of the mockups (/Users/Shared/search-variants-dark.ansi, -light.ansi; generator kept at scratchpad/search-variants.py): per result, the short name in bold, ` : `, the type coloured as code, then on the right the namespace (dim) and the path (dim); the doc comment's first sentence on the next line, indented, green italic. No import line, no \"definition · instance · whole\" labels; \"N matches for <query>\" above; the tier note only when results are looser than exact. Colour only when stdout is a terminal and NO_COLOR is unset, from the shared palette (crates/driver/src/palette.rs, as the REPL and errors use). --json unchanged. Earlier, Matt found the import line confusing (\"is that useful? I don't know\") and asked for colour on the type and the qualified name, and a different colour for the doc comment.\n",
+      "created": "2026-11-27",
+      "updated": "2026-11-27",
+      "commits": []
+    },
+    {
+      "id": 4937,
+      "title": "stitchwort search: no way to leave abilities open: {_} is refused and {e} doesn't match {Parse Char}; make an ability hole match any row",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "epic": "proof-search",
+      "body": "[Opus] Matt, 27 Nov 2026: \"Is there a way to search for something where you're not quite sure what abilities might be involved?\" Tried by the orchestrator, release CLI at main, `search --in Std`:\n- `() → {_} Int`: E-ABILITY \"expected an ability\" (Matt's try).\n- `() → _ Int`: E-NOT-A-TYPE (Matt's try).\n- `() → {e} Int` and `() → {?e} Int`: elaborate, but the only result is Std.Effect.bindIn (relaxed pass, with the \"weaker\" warning); Std.Parse.int, `() → {Parse Char} Int`, is not found: the row hole doesn't match a concrete row.\n- `() → {Parse _} Int`: finds Parse.int (works when the ability is known).\nWanted: a way to leave the abilities open that finds every `() → {…} Int`: `{_}` (and a named `{?e}`/`{e}`) accepted as \"any row\" in a search pattern, matching any row including the empty one; possibly a pattern with no braces also matching computations with abilities (decide, and say). docs/syntax.md's search section and the guide get the syntax. Run after SW-4935 (search speed), which works in the same code.\n",
       "created": "2026-11-27",
       "updated": "2026-11-27",
       "commits": []
