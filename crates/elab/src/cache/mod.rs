@@ -98,7 +98,7 @@ use stitchwort_syntax::{Diagnostic, Label, Severity};
 
 /// The version of the entry format, part of every key: a change to what an
 /// entry holds or how it is written bumps it, and old entries are misses.
-pub const FORMAT: u32 = 47;
+pub const FORMAT: u32 = 48;
 
 const MAGIC: &[u8; 8] = b"SWCHECK\0";
 
@@ -6293,5 +6293,164 @@ mod tests {
         assert!(why.starts_with("refused:"), "{why}");
         assert_eq!(added, (0, 0), "the refused group wasn't undone");
         assert_eq!((stats.refused_on_recheck, stats.refused), (1, 0));
+    }
+
+    /// A primitive's entry, its type `ty`, for the tests below.
+    fn primitive_entry(name: &str, path: &str, ty: stitchwort_core::Term) -> super::DefEntry {
+        super::DefEntry {
+            name: name.into(),
+            path: path.into(),
+            theorem: false,
+            instance: false,
+            fold: false,
+            opaque: false,
+            tailrec: false,
+            primitive: true,
+            unfolding: Vec::new(),
+            span: forged_span(),
+            ty,
+            body: None,
+            group: Vec::new(),
+            run_body: None,
+            hash: None,
+        }
+    }
+
+    /// The trusted replay of `defs`, binding `bound`, in `e`, from a
+    /// library file's entry (`library`) or a namespace's: its result, and
+    /// whether the kernel's bindings and definitions are as they were
+    /// before it.
+    fn replay_primitives(
+        e: &mut Elaborator,
+        defs: &[super::DefEntry],
+        bound: &[(u8, usize, Builtin)],
+        library: bool,
+    ) -> (Result<(), super::Bad>, bool) {
+        let before = (e.kernel.bindings_dump(), e.kernel.env.defs().len());
+        let result = e.admit_replayed(
+            defs,
+            &[],
+            bound,
+            &state::TablesDelta::default(),
+            library,
+            super::Hit {
+                exact: true,
+                recheck: false,
+                interface: false,
+            },
+        );
+        let after = (e.kernel.bindings_dump(), e.kernel.env.defs().len());
+        (result, before == after)
+    }
+
+    /// An elaborator with the core, std but its Float file installed (so
+    /// an entry replayed with `library` is a library file's, not the
+    /// core's), and std's `Float`: its `isValid` and the record, copied
+    /// from `std/Float/Float.sw`, so `Float` binds and its pin holds, but
+    /// nothing after them, `Float.toText` included.
+    fn with_float_but_no_to_text() -> Elaborator {
+        use stitchwort_syntax::{SourceMap, parse_module};
+        let mut sources = SourceMap::new();
+        let core = sources.add("<prelude>", crate::prelude());
+        let core = parse_module(core, crate::prelude()).expect("the core parses");
+        let mut e = Elaborator::new();
+        e.unit.loading_prelude = true;
+        e.elaborate_module(&core);
+        e.finish_core(crate::prelude()).expect("a complete core");
+        // The rest of std, for the names the copy uses (`Nat.leq`).
+        let files: Vec<(&str, &str)> = crate::library_files()
+            .iter()
+            .filter(|(path, _)| *path != "Float/Float.sw")
+            .copied()
+            .collect();
+        let index = crate::library::LibraryIndex::build(crate::prelude(), &files, 8 << 20);
+        e.install_library(std::sync::Arc::new(index.expect("an index")));
+        let float = include_str!("../std/Float/Float.sw");
+        let record = float
+            .find("\ntype Float = ")
+            .expect("Float.sw declares `Float`");
+        let end = record + 1 + float[record + 1..].find('\n').expect("a line end");
+        let text = &float[..end + 1];
+        let file = sources.add("Float/Float.sw", text);
+        let module = parse_module(file, text).expect("parses");
+        e.unit.loading_prelude = true;
+        let errors = e.elaborate_module(&module);
+        assert!(errors.is_empty(), "{errors:?}");
+        assert!(
+            e.kernel.env.registry().data(Builtin::Float).is_some(),
+            "`Float` isn't bound"
+        );
+        e
+    }
+
+    /// `Float -> cod`, as `float::primitive_type` writes `toText`'s type.
+    fn from_float(e: &Elaborator, cod: Builtin) -> stitchwort_core::Term {
+        use std::rc::Rc;
+        use stitchwort_core::{Icit, Term};
+        let data = |b| Term::Data(e.kernel.env.registry().data(b).expect("bound"), Vec::new());
+        Term::Pi(
+            "x".into(),
+            Icit::Explicit,
+            Rc::new(data(Builtin::Float)),
+            Rc::new(data(cod)),
+            ProofMark::Unknown,
+        )
+    }
+
+    /// A namespace's entry may hold no primitive: refused before anything
+    /// reaches the kernel, whatever the primitive.
+    #[test]
+    fn a_namespace_entry_holding_a_primitive_is_refused() {
+        let mut e = with_float_but_no_to_text();
+        let ty = from_float(&e, Builtin::Text);
+        let defs = [primitive_entry("Float.toText", "Std.Float.toText", ty)];
+        let (result, undone) = replay_primitives(&mut e, &defs, &[], false);
+        let super::Bad(why) = result.expect_err("a namespace's primitive was admitted");
+        assert!(why.contains("a primitive outside the library"), "{why}");
+        assert!(undone, "the refused entry left something behind");
+    }
+
+    /// A library file's entry may hold a float primitive only: one named
+    /// as the core's (`Effect.Delay`) is refused by name, before any rule for it
+    /// runs (the core's own rule would refuse it too, but the
+    /// name is checked first).
+    #[test]
+    fn a_library_entry_holding_a_core_primitive_is_refused() {
+        let mut e = with_float_but_no_to_text();
+        let ty = stitchwort_core::Term::Sort(stitchwort_core::Sort::Type(0));
+        let defs = [primitive_entry(
+            "Effect.Delay",
+            "Std.Float.Effect.Delay",
+            ty,
+        )];
+        let (result, undone) = replay_primitives(&mut e, &defs, &[], true);
+        let super::Bad(why) = result.expect_err("a core primitive was admitted");
+        assert!(why.contains("isn't a primitive"), "{why}");
+        assert!(undone, "the refused entry left something behind");
+    }
+
+    /// `Float.toText`'s type in an entry is compared with the one the
+    /// compiler expects, not trusted: `Float -> Float` is refused and
+    /// undone, and `Float -> Text`, in the same setting, is admitted and
+    /// bound as the primitive.
+    #[test]
+    fn a_float_primitive_of_the_wrong_type_is_refused() {
+        let mut e = with_float_but_no_to_text();
+        let wrong = from_float(&e, Builtin::Float);
+        let defs = [primitive_entry("Float.toText", "Std.Float.toText", wrong)];
+        let bound = [(0, 0, Builtin::FloatToText)];
+        let (result, undone) = replay_primitives(&mut e, &defs, &bound, true);
+        let super::Bad(why) = result.expect_err("a mistyped `Float.toText` was admitted");
+        assert!(
+            why.contains("doesn't have the type the compiler expects"),
+            "{why}"
+        );
+        assert!(undone, "the refused entry left something behind");
+        let right = from_float(&e, Builtin::Text);
+        let defs = [primitive_entry("Float.toText", "Std.Float.toText", right)];
+        let id = stitchwort_core::DefId(e.kernel.env.defs().len());
+        let (result, _) = replay_primitives(&mut e, &defs, &bound, true);
+        result.expect("the right type is admitted");
+        assert!(e.kernel.env.builtins().float_primitive(id).is_some());
     }
 }

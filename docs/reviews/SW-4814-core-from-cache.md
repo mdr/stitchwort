@@ -79,7 +79,10 @@ met and lists every piece of state loading the core sets.
 Also: `FORMAT` 46 → 47 (a `primitive` flag on every definition record);
 the decoder refuses a primitive outside the core's entry (`submit`: an
 entry that binds built-ins with no library installed is the core's), one
-left out to part B, or one in a group.
+left out to part B, or one in a group. (Since SW-1204, 27 Nov 2026, `FORMAT`
+48: a library file's entry may hold float primitives, admitted by
+`float::define_primitive`; the core's primitives are still refused outside
+the core's entry, and a namespace's entry may hold no primitive.)
 
 ## What loading the core sets, and how each is replayed or recomputed
 
