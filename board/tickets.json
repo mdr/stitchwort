@@ -37061,12 +37061,12 @@
     {
       "id": 4902,
       "title": "[Sonnet] All-tier timeouts 27 Nov (at df69610cd, load 50-97 during the run): driver::library search_at_bench::stage_two_on_any_std_statement (1200 s limit) and driver::proofs differential::the_evaluators_agree_on_the_prelude_and_every_example (1800 s limit); also examples_wide::rewinding_changes_nothing_for_the_examples took 3,382 s. Rerun each alone on a quiet machine to see if it's load or a slowdown; if a slowdown, find the commit",
-      "status": "doing",
+      "status": "review",
       "agent": "Sonnet",
       "where": "",
       "labels": [],
       "epic": "test-infra",
-      "body": "",
+      "body": "Lane result: stage_two_on_any_std_statement passes alone in 996 s (lane build) and 968 s (plain build) on a quiet machine, 430 goals, one thread: 80% of its 1200 s cap, so load pushed it over; no slowdown found (at 13ab4fc67 it panicked after 116 s, so it has no earlier full time). differential: not load alone; it fails its own MAX_SKIPPED (139 distinct skips vs 115), from large-type-stuck-parameter.sw (19) and cast-ends-tested-once.sw (13), added 23 Nov, 831 s on 4 threads. Fixed: MAX_SKIPPED 145; nextest caps raised (differential 60 min, stage 2 60 min). Finding: a lane worktree's own (incremental) release build of the proofs binary overflows the stack on fin-pattern-numbers.sw in the differential, the cached build does not.",
       "created": "2026-11-27",
       "updated": "2026-11-27",
       "commits": []

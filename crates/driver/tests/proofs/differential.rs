@@ -121,7 +121,14 @@ static SKIPPED_REPEATS: AtomicUsize = AtomicUsize::new(0);
 /// refine-keeps-big-call.sw 12 (decreasing.sw compares in full, 0): 20 more.
 /// Each count is from that example's own `STITCHWORT_DIFFERENTIAL_ONLY` run.
 /// So 90 + 20, and 5 of headroom.
-const MAX_SKIPPED: usize = 115;
+///
+/// Two examples added on 23 Nov 2026 hold large terms by design, as the
+/// `large-hypothesis-*.sw` ones do: large-type-stuck-parameter.sw (SW-4671;
+/// a parameter's type over a call that computes to 2^22 nodes) skips 19 and
+/// cast-ends-tested-once.sw (SW-4673; a tower of casts whose types are too
+/// big to write out) 13. The all tier on 27 Nov found 139 distinct skips
+/// (SW-4902), so the limit is that plus 5 of headroom.
+const MAX_SKIPPED: usize = 145;
 
 /// Where a skipped comparison is counted: `std` when it involves only std's
 /// definitions, otherwise the example (or `prelude`) being swept.
