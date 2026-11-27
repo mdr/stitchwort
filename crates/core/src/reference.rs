@@ -51,7 +51,10 @@ use std::rc::Rc;
 use crate::budget::Result;
 use crate::native;
 use crate::term::{Branch, DefId, Icit, QuotForm, Sort, Term};
-use crate::value::{Closure, Elim, Ends, Head, Shared, Spine, Value, quot_mk_rep, quot_value};
+use crate::value::{
+    Closure, Elim, Ends, Head, LEVELS_PER_TEST, RESERVED_LEVELS, Shared, Spine, Value, quot_mk_rep,
+    quot_value, test_levels,
+};
 
 thread_local! {
     static PLAIN: std::cell::Cell<bool> = const { std::cell::Cell::new(false) };
@@ -891,8 +894,11 @@ fn rule_s(
     for (k, index) in ctor.result.iter().enumerate() {
         let wanted = eval(g, &ctor_env, index)?;
         let depth = ENDS_DEPTH.with(|c| c.get());
+        let Some(level) = ends_level(depth) else {
+            return Ok(false);
+        };
         ENDS_DEPTH.with(|c| c.set(depth + 1));
-        let same = conv(g, (1 << 40) + depth * (1 << 24), &wanted, &args[n + k]);
+        let same = conv(g, level, &wanted, &args[n + k]);
         ENDS_DEPTH.with(|c| c.set(depth));
         if !same? {
             return Ok(false);
@@ -1121,15 +1127,25 @@ thread_local! {
     static ENDS_DEPTH: std::cell::Cell<usize> = const { std::cell::Cell::new(0) };
 }
 
+/// The first fresh level of the test of ends `depth` tests deep: `None`
+/// past the top of the reserved range, where the test answers "not equal".
+fn ends_level(depth: usize) -> Option<usize> {
+    let used = depth.checked_mul(LEVELS_PER_TEST)?;
+    test_levels(RESERVED_LEVELS, used).map(|(level, _)| level)
+}
+
 /// Whether a cast's ends are equal (rule K). Evaluation has no count of the
 /// variables in scope, so the comparison's fresh variables start far above
-/// any context (`1 << 40`), each test in progress (one nested in another's
-/// comparison) taking its own `1 << 24` of them, so none can be a free
-/// variable of the ends.
+/// any context ([`RESERVED_LEVELS`]), each test in progress (one nested in
+/// another's comparison) taking its own [`LEVELS_PER_TEST`] of them, so none
+/// can be a free variable of the ends.
 fn ends_equal(g: &Ev, ends: &Ends) -> Result<bool> {
     let depth = ENDS_DEPTH.with(|d| d.get());
+    let Some(level) = ends_level(depth) else {
+        return Ok(false);
+    };
     ENDS_DEPTH.with(|d| d.set(depth + 1));
-    let same = conv(g, (1 << 40) + depth * (1 << 24), &ends.x, &ends.y);
+    let same = conv(g, level, &ends.x, &ends.y);
     ENDS_DEPTH.with(|d| d.set(depth));
     same
 }

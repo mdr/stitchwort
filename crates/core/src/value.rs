@@ -557,12 +557,25 @@ pub struct Ends {
 /// values compared (docs/proposals/full-proof-irrelevance-audit.md, finding
 /// A: with `v5` free, comparing `z => z` with `z => v5` at level 5 would
 /// answer "equal"). On a 32-bit target (the web build) it is 2^31, which
-/// leaves room for 128 nested tests of [`LEVELS_PER_TEST`] each.
+/// leaves room for 128 nested tests of [`LEVELS_PER_TEST`] each; one inside
+/// all of them answers "not equal" ([`test_levels`]).
 pub const RESERVED_LEVELS: usize = if usize::BITS >= 64 { 1 << 40 } else { 1 << 31 };
 
 /// How far each test in progress may go under binders before a nested one
 /// (a cast met while comparing the ends of another) starts its own levels.
-const LEVELS_PER_TEST: usize = 1 << 24;
+pub(crate) const LEVELS_PER_TEST: usize = 1 << 24;
+
+/// The first fresh level of a test started with `used` levels above `base`
+/// taken by the tests around it, and the count taken while it runs; `None`
+/// if its range would pass `usize::MAX`. Unchecked, the sum would wrap into
+/// the levels of real variables, the collision [`RESERVED_LEVELS`] exists to
+/// prevent; on a 32-bit target that happens to a test inside 128 others. The
+/// caller answers "not equal" (the cast stays stuck), which is always safe.
+pub(crate) fn test_levels(base: usize, used: usize) -> Option<(usize, usize)> {
+    let taken = used.checked_add(LEVELS_PER_TEST)?;
+    base.checked_add(taken - 1)?;
+    Some((base + used, taken))
+}
 
 /// Whether the ends of a cast into data are equal, so the cast is its base
 /// (rule K). Read-only: a comparison ([`conv`]), never the unifier, so it
@@ -602,9 +615,11 @@ fn meet_in_evaluation(g: &Ev, x: &Value, y: &Value) -> Result<bool> {
         }
     }
     let used = g.machine.cast_levels.get();
-    let level = RESERVED_LEVELS + used;
+    let Some((level, taken)) = test_levels(RESERVED_LEVELS, used) else {
+        return Ok(false);
+    };
     let _restore = Restore(g.machine, used);
-    g.machine.cast_levels.set(used + LEVELS_PER_TEST);
+    g.machine.cast_levels.set(taken);
     let filed = {
         let mut answers = g.machine.cast_answers.borrow_mut();
         let memo = answers.get_or_insert_with(ShapeMemo::default);
@@ -7856,6 +7871,27 @@ mod tests {
     /// parameter.
     fn call_last() -> Term {
         Term::App(rc(Term::Var(1)), rc(Term::Var(0)), Icit::Explicit)
+    }
+
+    /// A 32-bit target has 2^31 levels above [`RESERVED_LEVELS`], room for
+    /// 128 nested tests. A base with as many above it here behaves the
+    /// same: each of the 128 gets levels at or above the base, and a test
+    /// inside all of them gets none, rather than a level wrapped below it.
+    #[test]
+    fn rule_k_levels_stop_at_the_top_of_the_range() {
+        let base = usize::MAX - ((1 << 31) - 1);
+        let mut used = 0;
+        let mut tests = 0;
+        while let Some((level, taken)) = test_levels(base, used) {
+            assert!(level >= base && level <= usize::MAX - (LEVELS_PER_TEST - 1));
+            used = taken;
+            tests += 1;
+        }
+        assert_eq!(tests, 128);
+        assert_eq!(
+            test_levels(RESERVED_LEVELS, 0),
+            Some((RESERVED_LEVELS, LEVELS_PER_TEST))
+        );
     }
 
     fn closure(env: Vec<Value>, body: Term) -> Closure {
