@@ -1,5 +1,5 @@
 {
-  "next": 4938,
+  "next": 4939,
   "tickets": [
     {
       "id": 47,
@@ -21575,12 +21575,27 @@
     {
       "id": 4937,
       "title": "stitchwort search: no way to leave abilities open: {_} is refused and {e} doesn't match {Parse Char}; make an ability hole match any row",
-      "status": "backlog",
+      "status": "doing",
       "agent": "",
       "where": "",
       "labels": [],
       "epic": "proof-search",
-      "body": "[Opus] Matt, 27 Nov 2026: \"Is there a way to search for something where you're not quite sure what abilities might be involved?\" Tried by the orchestrator, release CLI at main, `search --in Std`:\n- `() → {_} Int`: E-ABILITY \"expected an ability\" (Matt's try).\n- `() → _ Int`: E-NOT-A-TYPE (Matt's try).\n- `() → {e} Int` and `() → {?e} Int`: elaborate, but the only result is Std.Effect.bindIn (relaxed pass, with the \"weaker\" warning); Std.Parse.int, `() → {Parse Char} Int`, is not found: the row hole doesn't match a concrete row.\n- `() → {Parse _} Int`: finds Parse.int (works when the ability is known).\nWanted: a way to leave the abilities open that finds every `() → {…} Int`: `{_}` (and a named `{?e}`/`{e}`) accepted as \"any row\" in a search pattern, matching any row including the empty one; possibly a pattern with no braces also matching computations with abilities (decide, and say). docs/syntax.md's search section and the guide get the syntax. Run after SW-4935 (search speed), which works in the same code.\n",
+      "body": "[Opus] Matt, 27 Nov 2026: \"Is there a way to search for something where you're not quite sure what abilities might be involved?\" Tried by the orchestrator, release CLI at main, `search --in Std`:\n- `() → {_} Int`: E-ABILITY \"expected an ability\" (Matt's try).\n- `() → _ Int`: E-NOT-A-TYPE (Matt's try).\n- `() → {e} Int` and `() → {?e} Int`: elaborate, but the only result is Std.Effect.bindIn (relaxed pass, with the \"weaker\" warning); Std.Parse.int, `() → {Parse Char} Int`, is not found: the row hole doesn't match a concrete row.\n- `() → {Parse _} Int`: finds Parse.int (works when the ability is known).\nWanted: a way to leave the abilities open that finds every `() → {…} Int`: `{_}` (and a named `{?e}`/`{e}`) accepted as \"any row\" in a search pattern, matching any row including the empty one; possibly a pattern with no braces also matching computations with abilities (decide, and say). docs/syntax.md's search section and the guide get the syntax. Run after SW-4935 (search speed), which works in the same code.\n\nMatt, 27 Nov: design first (\"designing how we write search for things with abilities that we're not sure of\"). A paper lane writes a note in docs/proposals/: the syntax for an open or partly known row in a search pattern ({_}, {?e}, {Parse, _}, no braces meaning any?), how it matches (rows as sets, empty row, order, a row variable in the candidate), how it ranks, error messages for the old spellings, what Lean/Koka/Unison/Hoogle do for effects or type classes in search (verified and cited); options with a recommendation; decisions for Matt listed. Implementation after his decisions, after SW-4935.\n",
+      "created": "2026-11-27",
+      "updated": "2026-11-27",
+      "commits": []
+    },
+    {
+      "id": 4938,
+      "title": "Design: searching by type from VS Code (and the playground) over the stitchwort search engine",
+      "status": "doing",
+      "agent": "",
+      "where": "",
+      "labels": [
+        "paper"
+      ],
+      "epic": "proof-search",
+      "body": "[Opus, paper] Matt, 27 Nov 2026: \"Can I do this sort of search in VS Code or the LSP?\" and \"can we queue up work for designing ... how to integrate search into VS Code?\" Today the editor has \"Search for a proof\" at a `?` (the same engine, filling that goal) and workspace symbols (Cmd+T, by name only); nothing takes a type pattern. Design note in docs/proposals/: how a user searches by type from the editor (command palette input, quick pick with live results, a search view, from a `?` or a selection, hover actions), what a result shows (D3763's variant C layout), what picking one does (go to definition, insert the name, add the import), how it reaches the language server (a custom request or command over the existing search engine, cancellation, latency targets given SW-4935's measurements), the playground too if it fits. Options with a recommendation; decisions for Matt listed.\n",
       "created": "2026-11-27",
       "updated": "2026-11-27",
       "commits": []
