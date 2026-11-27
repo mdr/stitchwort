@@ -21209,14 +21209,14 @@
     {
       "id": 4914,
       "title": "[Opus] Kernel: bound a comparison's binder depth to its level range: conv goes under binders with a plain level + 1, so a test more than 2^24 binders deep (e.g. a type computed by recursion, T (Succ n) = (x: Nat) → T n) shares levels with a nested test's and w => w vs w => x can answer equal (finding A again; subject reduction lost, not directly False); on 32-bit a top-level comparison could reach 2^31. Build the repro and measure first; then one helper for the four level + 1 sites returning a resource error at the range's top; docs/core.md states the bound. Fable review (SW-4679 review N1)",
-      "status": "doing",
+      "status": "review",
       "agent": "",
       "where": "",
       "labels": [
         "core"
       ],
       "epic": "elaborator-kernel",
-      "body": "From docs/reviews/SW-4679-fable-review.md, N1. Reasoned from conv_with and the 10^10 step budget; no repro yet. Older than SW-4679.",
+      "body": "From docs/reviews/SW-4679-fable-review.md, N1. Reasoned from conv_with and the 10^10 step budget; no repro yet. Older than SW-4679.\n\n27 Nov, after D3758 (Matt: option (b), compact levels; out of levels is E-RESOURCE), following Fable's analysis q5 (docs/reviews/SW-4914-fable-analysis.md): one commit 1b5e92d59 on lane/SW-4914, rebased on main. Machine::reached replaces cast_levels; fresh_past at all five sites raises it before use; conv_with raises to its level and restores on any exit (same_trees_of too, as the unifier calls it); LEVEL_CAP = usize::MAX - 3; is_type_former stops below RESERVED_LEVELS; no \"not equal\" path (N2-N4); reference keeps fixed ranges with its own arithmetic; value::check_levels (test-bypass) on in the soundness examples. Probes once by hand: dtop1 E-REFL (68 s; main accepts it), etop1 checked (40 s). Tests: rule_k (4, incl. turned-round, cap, 150 nested in a 32-bit space), shared_case, record_eta, value unit test: 25/25; soundness examples (all tier, every file) pass; wasm32 check clean; a mutation (start at RESERVED_LEVELS only) fails two rule_k tests, the invariant check firing. To review (Fable).\n",
       "created": "2026-11-27",
       "updated": "2026-11-27",
       "commits": []
