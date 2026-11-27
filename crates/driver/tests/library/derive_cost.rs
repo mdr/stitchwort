@@ -169,9 +169,14 @@ fn derived_instances_of_wide_constructors_stay_cheap() {
             "a record of 16 fields took {sixteen} steps, over 2 M"
         ));
     }
-    if many > 3_000_000 {
+    // 2.28 M before rule F (SW-4674), 3.11 M after: `Decidable.sound d`
+    // and the other proof calls no longer unfold, so the unfolded form of
+    // `%sameIff`'s `%d` and `%k` that zonking tries (`unify::value_forms`)
+    // runs into its size limit and is left out, 16 constructors times two,
+    // about 26 K steps of read-back each.
+    if many > 3_500_000 {
         failures.push(format!(
-            "16 constructors of 3 fields took {many} steps, over 3 M"
+            "16 constructors of 3 fields took {many} steps, over 3.5 M"
         ));
     }
     assert!(failures.is_empty(), "{}", failures.join("\n"));
