@@ -282,11 +282,15 @@ fn search_flags_generated_equations() {
     assert_eq!(results[generated]["generated"], true);
     let (_, text, _) = run("search", &dir, &["kind", "a.sw"]);
     assert!(
-        text.contains("Main.kind.eq1  theorem · generated"),
+        text.contains("eq1 : kind 3 = 1  generated theorem  Main.kind  a.sw:4"),
         "{text}"
     );
     assert!(
-        !text.contains("Main.kindOfThree  theorem · generated"),
+        text.contains("kindOfThree : kind 3 = 1  theorem  Main  a.sw:20"),
+        "{text}"
+    );
+    assert!(
+        !text.contains("kindOfThree : kind 3 = 1  generated"),
         "{text}"
     );
     let _ = std::fs::remove_dir_all(&dir);
