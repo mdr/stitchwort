@@ -115,6 +115,10 @@ pub struct Pattern {
     pub written: Option<BTreeSet<DefId>>,
     /// The data types it names (D2054): likewise.
     pub data: BTreeSet<usize>,
+    /// The constructors it names (SW-4950), as (data type, index). Only a
+    /// name on its own (a mention) asks a candidate for them: a pattern's
+    /// `MkPair _ _` also matches a variable of the pair type (eta).
+    pub ctors: BTreeSet<(usize, usize)>,
     pub head: HeadKey,
     /// How many unknowns there were once it was elaborated.
     pub(crate) metas: usize,
@@ -648,6 +652,8 @@ pub struct Index {
     pub ty: BTreeSet<DefId>,
     /// The data types its type names.
     pub data: BTreeSet<usize>,
+    /// The constructors its type names, as (data type, index).
+    pub ctors: BTreeSet<(usize, usize)>,
 }
 
 /// A declaration to search, with its type and what the type names.
@@ -839,6 +845,16 @@ pub fn data_types(term: &Term) -> BTreeSet<usize> {
     term.subterms()
         .filter_map(|(t, _)| match t {
             Term::Data(d, _) => Some(d.0),
+            _ => None,
+        })
+        .collect()
+}
+
+/// The constructors a term names, as (data type, index).
+pub fn ctors(term: &Term) -> BTreeSet<(usize, usize)> {
+    term.subterms()
+        .filter_map(|(t, _)| match t {
+            Term::Ctor(d, c, _) => Some((d.0, *c)),
             _ => None,
         })
         .collect()
@@ -1285,6 +1301,7 @@ impl Elaborator {
                     constants: strip(constants(&zonked)),
                     written: Some(strip(constants(&term))),
                     data: strip_data(data_types(&zonked)),
+                    ctors: ctors(&zonked),
                     size: size(&zonked),
                     value,
                     metas,
@@ -1598,6 +1615,7 @@ impl Elaborator {
             constants: constants(&quoted),
             written,
             data: data_types(&quoted),
+            ctors: ctors(&quoted),
             size: size(&quoted),
             value,
             metas,
@@ -1693,10 +1711,12 @@ impl Elaborator {
         let mut index = Index {
             ty: constants(ty),
             data: data_types(ty),
+            ctors: ctors(ty),
         };
         if let Ok(t) = found {
             index.ty.extend(constants(&t));
             index.data.extend(data_types(&t));
+            index.ctors.extend(ctors(&t));
         }
         index
     }

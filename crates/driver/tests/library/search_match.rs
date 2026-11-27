@@ -455,3 +455,30 @@ fn a_row_hole_in_a_program_is_refused() {
         );
     }
 }
+
+/// A constructor named on its own filters like a definition does (SW-4950):
+/// only the declarations whose statements mention it are listed, not every
+/// declaration.
+#[test]
+fn a_constructor_mention_keeps_only_the_statements_naming_it() {
+    const CTORS: &str = "\
+theorem withSome (n: Nat): Some n = Some n := byComputing
+
+theorem withNone: (None: Option Nat) = None := byComputing
+
+theorem plainNat (n: Nat): n = n := byComputing
+
+theorem plainBool (b: Bool): b = b := byComputing
+";
+    let found = |query: &str| {
+        with_session(STACK, Session::for_stack, |session| {
+            session.load("ctors.sw", CTORS).expect("the file checks");
+            let report = (session.search(query, &Options::default(), &Scope::File))
+                .unwrap_or_else(|d| panic!("{query}: {} {}", d.code, d.message));
+            names(&report)
+        })
+    };
+    assert_eq!(found("Some"), ["withSome"]);
+    assert_eq!(found("None"), ["withNone"]);
+    assert_eq!(found("Some _ = _"), ["withSome"]);
+}

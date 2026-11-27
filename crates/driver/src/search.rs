@@ -670,6 +670,7 @@ impl Session {
         // What the names on their own name.
         let mut mentions_defs = BTreeSet::new();
         let mut mentions_data = BTreeSet::new();
+        let mut mentions_ctors = BTreeSet::new();
         for name in &query.mentions {
             let expr = self.parse_expression("<search>", name)?;
             // The name as written, not the generic reading a pattern gets:
@@ -678,6 +679,7 @@ impl Session {
             if let Some(p) = self.elab.search_pattern(&expr, &[])?.into_iter().next() {
                 mentions_defs.extend(p.constants.iter().copied());
                 mentions_data.extend(p.data.iter().copied());
+                mentions_ctors.extend(p.ctors.iter().copied());
             }
         }
         // A lowercase name on its own that means something is a name the
@@ -693,6 +695,7 @@ impl Session {
             if let Some(found) = found.into_iter().next() {
                 mentions_defs.extend(found.constants.iter().copied());
                 mentions_data.extend(found.data.iter().copied());
+                mentions_ctors.extend(found.ctors.iter().copied());
             }
             query.mentions.push(p);
             query.pattern = None;
@@ -706,7 +709,9 @@ impl Session {
                 && in_namespaces(path, &options.within)
         });
         let keep = |c: &Candidate| {
-            mentions_defs.is_subset(&c.index.ty) && mentions_data.is_subset(&c.index.data)
+            mentions_defs.is_subset(&c.index.ty)
+                && mentions_data.is_subset(&c.index.data)
+                && mentions_ctors.is_subset(&c.index.ctors)
         };
         let iff = (0..g.env.datas().len())
             .map(DataId)
