@@ -1083,68 +1083,6 @@ pub(crate) fn import_line(g: &Ev, item: Item, scope: &Scope) -> Option<String> {
     Some(format!("import {namespace} ({first})"))
 }
 
-/// The report as text: one entry per result, then a summary line, then the
-/// warnings.
-pub fn render_text(report: &Report) -> String {
-    let mut out = String::new();
-    for (i, r) in report.results.iter().enumerate() {
-        let how = match (r.relation, r.place) {
-            (Some(rel), Some(place)) => {
-                let mut s = format!(" · {rel} · {place}");
-                if let Some(eq) = r.equation {
-                    s.push_str(&format!(" ({eq})"));
-                }
-                if !r.via.is_empty() {
-                    s.push_str(&format!(" · via {}", r.via.join(", ")));
-                }
-                s
-            }
-            _ => String::new(),
-        };
-        let name = match &r.conjunct {
-            Some(part) => format!("{} (its {part} conjunct)", r.name),
-            None => r.name.clone(),
-        };
-        let generated = if r.generated { " · generated" } else { "" };
-        let open = if r.open { " (open goal)" } else { "" };
-        out.push_str(&format!(
-            "{:>2}. {name}{open}  {}{generated}{how}\n",
-            i + 1,
-            r.kind
-        ));
-        out.push_str(&format!("    {}\n", r.ty));
-        let import = r
-            .import
-            .as_ref()
-            .map(|i| format!("  ({i})"))
-            .unwrap_or_default();
-        out.push_str(&format!("    {}:{}{import}\n", r.file, r.line));
-        if let Some(summary) = &r.summary {
-            out.push_str(&format!("    {summary}\n"));
-        }
-    }
-    let n = report.total;
-    let tier = report
-        .search_tier
-        .map(|t| format!(", {t} pass"))
-        .unwrap_or_default();
-    out.push_str(&format!(
-        "{n} result{}{tier}",
-        if n == 1 { "" } else { "s" }
-    ));
-    if report.budget.truncated {
-        out.push_str(&format!(
-            "; showing {} (--limit N for more)",
-            report.results.len()
-        ));
-    }
-    out.push('\n');
-    for w in &report.warnings {
-        out.push_str(&format!("warning: {w}\n"));
-    }
-    out
-}
-
 #[cfg(test)]
 mod tests {
     use super::*;

@@ -160,13 +160,16 @@ fn theorems_definitions_and_constructors_are_searched_and_marked() {
     // An interface's law (a field whose type is a proposition) is a theorem.
     let (_, report) = json(&dir, &["Ord.compare ?x ?x = _", "--limit", "50"]);
     assert_eq!(result(&report, "Std.Ord.flip")["kind"], "theorem");
-    // The human output names the kind too.
+    // The human output names the kind of a result that isn't a definition.
     let (code, out, _) = search(&dir, &["Nat → Shape → Shape", "--definitions"]);
     assert_eq!(code, 0);
     assert!(
-        out.starts_with(" 1. Shapes.Shape.scale  definition · instance · whole\n"),
+        out.contains(
+            "\nscale : Nat → Shapes.Shape → Shapes.Shape  Shapes.Shape  src/shapes.sw:6\n"
+        ),
         "{out}"
     );
+    assert!(!out.contains("theorem"), "{out}");
     let _ = std::fs::remove_dir_all(&dir);
 }
 
@@ -206,7 +209,8 @@ fn an_open_theorem_is_listed_marked_and_ranked_after_finished_ones() {
     );
     let (_, out, _) = search(&dir, &["Shape.scale _ _ = _"]);
     assert!(
-        out.contains(". Shapes.Shape.scaleAbc (open goal)  theorem"),
+        out.contains("\nscaleAbc : ")
+            && out.contains("  open theorem  Shapes.Shape  src/shapes.sw:"),
         "{out}"
     );
     let _ = std::fs::remove_dir_all(&dir);
@@ -245,6 +249,93 @@ fn rewrite_mode_takes_iff_sides_and_conditional_equations() {
     let _ = std::fs::remove_dir_all(&dir);
 }
 
+/// The text layout (SW-4936, D3763), piped: the count and the query, each
+/// result's short name and type with its kind (unless a definition),
+/// namespace and project-relative location after two spaces, its doc's first
+/// sentence below, a blank line between results, the `--limit` note last; no
+/// colour codes, and no import line.
+#[test]
+fn piped_output_is_one_entry_per_result_without_colour() {
+    let dir = project("layout");
+    let file = dir.join("src/shapes.sw");
+    let mut text = std::fs::read_to_string(&file).unwrap();
+    text = text.replace(
+        "theorem Shape.scaleOne",
+        "--| Scaling by one changes nothing. A second sentence.\ntheorem Shape.scaleOne",
+    );
+    std::fs::write(&file, text).unwrap();
+    let (code, out, _) = search(&dir, &["Shape.scale", "--in", "Shapes", "--limit", "2"]);
+    assert_eq!(code, 0, "{out}");
+    assert_eq!(
+        out,
+        "3 matches for  Shape.scale\n\n\
+         scaleOne : ∀ (s: Shapes.Shape) => Shapes.Shape.scale 1 s = s  theorem  Shapes.Shape  src/shapes.sw:11\n    \
+         Scaling by one changes nothing.\n\n\
+         eq1 : ∀ (k r: Nat) => Shapes.Shape.scale k (Circle r) = Circle (k * r)  \
+         generated theorem  Shapes.Shape.scale  src/shapes.sw:7\n\n\
+         showing 2 (--limit N for more)\n"
+    );
+    let _ = std::fs::remove_dir_all(&dir);
+}
+
+/// Colour comes only when asked for (`--color always`; otherwise stdout must
+/// be a terminal and `NO_COLOR` unset): the same text with escape codes
+/// around its parts.
+#[test]
+fn search_colours_its_text_only_when_forced_on() {
+    let dir = project("colour");
+    let plain = search(&dir, &["Shape.scale", "--in", "Shapes", "--limit", "1"]).1;
+    let never = search(
+        &dir,
+        &[
+            "Shape.scale",
+            "--in",
+            "Shapes",
+            "--limit",
+            "1",
+            "--color",
+            "never",
+        ],
+    )
+    .1;
+    assert_eq!(plain, never);
+    assert!(!plain.contains('\x1b'), "{plain}");
+    let coloured = search(
+        &dir,
+        &[
+            "Shape.scale",
+            "--in",
+            "Shapes",
+            "--limit",
+            "1",
+            "--color",
+            "always",
+            "--theme",
+            "dark",
+        ],
+    )
+    .1;
+    assert!(
+        coloured.contains("\x1b[1;38;2;180;190;254mscaleOne\x1b[0m"),
+        "{coloured}"
+    );
+    let stripped = {
+        let mut out = String::new();
+        let mut in_escape = false;
+        for c in coloured.chars() {
+            match (in_escape, c) {
+                (true, 'm') => in_escape = false,
+                (true, _) => {}
+                (false, '\x1b') => in_escape = true,
+                (false, _) => out.push(c),
+            }
+        }
+        out
+    };
+    assert_eq!(stripped, plain);
+    let _ = std::fs::remove_dir_all(&dir);
+}
+
 const FILE: &str = "\
 import Std (List)
 
@@ -270,10 +361,9 @@ fn a_file_is_searched_with_its_own_names_even_if_it_doesnt_check() {
     );
     assert_eq!(
         out,
-        " 1. Main.twiceLength  theorem · instance · conclusion\n    \
-         ∀ (xs: List Nat) => (twice xs).length = xs.length + xs.length\n    \
-         a.sw:5\n\
-         1 result, filtered pass\n"
+        "1 match for  List.length (twice _) = _\n\n\
+         twiceLength : ∀ (xs: List Nat) => (twice xs).length = xs.length + xs.length  \
+         theorem  Main  a.sw:5\n"
     );
     let _ = std::fs::remove_dir_all(&dir);
 }

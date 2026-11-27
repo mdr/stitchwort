@@ -4811,7 +4811,8 @@ fn search(
     log: Option<&Path>,
     cache: &CacheArgs,
 ) -> ExitCode {
-    use stitchwort_driver::search::{Scope, render_text};
+    use stitchwort_driver::search::Scope;
+    let mut strip = None;
     let started = std::time::Instant::now();
     let mut session = new_session(false);
     let scope = match file {
@@ -4859,6 +4860,9 @@ fn search(
             };
             match found {
                 Some(project) => {
+                    strip = (project.dir.canonicalize().ok()).and_then(|dir| {
+                        dir.file_name().map(|n| format!("{}/", n.to_string_lossy()))
+                    });
                     use_cache(&mut session, cache, &project.dir);
                     session.include_from(std::rc::Rc::new(DiskFiles {
                         root: project.dir.clone(),
@@ -4932,7 +4936,14 @@ fn search(
                     serde_json::to_string(&found).expect("a search report serialises")
                 );
             } else {
-                print!("{}", render_text(&found));
+                let color = color_on_stdout();
+                let layout = stitchwort_cli::search_render::Layout {
+                    color,
+                    width: stitchwort_cli::search_render::terminal_width(),
+                    strip,
+                    italic: stitchwort_cli::search_render::terminal_italic(),
+                };
+                print!("{}", stitchwort_cli::search_render::render(&found, &layout));
             }
             if found.total > 0 {
                 ExitCode::SUCCESS
