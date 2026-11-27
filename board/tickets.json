@@ -21869,7 +21869,7 @@
     {
       "id": 4954,
       "title": "search cache stage 2 (docs/proposals/search-cache.md): std's deferred equations in the check cache, a segment per definition, admitted as cached std theorems are (D3768)",
-      "status": "backlog",
+      "status": "doing",
       "agent": "",
       "where": "",
       "labels": [
