@@ -17,7 +17,9 @@ use std::path::{Path, PathBuf};
 use std::rc::Rc;
 use std::sync::{Arc, Mutex};
 
-use stitchwort_driver::check_cache::{EntrySink, LayeredStore, LibraryBundle, StoreLog};
+use stitchwort_driver::check_cache::{
+    BundleRecorder, CheckCache, EntrySink, LayeredStore, LibraryBundle, StoreLog,
+};
 use stitchwort_driver::driver::{Session, all_tier, par_map, tier_sample, with_stack};
 use stitchwort_driver::project::{DiskFiles, Target};
 use stitchwort_driver::render::render;
@@ -599,6 +601,72 @@ fn entries_from_another_cache_directory_are_misses() {
     assert_eq!(warm.stats.hits, warm.loaded);
     let _ = std::fs::remove_dir_all(&a);
     let _ = std::fs::remove_dir_all(&b);
+}
+
+/// A bundle of the library files `source` loads, as the build would make
+/// it for the whole library.
+fn bundle_of(source: &Source) -> std::sync::Arc<LibraryBundle> {
+    with_stack(STACK, || {
+        let mut session = Session::for_stack(STACK);
+        let recorder = std::rc::Rc::new(BundleRecorder::default());
+        session.elab.set_check_cache(recorder.clone());
+        finish_run(session, source);
+        std::sync::Arc::new(recorder.finish(Default::default()))
+    })
+}
+
+#[test]
+fn an_installed_bundle_serves_a_directory_that_has_no_entry_and_is_not_copied_in() {
+    let source = small_program();
+    let bundle = bundle_of(&source);
+    assert!(!bundle.is_empty());
+    let dir = temp_dir("installed");
+    let run = with_stack(STACK, || {
+        let mut session = Session::for_stack(STACK);
+        session.elab.set_check_cache(std::rc::Rc::new(
+            CheckCache::at(&dir).with_installed(bundle),
+        ));
+        finish_run(session, &source)
+    });
+    assert_eq!(run.stats.hits, run.loaded, "{:?}", run.stats);
+    assert_eq!(run.stats.misses, 0);
+    // Nothing was checked, so nothing was written.
+    assert!(entries(&dir).is_empty());
+    // And without the bundle the same directory is a plain cold one.
+    let cold = with_stack(STACK, || {
+        let mut session = Session::for_stack(STACK);
+        session
+            .elab
+            .set_check_cache(std::rc::Rc::new(CheckCache::at(&dir).without_installed()));
+        finish_run(session, &source)
+    });
+    assert_eq!(cold.stats.hits, 0);
+    let _ = std::fs::remove_dir_all(&dir);
+}
+
+#[test]
+fn the_bundle_beside_an_executable_is_read_only_for_this_build() {
+    let source = small_program();
+    let bundle = bundle_of(&source);
+    let root = temp_dir("installed-beside");
+    let (bin, share) = (root.join("bin"), root.join("share/stitchwort"));
+    std::fs::create_dir_all(&bin).unwrap();
+    std::fs::create_dir_all(&share).unwrap();
+    let exe = bin.join("stitchwort");
+    // None where nothing is installed (a checkout's build).
+    assert!(LibraryBundle::installed_beside(&exe).is_none());
+    let good = bundle.encode();
+    std::fs::write(share.join("std.cache"), &good).unwrap();
+    let read = LibraryBundle::installed_beside(&exe).expect("this build's bundle");
+    assert_eq!(read.id(), bundle.id());
+    // The same bytes with another build's fingerprint (the compiler string
+    // starts after the magic and its 8-byte length) aren't read.
+    let mut other = good.clone();
+    let at = LibraryBundle::MAGIC_LEN + 8 + 9;
+    other[at] ^= 1;
+    std::fs::write(share.join("std.cache"), &other).unwrap();
+    assert!(LibraryBundle::installed_beside(&exe).is_none());
+    let _ = std::fs::remove_dir_all(&root);
 }
 
 #[test]

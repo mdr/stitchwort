@@ -322,6 +322,13 @@ enum DevCommand {
     /// build-specific entries are left out and counted. Exit status 0 if the
     /// two hold the same entries, 1 if not
     CacheCompare { a: PathBuf, b: PathBuf },
+    /// Check the whole standard library as this binary's `check` and
+    /// `search` do and write its check cache to OUT, to install as
+    /// `share/stitchwort/std.cache` beside the binary (the flake does): the
+    /// binary then reads library entries from it when the project's cache
+    /// directory has none. Fails unless every file checks and replays from
+    /// the file just made. Prints what it holds
+    StdCache { out: PathBuf },
     /// Print the lossless tree of every `.sw` file after each of the
     /// formatter's four tidy passes (`== P1 ==`, the tree, `== P2 ==`, ...),
     /// for the self-hosted formatter's comparison (`task fmt:twin`). A file
@@ -1758,6 +1765,7 @@ fn run(cli: Cli) -> ExitCode {
             keys_command(project.as_deref(), &cache)
         }
         Command::Dev(DevCommand::CacheCompare { a, b }) => cache_compare_command(&a, &b),
+        Command::Dev(DevCommand::StdCache { out }) => std_cache_command(&out),
         Command::Dev(DevCommand::NativeSpike { rounds, memory }) => {
             native_spike(rounds, memory.as_deref())
         }
@@ -2964,6 +2972,26 @@ fn carry_over_from_environment() -> bool {
     use std::io::IsTerminal;
     std::env::var("STITCHWORT_CARRY_OVER").is_ok_and(|v| v == "1")
         && std::io::stderr().is_terminal()
+}
+
+/// `dev std-cache`: writes the library's check cache for this binary to `out`.
+fn std_cache_command(out: &Path) -> ExitCode {
+    match stitchwort_driver::check_cache::cli_library_bundle(STACK) {
+        Ok((bundle, summary)) => match std::fs::write(out, bundle.encode()) {
+            Ok(()) => {
+                println!("{}: {summary}", out.display());
+                ExitCode::SUCCESS
+            }
+            Err(e) => {
+                eprintln!("{}: {e}", out.display());
+                ExitCode::FAILURE
+            }
+        },
+        Err(e) => {
+            eprintln!("{e}");
+            ExitCode::FAILURE
+        }
+    }
 }
 
 fn discard(session: Session) {

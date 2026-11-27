@@ -168,6 +168,13 @@
           installRuntime = ''
             mkdir -p $out/share/stitchwort
             cp -r --no-preserve=mode ${stdSource} $out/share/stitchwort/std
+            # The library's check cache, made by the binary just built and
+            # read only by it (its entries are stamped with its fingerprint
+            # and the installed std's content), so that a first check or
+            # search in a new folder replays std instead of checking it
+            # (docs/proposals/cold-std-check.md, stage 4, D3120). The step
+            # fails the build unless the whole library replays from it.
+            $out/bin/stitchwort dev std-cache $out/share/stitchwort/std.cache
             mkdir -p $out/lib/stitchwort
             if [ -e $out/lib/libstitchwort_standalone.a ]; then
               mv $out/lib/libstitchwort_standalone.a $out/lib/stitchwort/

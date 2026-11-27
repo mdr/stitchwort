@@ -1,7 +1,13 @@
 # Checking std from a cold cache (SW-2156)
 
-**Status:** design note, 7 November 2026, for Matt's decisions. Nothing is
-built. Read only: no builds or runs went into it, so every timing here comes
+**Status:** design note, 7 November 2026, for Matt's decisions. Stage 4
+(§4.2) is built (SW-2163, 27 November 2026, D3120 yes) for the CLI's mode:
+the flake's `installRuntime` runs `stitchwort dev std-cache` to write
+`share/stitchwort/std.cache`, and `CheckCache` reads it, resealed with the
+directory's salt, when its folder has no entry. A cold `search --in Std` in
+an empty folder takes 1.7 s instead of 37 s (a check of a one-line file, 0.4
+against 0.9 s). The editor's modes (`+nav+ty`, `+nav`) aren't in the file
+yet. The rest was written before that and still reads as the design. Read only: no builds or runs went into it, so every timing here comes
 from the code, the docs or the tickets, and is marked **[measured]** (by
 someone, with the source), **[checked]** (I read the code, at `93a4c7862`),
 **[git]** (I counted from `git log`) or **[inferred]** (my reasoning). The
