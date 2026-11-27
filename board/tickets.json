@@ -1299,17 +1299,23 @@
     {
       "id": 1204,
       "title": "std/Float/Float.sw is never cached: Std.Float.mul isn't admitted with a body",
-      "status": "review",
+      "status": "done",
       "agent": "",
       "where": "",
       "labels": [
         "perf"
       ],
       "epic": "performance",
-      "body": "SW-1199 finding 5 (STITCHWORT_CACHE_DEBUG).\n\nFrom SW-1925: when Float.sw becomes cacheable, the replay undo bug it fixed becomes reachable; switch a_refused_library_entry_takes_back_its_float_bindings to the real Float.sw.\n\nAudit note (22 Nov): Audit 22 Nov: no work merged; the test it names still exists (crates/driver/tests/projects/check_cache.rs:1227).\n\nBacklog grooming 27 Nov 2026: Still true (crates/driver/tests/projects/check_cache.rs:85 `UNCACHEABLE: &[\"Float/Float.sw\"]`), but SW-4674/SW-4700 changed Float (Float.make keeps its witness, 932036d46), so re-check why Float.sw is refused before assuming the card's cause (\"isn't admitted with a body\").\n\nLane (Opus, 27 Nov): cause was Float.toText, the float primitive with no body, refused by the encoder outside the core. Fix: library entries may hold float primitives; replay admits them by float::define_primitive + bind_def/check_shape, as elaborating does (e1f819ae6). SW-1925 test switched to the real Float.sw (refused after Float.isFinite); new test float_sw_is_cached_and_replays_unchanged. Measured: std search 1.45 -> 1.33 s, one-file check importing Float 0.34 -> 0.13 s (warm, best of 3, loaded machine). Touches trusted replay (cache/core_entry.rs admit_primitive, cache/mod.rs submit/encode): wants a review.",
+      "body": "SW-1199 finding 5 (STITCHWORT_CACHE_DEBUG).\n\nFrom SW-1925: when Float.sw becomes cacheable, the replay undo bug it fixed becomes reachable; switch a_refused_library_entry_takes_back_its_float_bindings to the real Float.sw.\n\nAudit note (22 Nov): Audit 22 Nov: no work merged; the test it names still exists (crates/driver/tests/projects/check_cache.rs:1227).\n\nBacklog grooming 27 Nov 2026: Still true (crates/driver/tests/projects/check_cache.rs:85 `UNCACHEABLE: &[\"Float/Float.sw\"]`), but SW-4674/SW-4700 changed Float (Float.make keeps its witness, 932036d46), so re-check why Float.sw is refused before assuming the card's cause (\"isn't admitted with a body\").\n\nLane (Opus, 27 Nov): cause was Float.toText, the float primitive with no body, refused by the encoder outside the core. Fix: library entries may hold float primitives; replay admits them by float::define_primitive + bind_def/check_shape, as elaborating does (e1f819ae6). SW-1925 test switched to the real Float.sw (refused after Float.isFinite); new test float_sw_is_cached_and_replays_unchanged. Measured: std search 1.45 -> 1.33 s, one-file check importing Float 0.34 -> 0.13 s (warm, best of 3, loaded machine). Touches trusted replay (cache/core_entry.rs admit_primitive, cache/mod.rs submit/encode): wants a review.\nDone (Opus, Fable-reviewed: sound): library entries may hold float primitives (core primitives only in the core entry, float ones only in library files, gated by the caller-set library flag); admit_primitive replays Float.toText as elaboration does (signature compared by define_primitive). Fable fixes: FORMAT 48, three negative tests, trust docs. Warm check of a Float-importing file 0.34 -> 0.12 s; warm std search 1.45-1.56 -> 1.33 s. On main: 139/140 cache+hash tests, the pinned digest re-pinned for FORMAT 48 by the orchestrator (6152b7908), digest:: 40/40. Model result: opus, needed fixes (Fable follow-ups; the digest pin after its FORMAT bump), 19+25 min (est. 60).\n",
       "created": "2026-11-04",
       "updated": "2026-11-27",
-      "commits": []
+      "commits": [
+        "e1f819ae6",
+        "a5d885c1e",
+        "1fd39a702",
+        "3f6ac51c8",
+        "6152b7908"
+      ]
     },
     {
       "id": 1205,
@@ -21728,7 +21734,8 @@
       "commits": [
         "b61815769",
         "e51a3e6e4",
-        "bafe06619"
+        "bafe06619",
+        "bf29a285a"
       ]
     },
     {
