@@ -18574,12 +18574,12 @@
     {
       "id": 4679,
       "title": "[Opus] Rule K's fresh levels on 32-bit: RESERVED_LEVELS + used is unchecked, so more than 128 nested ends tests on the web build would wrap into real levels (finding A). Check the addition and answer 'not equal' (stuck) on overflow, with a test (SW-4673 follow-up)",
-      "status": "doing",
+      "status": "review",
       "agent": "",
       "where": "",
       "labels": [],
       "epic": "elaborator-kernel",
-      "body": "",
+      "body": "Lane (Opus, 27 Nov): fixed in 714854071. value::test_levels computes the fresh level with checked arithmetic; past usize::MAX the test answers 'not equal' (stuck). Same for rule S's index test (shares meet_in_evaluation) and the reference evaluator's two literal (1<<40)+depth*(1<<24) sites. Verified: on 32-bit, a test inside 128 others got 2^31+128*2^24 = 2^32, wrapping to level 0. Tests: value::tests::rule_k_levels_stop_at_the_top_of_the_range, rule_k::the_ends_test_out_of_levels_says_different (fails on the old arithmetic: 'equal' for z=>z vs z=>v0); all examples::soundness pass; wasm32 check of core passes. docs/core.md updated. Wants a Fable review.",
       "created": "2026-11-23",
       "updated": "2026-11-27",
       "commits": []
