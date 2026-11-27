@@ -1,5 +1,5 @@
 {
-  "next": 4922,
+  "next": 4923,
   "tickets": [
     {
       "id": 47,
@@ -21329,6 +21329,21 @@
       ],
       "epic": "elaborator-kernel",
       "body": "From docs/reviews/SW-4914-fable-review.md suggestion 4 and the lane's finding. Suggestion 5 (measure is_type_former's steps per binder on 32-bit) can go with it if cheap.",
+      "created": "2026-11-27",
+      "updated": "2026-11-27",
+      "commits": []
+    },
+    {
+      "id": 4922,
+      "title": "Self-hosted formatter prints unparseable text for an own-line comment between an expression let's := and its value (exit 0): match the Rust formatter's SW-4917 layout or refuse the input",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [
+        "bug"
+      ],
+      "epic": "parser-proofs",
+      "body": "[Sonnet] Found in SW-4917's review (27 Nov). On docs/reviews/repros/fuzz-fmt-2611262b-67321.sw (an own-line comment between an expression let's `:=` and its value, `;` after the value), the self-hosted formatter's executable (`target/fmt-twin/fmt --stage text`, exit 0, `--stage refusal` passes) prints\n\n    def value: Nat :=\n      (let x :=\n         -- c\n         1;\n       x)\n\nwhich `stitchwort check` refuses with E-PARSE (\"`;` needs an expression after it\"). It is the same layout the Rust formatter's printer produced before SW-4917; Rust caught it with its run-time re-parse and refused, the twin has none. Not a proof contradiction: only slice 1's top theorems (formatKeepsProgram1, formatIdempotent1, slice1Formats) are proved, and expression `let` is outside slice 1; the executable formats up to slice 6a unproved.\n\nFix: make tools/fmt print what the Rust formatter prints since SW-4917 (golden crates/fmt/tests/it/golden/let-value-own-line-comment: the value stays at the block's column after the comment, and the body follows the `;` on the same line), so the twin says 1 of 1 identical on the repro; or, if that layout can't be expressed in its rules yet, refuse the input (outside slice). Matt's rule: the formatters behave the same, and outside its slices the twin refuses, never formats differently. Check whether any proof statement in progress for the let-bearing slice needs the same rule.\n",
       "created": "2026-11-27",
       "updated": "2026-11-27",
       "commits": []
