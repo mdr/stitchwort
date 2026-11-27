@@ -1987,34 +1987,30 @@ stitchwort search 'List.length (twice _) = _' proofs.sw     # with a file instea
 
 ```
 $ stitchwort search 'List.length ((_: List _) ++ _) = _'
- 1. Std.List.lengthAppend  theorem · instance · conclusion
-    [a: Type] → (xs: List a) → (ys: List a) → List.length (List.append xs ys) = List.length xs + List.length ys
-    std/List/Lemmas.sw:5  (import Std (List))
- 2. Std.List.lengthSnoc  theorem · instance · conclusion
-    [a: Type] → (xs: List a) → (x: a) → List.length (List.append xs [x]) = Succ (List.length xs)
-    std/List/Lemmas.sw:888  (import Std (List))
- 3. Std.List.dropAppendLength  theorem · instance · premise
-    [a: Type] → (xs: List a) → (ys: List a) → (k: Nat) → List.length xs = k → List.drop (List.append xs ys) k = ys
-    std/List/SortLemmas.sw:226  (import Std (List))
- 4. Std.List.takeAppendLength  theorem · instance · premise
-    [a: Type] → (xs: List a) → (ys: List a) → (k: Nat) → List.length xs = k → List.take (List.append xs ys) k = xs
-    std/List/SortLemmas.sw:223  (import Std (List))
+4 matches for  List.length ((_: List _) ++ _) = _
+
+lengthAppend : [a: Type] → (xs: List a) → (ys: List a) → List.length (List.append xs ys) = List.length xs + List.length ys  theorem  Std.List  std/List/Lemmas.sw:5
+
+lengthSnoc : [a: Type] → (xs: List a) → (x: a) → List.length (List.append xs [x]) = Succ (List.length xs)  theorem  Std.List  std/List/Lemmas.sw:888
+
+dropAppendLength : [a: Type] → (xs: List a) → (ys: List a) → (k: Nat) → List.length xs = k → List.drop (List.append xs ys) k = ys  theorem  Std.List  std/List/SortLemmas.sw:226
+
+takeAppendLength : [a: Type] → (xs: List a) → (ys: List a) → (k: Nat) → List.length xs = k → List.take (List.append xs ys) k = xs  theorem  Std.List  std/List/SortLemmas.sw:223
     `List.takeAppend` and `List.dropAppend` at a count known to be the first list's length.
-4 results, filtered pass
 ```
 
-A result whose declaration has a doc (above) gets one more line, its summary: `stitchwort search '"filterMap"' --definitions` ends
+**The text output** (SW-4936, D3763) is one entry per result, in rank order, with a blank line between them: the short name in bold, ` : `, and the type; then, after two spaces (right-aligned when stdout is a terminal, and on a line of its own below when the terminal is too narrow), the result's kind if it isn't a plain definition (`theorem`, `open theorem`, `generated theorem`, `constructor`), its namespace, and the file and line, relative to the project's root, or `std/…` for the library. A result whose declaration has a doc (above) gets one more line, indented, its summary: `stitchwort search '"filterMap"' --definitions` ends
 
 ```
- 2. Std.List.filterMap  definition
-    [a: Type] → [e: Effect.Effects] → [div: Effect.Divergence] → [b: Type] → List a → (a → {e} Option b) → {e} List b
-    std/List/Toolkit.sw:204  (import Std (List))
+filterMap : [a: Type] → [e: Effect.Effects] → [div: Effect.Divergence] → [b: Type] → List a → (a → {e} Option b) → {e} List b  Std.List  std/List/Toolkit.sw:204
     Keeps the `Some` results, in order.
 ```
 
+The top line is `N matches for  QUERY`, and a `--limit` cut ends with `showing N (--limit N for more)`. The relaxed pass's warning (below) follows. The relation, place, equation and import line of a result are in `--json` only, not the text (no entry says how a result matched, or what to import). The text is coloured when stdout is a terminal and `NO_COLOR` isn't set (`--color always` and `never` decide it, `--theme` picks dark or light): the name, the type's names, an ability's names inside `{ }`, its punctuation and arrows, the location and the doc each in a colour of the REPL's palette; piped, the same layout carries no escape codes. `--at` prints its own layout (below).
+
 The summary is shown, never matched: no query finds a result by the words of its doc. A constructor has none, since its location is its type's. With only `"text"` parts, a result whose name is the text (the last component for `"filterMap"`, the whole name at a dot for `"List.filterMap"`) comes first (D2154); it used to come last, behind the theorems about it. To read what a name does, rather than find it, use [`stitchwort doc`](#what-a-declaration-does-stitchwort-doc).
 
-**Open theorems** (SW-2839). A theorem whose own proof has an open goal `?` is usable (an assumption to what cites it, [Goals](#goals-)), so search lists it, with ` (open goal)` after its name in the text output and `"open": true` in the JSON (absent for the others). It ranks after the finished matches of equal fit (relation, place, specificity, premises and size), so a finished theorem of the same shape comes first and an open one with a closer fit still comes before a looser finished one. A theorem that merely cites an open one isn't an open theorem; it is unfinished too and isn't listed.
+**Open theorems** (SW-2839). A theorem whose own proof has an open goal `?` is usable (an assumption to what cites it, [Goals](#goals-)), so search lists it, as an `open theorem` in the text output and `"open": true` in the JSON (absent for the others). It ranks after the finished matches of equal fit (relation, place, specificity, premises and size), so a finished theorem of the same shape comes first and an open one with a closer fit still comes before a looser finished one. A theorem that merely cites an open one isn't an open theorem; it is unfinished too and isn't listed.
 
 **The query** is parts separated by commas (a comma inside brackets or quotes doesn't separate):
 
@@ -2022,7 +2018,7 @@ The summary is shown, never matched: no query finds a result by the words of its
 - **A name on its own** (`List.length`, `Ord`): the type must mention it.
 - **`"text"`**: the full name must contain it.
 
-**What is searched**: every theorem, definition and constructor of the library (loaded whole, through the check cache) and of the project found from the folder you're in (or `--project DIR`), or of `FILE` instead of the project. A pattern sees the library's namespaces as `import Std (List, Map, …)` brings them and the project's as `import N (..)` does; with a file, it sees names as the file does. A project or file that doesn't check is reported in one line (how many errors, and the first; `stitchwort check` shows them all), and what checked is searched. Declarations with an open `?` aren't searched. Hidden unless `--all`: generated helpers (a `%` in the name) and the library's `…Example` theorems. `--theorems`, `--definitions` and `--constructors` narrow to those kinds (any of them together); each result says its kind. `--in NAMESPACE` (repeatable) narrows to the declarations in that namespace or one inside it, written in full (`--in Std.List`, `--in Aoc.Year2021.Day16`); one that holds nothing gives a warning. An interface's law (a field whose type is a proposition, `Ord.flip`) is a `theorem`, and so is a generated `T.ext`.
+**What is searched**: every theorem, definition and constructor of the library (loaded whole, through the check cache) and of the project found from the folder you're in (or `--project DIR`), or of `FILE` instead of the project. A pattern sees the library's namespaces as `import Std (List, Map, …)` brings them and the project's as `import N (..)` does; with a file, it sees names as the file does. A project or file that doesn't check is reported in one line (how many errors, and the first; `stitchwort check` shows them all), and what checked is searched. Declarations with an open `?` aren't searched. Hidden unless `--all`: generated helpers (a `%` in the name) and the library's `…Example` theorems. `--theorems`, `--definitions` and `--constructors` narrow to those kinds (any of them together); the text marks each result that isn't a definition. `--in NAMESPACE` (repeatable) narrows to the declarations in that namespace or one inside it, written in full (`--in Std.List`, `--in Aoc.Year2021.Day16`); one that holds nothing gives a warning. An interface's law (a field whose type is a proposition, `Ord.flip`) is a `theorem`, and so is a generated `T.ext`.
 
 **Conjuncts**: a theorem whose conclusion is a conjunction, written (`A ∧ B`) or a call of a definition whose body is one (`Graph.distancesShortest`'s `Graph.Shortest graph sources (graph.distances (index := index) sources)`), is also searched as each conjunct, nested ones too (to three deep), where its body writes them as a conjunction (a conjunct that is a call of another definition isn't unfolded): the result is the theorem's name with `conjunct` (`left`, `right.left`), shown as `Std.Graph.distancesShortest (its left conjunct)`, with the conjunct's type, to take with `(Graph.distancesShortest …).left`. It ranks after declarations that match as well.
 

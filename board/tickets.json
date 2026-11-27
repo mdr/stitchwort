@@ -21562,12 +21562,12 @@
     {
       "id": 4936,
       "title": "stitchwort search: human output as D3763's variant C (short name : type, namespace and path on the right, doc below, coloured on a terminal; no import line or category labels)",
-      "status": "doing",
+      "status": "review",
       "agent": "",
       "where": "",
       "labels": [],
       "epic": "proof-search",
-      "body": "[Sonnet] D3763 (Matt, 27 Nov 2026): reshape `stitchwort search`'s human output as variant C of the mockups (/Users/Shared/search-variants-dark.ansi, -light.ansi; generator kept at scratchpad/search-variants.py): per result, the short name in bold, ` : `, the type coloured as code, then on the right the namespace (dim) and the path (dim); the doc comment's first sentence on the next line, indented, green italic. No import line, no \"definition · instance · whole\" labels; \"N matches for <query>\" above; the tier note only when results are looser than exact. Colour only when stdout is a terminal and NO_COLOR is unset, from the shared palette (crates/driver/src/palette.rs, as the REPL and errors use). --json unchanged. Earlier, Matt found the import line confusing (\"is that useful? I don't know\") and asked for colour on the type and the qualified name, and a different colour for the doc comment.\n",
+      "body": "[Sonnet] D3763 (Matt, 27 Nov 2026): reshape `stitchwort search`'s human output as variant C of the mockups (/Users/Shared/search-variants-dark.ansi, -light.ansi; generator kept at scratchpad/search-variants.py): per result, the short name in bold, ` : `, the type coloured as code, then on the right the namespace (dim) and the path (dim); the doc comment's first sentence on the next line, indented, green italic. No import line, no \"definition · instance · whole\" labels; \"N matches for <query>\" above; the tier note only when results are looser than exact. Colour only when stdout is a terminal and NO_COLOR is unset, from the shared palette (crates/driver/src/palette.rs, as the REPL and errors use). --json unchanged. Earlier, Matt found the import line confusing (\"is that useful? I don't know\") and asked for colour on the type and the qualified name, and a different colour for the doc comment.\n\n\n\nLane note: implemented in crates/cli/src/search_render.rs (printer moved out of the driver); docs/syntax.md updated; tests in crates/cli/tests/server/search.rs. To review.\n",
       "created": "2026-11-27",
       "updated": "2026-11-27",
       "commits": []
