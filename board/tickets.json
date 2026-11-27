@@ -21142,7 +21142,7 @@
     {
       "id": 4910,
       "title": "[Opus] fuzz:elab oracle 3: false byComputing in match arms over a let-bound match reaches the kernel; first fix reverted (broke 6 aoc/fmt theorems), redo",
-      "status": "backlog",
+      "status": "doing",
       "agent": "",
       "where": "",
       "labels": [
@@ -21259,7 +21259,7 @@
     {
       "id": 4917,
       "title": "fmt: an own-line comment between let x := and its value, with ; after the value, formats to text that doesn't parse (fmt refuses); a trailing comment there moves before :=",
-      "status": "backlog",
+      "status": "doing",
       "agent": "",
       "where": "",
       "labels": [
