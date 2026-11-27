@@ -1,5 +1,5 @@
 {
-  "next": 4936,
+  "next": 4937,
   "tickets": [
     {
       "id": 47,
@@ -21555,6 +21555,19 @@
       ],
       "epic": "proof-search",
       "body": "[Opus] Matt, 27 Nov 2026: \"searching is relatively slow. Is there any way we can optimize searching? Use some indexes, caches, that kind of thing?\" His run: `stitchwort search --in Std '() → {Parse Char} Int'`, 2.7 s.\n\nMeasured by the orchestrator on Speedwell (release CLI at main, one run each): the first search after today's merges took 23.9 s (cold: presumably std's check cache rebuilt); warm, the same search 1.7 s and `search --in Std 'Nat → Nat → Nat'` 1.8 s, against 0.34 s for `check` of a one-line file. So about 1.4 s a warm search is search's own work, and a cold one far more.\n\nProfile first (warm and cold, std-only and in a project such as aoc/), change only a measured hotspot, measure again. Related backlog: SW-1491 (search_at_text loads all of std eagerly for every search), SW-2161, SW-2163 (prebuilt std cache).\n",
+      "created": "2026-11-27",
+      "updated": "2026-11-27",
+      "commits": []
+    },
+    {
+      "id": 4936,
+      "title": "stitchwort search: human output as D3763's variant C (short name : type, namespace and path on the right, doc below, coloured on a terminal; no import line or category labels)",
+      "status": "doing",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "epic": "proof-search",
+      "body": "[Sonnet] D3763 (Matt, 27 Nov 2026): reshape `stitchwort search`'s human output as variant C of the mockups (/Users/Shared/search-variants-dark.ansi, -light.ansi; generator kept at scratchpad/search-variants.py): per result, the short name in bold, ` : `, the type coloured as code, then on the right the namespace (dim) and the path (dim); the doc comment's first sentence on the next line, indented, green italic. No import line, no \"definition · instance · whole\" labels; \"N matches for <query>\" above; the tier note only when results are looser than exact. Colour only when stdout is a terminal and NO_COLOR is unset, from the shared palette (crates/driver/src/palette.rs, as the REPL and errors use). --json unchanged. Earlier, Matt found the import line confusing (\"is that useful? I don't know\") and asked for colour on the type and the qualified name, and a different colour for the doc comment.\n",
       "created": "2026-11-27",
       "updated": "2026-11-27",
       "commits": []
