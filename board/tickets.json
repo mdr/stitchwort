@@ -21466,14 +21466,14 @@
     {
       "id": 4930,
       "title": "Playground: reproduce and fix the typing lag in Firefox (2021 day 18, D3760)",
-      "status": "doing",
+      "status": "review",
       "agent": "",
       "where": "",
       "labels": [
         "bug"
       ],
       "epic": "editor-playground",
-      "body": "[Opus] D3760 (Matt, 27 Nov): the up-to-a-second-per-keystroke lag on 2021 day 18 was in Firefox. SW-4925 couldn't reproduce it in headless Chrome (16-24 ms a key) and fixed a worker-restart waste. Reproduce in headless Firefox (nixpkgs firefox-bin 159.0.1 and geckodriver are available on aarch64-darwin), idle and under load, profile, fix the measured cause.\n",
+      "body": "[Opus] D3760 (Matt, 27 Nov): the up-to-a-second-per-keystroke lag on 2021 day 18 was in Firefox. SW-4925 couldn't reproduce it in headless Chrome (16-24 ms a key) and fixed a worker-restart waste. Reproduce in headless Firefox (nixpkgs firefox-bin 159.0.1 and geckodriver are available on aarch64-darwin), idle and under load, profile, fix the measured cause.\n\nLane (Opus, 27 Nov): not reproduced. Headless Firefox 159.0.1 over WebDriver BiDi (no geckodriver), real key events, 20 keys per case: key-to-frame medians 5-22 ms, max 34 ms, driver round trip max 155 ms (Day18.sw, 120 ms gap, 10 nice-19 burners on every core); lone file, 2024 day 1, Day18.sw, Proofs/Explode.sw; gaps 120/400/700 ms; idle, 4 and 10 burners; after visiting 27 days; and with the page before SW-4925 (19 workers for 20 keys, keys still prompt). Chrome 158 under 4 burners matches (16/24 ms). Table in docs/performance/log.md. No change made. Left to try on Matt's side: Firefox 160.0.1 with a real window and his profile (extensions), and about:processes / the Firefox Profiler (profiler.firefox.com) while it lags.",
       "created": "2026-11-27",
       "updated": "2026-11-27",
       "commits": []

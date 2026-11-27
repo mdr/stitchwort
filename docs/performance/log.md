@@ -46,6 +46,35 @@ in [../proposals/README.md](../proposals/README.md).
 
 ## 27 Nov 2026
 
+### SW-4930: the Firefox typing lag doesn't reproduce in headless Firefox
+
+- **Problem.** Matt (D3760): the up-to-a-second-per-key lag in 2021 day 18 was in Firefox.
+- **Measured (headless Firefox 159.0.1 over WebDriver BiDi, this Mac, background load 6 to
+  14 from other lanes; 20 real key events per case; one run each).** Keydown to the frame
+  after it (a `requestAnimationFrame` probe), and the driver's round trip per key, which also
+  covers a key waiting for a busy main thread:
+
+  | Case | Extra load | Gap | Key to frame, median / max | Round trip, max |
+  |---|---|---|---|---|
+  | lone file | none | 120 ms | 5 / 23 ms | 7 ms |
+  | 2024 day 1 | none | 120 ms | 14 / 24 ms | 18 ms |
+  | Day18.sw | none | 120 ms | 22 / 30 ms | 62 ms |
+  | Day18.sw | 4 `nice -n 19` burners | 120 ms | 14 / 25 ms | 77 ms |
+  | Day18.sw | 10 burners (every core) | 120 ms | 20 / 29 ms | 155 ms |
+  | Explode.sw | 10 burners | 120 ms | 18 / 28 ms | 64 ms |
+  | Day18.sw | none | 400 ms | 13 / 21 ms | 19 ms |
+  | Day18.sw | 4 burners | 700 ms | 15 / 24 ms | 22 ms |
+  | Day18.sw, after 27 days visited | 4 burners | 400 ms | 14 / 21 ms | 20 ms |
+  | Day18.sw, before SW-4925 | 4 burners | 400 ms | 15 / 34 ms | 48 ms |
+
+  No frame gap over 50 ms in any case. Chrome 158 under the same 4 burners (SW-4925's
+  probe, 400 ms): 16 / 24 ms, no long tasks. SW-4925's waste shows in Firefox as well (19
+  workers for 20 keys before it, none after; Firefox's CPU over the 10 s varied from 22 to
+  31 s either way, so no gain is claimed). Each key in a day still adds and removes about 635 DOM nodes (the 621-entry
+  Other files list, `renderTabs`; 7 in a lone file), with no measurable cost here.
+- **Not reproduced, so no change.** What differs on Matt's machine: Firefox 160.0.1, a real
+  window, his profile's extensions, and his foreground priority against the lanes.
+
 ### SW-4925: typing in a playground project no longer restarts the compiler's worker on every key
 
 - **Problem.** Matt: typing in an AoC day (2021 day 18) on the public playground lagged up to
