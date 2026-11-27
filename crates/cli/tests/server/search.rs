@@ -501,7 +501,7 @@ def noDocHere (n: Nat): Nat := n
     let (code, out, _) = search(&dir, &["\"doubleIt\"", "a.sw"]);
     assert_eq!(code, 0, "{out}");
     assert!(
-        out.contains("    a.sw:4\n    Twice `n`, the zyxwv way.\n1 result"),
+        out.contains("doubleIt : Nat → Nat  Main  a.sw:4\n    Twice `n`, the zyxwv way.\n"),
         "{out}"
     );
     let (_, report) = json(&dir, &["\"keepAll\"", "a.sw"]);
@@ -511,7 +511,11 @@ def noDocHere (n: Nat): Nat := n
     );
     // No doc: no line in the text, and `null`.
     let (_, out, _) = search(&dir, &["\"noDocHere\"", "a.sw"]);
-    assert!(out.contains("a.sw:13\n1 result"), "{out}");
+    assert!(
+        out.trim_end()
+            .ends_with("noDocHere : Nat → Nat  Main  a.sw:13"),
+        "{out}"
+    );
     let (_, report) = json(&dir, &["\"noDocHere\"", "a.sw"]);
     assert!(
         result(&report, "Main.noDocHere")["summary"].is_null(),
