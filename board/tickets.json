@@ -1,5 +1,5 @@
 {
-  "next": 4918,
+  "next": 4920,
   "tickets": [
     {
       "id": 47,
@@ -21262,6 +21262,36 @@
       ],
       "epic": "syntax-language",
       "body": "[DeepSeek] Found by Overmind, fuzz batch 43 (`task fuzz:fmt SEED=0x2611262b CASES=1000000 COMMENTS=0.3` at 288f4cffb, case 67321). Internal error: \"the output doesn't parse: `;` needs an expression after it\". Fails safe: fmt refuses and leaves the file unchanged. Not new (98f88b21a fails the same way).\n\nRepro: docs/reviews/repros/fuzz-fmt-2611262b-67321.sw (checks fine). Trigger: an own-line comment between `let x :=` and the value, with `;` after the value; same without the brackets. Doesn't fail: no comment; comment after the `;`. A trailing comment on the `let x := -- c` line formats but oddly (`let x` / `-- c` / `:= 1;` / `x`, comment moved before `:=`): fix that too if it's the same rule.\n\nCapture the bad output first. Fix in crates/fmt; check tools/fmt (likely refuses: outside its slices) and say so. Golden test, failing first; fuzz:fmt 20k at the seed with COMMENTS=0.3.\n",
+      "created": "2026-11-27",
+      "updated": "2026-11-27",
+      "commits": []
+    },
+    {
+      "id": 4918,
+      "title": "[Sonnet] check: a panic in a worker thread is re-raised (crates/driver/src/parallel.rs) and ends the CLI with exit 101 and a Rust panic message; report it as E-INTERNAL naming the namespace and declaration instead, with a test (SW-3593 finding)",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [
+        "bug"
+      ],
+      "epic": "diagnostics",
+      "body": "From SW-3593's second round: the release read-back assert's panic reached the user as an uncaught worker panic, not E-INTERNAL as assumed.",
+      "created": "2026-11-27",
+      "updated": "2026-11-27",
+      "commits": []
+    },
+    {
+      "id": 4919,
+      "title": "[Sonnet] facts::is_fact defaults to 'fact' for a bare bound-variable conclusion (∀ (A: Type), A), because its binder's type isn't in the context; judge it from the binder's type, with a test (SW-3593 finding)",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [
+        "elab"
+      ],
+      "epic": "proof-automation",
+      "body": "From SW-3593's second round. Pre-existing imprecision, not a quoting bug; only affects which hypotheses byFacts collects.",
       "created": "2026-11-27",
       "updated": "2026-11-27",
       "commits": []
