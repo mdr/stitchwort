@@ -35,3 +35,7 @@ test "a comment after the last parameter puts a `match` body below the header" :
 
 test "a later block line starting with `-` is outside the slice" :=
   refuses "def i (x y: Int): Int :=\n  let z := x + y\n  - z\n"
+
+test "an own-line comment between an expression `let`'s `:=` and its value keeps the value at the block's column and the body after the `;`" :=
+  formats "def bracketed: Nat :=\n  (let x :=\n  -- c\n  1; x)\n\ndef plain: Nat :=\n  let x :=\n  -- c\n  1; x\n"
+      "def bracketed: Nat :=\n  (let x :=\n  -- c\n  1; x)\n\ndef plain: Nat :=\n  let x :=\n  -- c\n  1; x\n"

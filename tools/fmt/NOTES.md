@@ -963,7 +963,7 @@ Opus, 18 November 2026. Slice 3 (the layout core) on top of slices 1 and 2.
 |---|---|---|
 | `blockDoc` (each line at the block's column, a blank line above a later line kept), `Statement.el` | `src/Fmt/Rules.sw` | `block` |
 | `letDoc`: the line up to `:=` in an `IdGroup` keyed by the `let`'s token count + 1, the value by `bodyAfter`; an expression `let`'s value on the `:=` line unless a comment or block puts it below | `src/Fmt/Rules.sw` | `let_line` with `expr_let` |
-| `letInDoc`: `let x := e; body` in an `Align`, a `Line` after the `;` | `src/Fmt/Rules.sw` | `sequence` for `LetExpr` |
+| `letInDoc`: `let x := e; body` in an `Align`, a `Line` after the `;` (a comment below the `:=`: no `Align`, a space after the `;`, `Let.valueBelow`; SW-4922) | `src/Fmt/Rules.sw` | `sequence` for `LetExpr` |
 | `ifDoc`, `ifClauses`: one clause a line, each a group, `else if` flattened unless a comment puts the `if` below its `else`, a `BreakParent` for three or more clauses | `src/Fmt/Rules.sw` | `if_` |
 | `matchParts` (the doc and the `:=` hug), `armLines`, `Arm.el`, `armDoc`, `guardDocs`, `Pattern.el` (a constructor pattern as a call of plain arguments, `_` joined to the item before it) | `src/Fmt/Rules.sw` | `alternatives`, `arm`, `app` for `PatternCtor`, `fill_items` |
 | `Around.inArm` (`arm_depth > 0`): set for an arm's contents and for a `match` an operator chain starts with | `src/Fmt/Rules.sw` | `arm_depth` |
@@ -2115,3 +2115,12 @@ From `docs/agent-feedback/2026-11.md` (about 100 rows for the slice 1 lanes; tim
 ### What the numbers say
 
 Stop rules (proof plan §4): overall count over 2 times the sketch's (4.3 to 6.4 times): **fires**; two layers over 2 times (all seven are): **fires**; the projected total passing 9,000 theorems or 110 agent hours: slice 1 alone is 6,031 (67% of 9,000) and 69 to 81 hours (63 to 74% of 110), with six more slices in the plan: **fires**; rate under 40 an hour: no (87). Carry-on does not apply. The plan asks for a rethink note to Matt with options; this checkpoint gives the numbers, the note is the orchestrator's. Two readings the note should carry: the count was off but the rate held (the sketch costed a narrower slice 1, and the parser's walk is one lemma per function), and four D3687 groups are a quarter of the total.
+
+## An own-line comment before an expression `let`'s value (SW-4922, Sonnet, 27 November 2026)
+
+The fuzzer's `fuzz-fmt-2611262b-67321` (`docs/reviews/repros/`): `(let x :=⏎-- c⏎1; x)` printed the value at +2 under the comment, which the parser reads as a block, so the `;` had no body and the text didn't parse. The Rust formatter had the same fault until SW-4917 (`let_value_comment_below`); the rules follow it:
+
+- `letDoc`, for an expression `let` whose `:=` ends its line with a comment or whose value has an own-line comment (`Let.valueBelow`): the value on the next line at the indentation in force, a continuation of the `:=` line, not `bodyAfter`'s block at +2. A block value with no comment still goes below at +2.
+- `letInDoc`, in that case: no `Align` and a space, not a `Line`, after the `;`, so the body stays on the value's line (a line at the `let`'s column would end the value's block).
+
+The `:=`-line trailing comment stays where it was written (Rust no longer lifts it above the `:=`). The case is `Tests/Slice3.sw`'s last test (both the bracketed and plain forms). Twin, `--stage text`: the repro and three hand files (trailing comment after `:=`, a comment and a second `let`, a lambda value) identical; the 40 Rust goldens whose names have `let`, `comment` or `sequence`: every difference is a refusal (outside slice 6a), none a text difference. No proof depends on `letDoc` or `letInDoc` (checked by grep over `src/Fmt`).
