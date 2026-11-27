@@ -746,3 +746,60 @@ fn a_project_search_writes_the_scan_entry() {
     ]);
     assert!(out.contains("A 1 scan"), "{out}");
 }
+
+/// A project with a type, a `length` of its own, and a declaration that
+/// doesn't check (so loading the project says so on stderr).
+fn broken_project(name: &str) -> PathBuf {
+    let dir = folder(name);
+    std::fs::write(dir.join("stitchwort.yaml"), "# for the search tests\n").unwrap();
+    std::fs::create_dir_all(dir.join("src")).unwrap();
+    std::fs::write(
+        dir.join("src/probe.sw"),
+        "namespace Probe\n\n\
+         type Pair = | MkPair (n: Nat)\n\n\
+         def length (p: Pair): Nat := p.n\n\n\
+         def broken: Nat := true\n",
+    )
+    .unwrap();
+    dir
+}
+
+#[test]
+fn in_std_skips_the_project_when_the_query_names_nothing_it_declares() {
+    let dir = broken_project("skip");
+    // (A query naming `length` would load it: the project declares one.)
+    let (code, report) = json(&dir, &["Nat → Nat → Nat", "--in", "Std"]);
+    let (_, _, err) = search(&dir, &["Nat → Nat → Nat", "--in", "Std"]);
+    assert_eq!(code, 0, "{err}");
+    assert!(!names(&report).is_empty());
+    // Not loaded, so its error isn't reported.
+    assert!(!err.contains("doesn't check"), "{err}");
+}
+
+#[test]
+fn in_std_loads_the_project_when_the_query_names_a_declaration_of_it() {
+    let dir = broken_project("load");
+    // A type of the project in the pattern, a lowercase name it declares
+    // (the project's `length` is meant, not a hole), and a qualified one.
+    for query in ["Pair → Nat", "length (_ ++ _)", "Probe.Pair → Nat"] {
+        let (_, _, err) = search(&dir, &[query, "--in", "Std"]);
+        assert!(err.contains("doesn't check"), "{query}: {err}");
+    }
+    // The lowercase name is the project's: not the hole it is without.
+    let (code, report) = json(&dir, &["length (_ ++ _)", "--in", "Std"]);
+    assert_eq!(code, 2, "{report}");
+    let (_, report) = json(&dir, &["Pair → Nat", "--in", "Std"]);
+    assert!(report.get("error").is_some(), "{report}");
+}
+
+#[test]
+fn without_in_std_the_project_is_always_loaded() {
+    let dir = broken_project("always");
+    let (_, _, err) = search(
+        &dir,
+        &["List.length (_ ++ _)", "--in", "Std", "--in", "Probe"],
+    );
+    assert!(err.contains("doesn't check"), "{err}");
+    let (_, _, err) = search(&dir, &["List.length (_ ++ _)"]);
+    assert!(err.contains("doesn't check"), "{err}");
+}

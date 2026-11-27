@@ -89,6 +89,27 @@ in [../proposals/README.md](../proposals/README.md).
 
   The search's output is byte-identical before and after.
 
+### SW-4961: `search --in Std` loads the project only when the query could name it
+
+- **Problem.** In `aoc/`, `--in Std` searches still checked all 700-odd project
+  namespaces (about 0.9 s of 2.25 s), though the project's declarations aren't candidates.
+- **Change.** The project is loaded only if `--in` names something outside `Std`, or a
+  word of the pattern or a mention (each segment of a qualified name) is a segment of
+  a name the scan cache lists for the project (`Scan::declares_any`); a lowercase name
+  the project declares must load it, since it would otherwise be a named hole. A
+  project that isn't loaded is still analysed from the scan (clashes are still
+  reported), and the log's namespace list is unchanged. The out-of-budget warning's
+  names and the internal-error list are sorted by name, so they don't follow load
+  order.
+- **Measured (warm, best of 3, wall), `aoc/`, `--in Std '() → {Parse Char} Int'`.**
+  2.23 s before, 1.41 s after.
+- **Differential.** `--json --limit 100000 --in Std` in `aoc/`, before against after,
+  for the six queries above and `Aoc.Common.Point → Nat`,
+  `Aoc.Year2025.Day08.Point → Nat`, `Point → Nat` (ambiguous), `List Point → Nat`,
+  `count _ _`, `step`, `digits` (ambiguous in aoc), `List.length (digits _)`: stdout,
+  stderr and exit codes identical, except the out-of-budget warning's three named
+  declarations, which the sort changes (stated).
+
 ### SW-4935: `search` reads the library's name index and the core from the cache
 
 - **Problem.** Matt: `stitchwort search --in Std '() → {Parse Char} Int'` in his AoC

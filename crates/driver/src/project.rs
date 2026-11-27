@@ -112,6 +112,14 @@ impl Session {
         }
     }
 
+    /// The scan of `files` through the check cache, as `analyse_cached`
+    /// makes it; `None` without a cache.
+    pub fn scan_cached(&mut self, project: &str, files: Vec<(String, String)>) -> Option<Scan> {
+        let store = self.elab.check_cache()?;
+        let stack = self.elab.options.limits.stack;
+        Some(Scan::new(files, stack, project, Some(&*store)))
+    }
+
     /// [`Session::load_project_sources`], from the files already read
     /// (`analyse`).
     pub fn load_analysis(
@@ -1257,6 +1265,26 @@ impl Scan {
             }
         }
         Scan { files, stack }
+    }
+
+    /// Whether the project might declare something that `words` name: a
+    /// word is a segment of a declared name, of a namespace's path, or of
+    /// a name its declarations write. A file with syntax errors has no
+    /// sketch and counts as declaring anything (SW-4961).
+    pub fn declares_any(&self, words: &BTreeSet<String>) -> bool {
+        let hit = |text: &str| text.split('.').any(|seg| words.contains(seg));
+        self.files.iter().any(|f| {
+            let Some(bytes) = f.sketch.as_deref() else {
+                return true;
+            };
+            let Some(sketch) = FileSketch::decode(&mut &*bytes, FileId::SCRATCH) else {
+                return true;
+            };
+            (sketch.namespace.iter()).any(|(path, _)| hit(&path.text))
+                || sketch.names.iter().any(|n| hit(n))
+                || sketch.declared.iter().any(|n| hit(n))
+                || (sketch.things.iter()).any(|(n, _)| hit(&n.text))
+        })
     }
 
     /// The paths and texts, sorted by path.

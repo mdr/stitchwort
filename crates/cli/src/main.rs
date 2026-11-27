@@ -4841,6 +4841,8 @@ fn search(
 ) -> ExitCode {
     use stitchwort_driver::search::Scope;
     let mut strip = None;
+    // The namespaces of a project that was scanned but not loaded.
+    let mut logged: Option<Vec<String>> = None;
     let started = std::time::Instant::now();
     // The project, if any, is found before the session starts: its cache
     // directory holds the library's name index and the core, which are
@@ -4914,28 +4916,56 @@ fn search(
                             return ExitCode::from(2);
                         }
                     };
-                    let analysis = session.analyse_cached(&project.name, sources);
+                    // Under `--in Std` the project is loaded only if the
+                    // query might name something it declares (the search
+                    // cache note, 4.2): a lowercase name means the
+                    // project's with it, a hole without.
+                    let words = stitchwort_driver::search::within_library(&options.within)
+                        .then(|| stitchwort_driver::search::query_words(query))
+                        .flatten();
+                    let (analysis, skip) = match words {
+                        Some(words) => match session.scan_cached(&project.name, sources.clone()) {
+                            Some(scan) => {
+                                let skip = !scan.declares_any(&words);
+                                (
+                                    stitchwort_driver::project::analyse_scan(
+                                        &mut session,
+                                        &project.name,
+                                        &scan,
+                                    ),
+                                    skip,
+                                )
+                            }
+                            None => (session.analyse_cached(&project.name, sources), false),
+                        },
+                        None => (session.analyse_cached(&project.name, sources), false),
+                    };
                     if !analysis.diagnostics.is_empty() {
                         report(&session.sources, &analysis.diagnostics);
                         return ExitCode::from(2);
                     }
-                    let names = analysis
+                    let names: Vec<String> = analysis
                         .namespaces
                         .iter()
                         .map(|ns| ns.name.clone())
                         .collect();
-                    // A namespace that doesn't check is reported, and its
-                    // declarations that did are still searched.
-                    match session.load_analysis(&project.name, analysis, &Target::Everything) {
-                        Ok(_) => {
-                            std::mem::take(&mut session.warnings);
+                    if skip {
+                        logged = Some(names);
+                        Scope::Project(Vec::new())
+                    } else {
+                        // A namespace that doesn't check is reported, and
+                        // its declarations that did are still searched.
+                        match session.load_analysis(&project.name, analysis, &Target::Everything) {
+                            Ok(_) => {
+                                std::mem::take(&mut session.warnings);
+                            }
+                            Err(diagnostics) => {
+                                unchecked_summary(&session.sources, &diagnostics, "the project");
+                            }
                         }
-                        Err(diagnostics) => {
-                            unchecked_summary(&session.sources, &diagnostics, "the project");
-                        }
+                        session.elab.leave_namespace();
+                        Scope::Project(names)
                     }
-                    session.elab.leave_namespace();
-                    Scope::Project(names)
                 }
                 None => {
                     use_cache(&mut session, cache, Path::new("."));
@@ -4954,7 +4984,9 @@ fn search(
             (Some(path), _) => serde_json::json!({
                 "file": stitchwort_cli::search_log::private_path(&path.display().to_string())
             }),
-            (None, Scope::Project(ns)) => serde_json::json!({"namespaces": ns}),
+            (None, Scope::Project(ns)) => {
+                serde_json::json!({"namespaces": logged.as_ref().unwrap_or(ns)})
+            }
             (None, Scope::File | Scope::ProjectFile { .. }) => serde_json::Value::Null,
         };
         let entry = match &found {
