@@ -34,6 +34,23 @@ test "longest word" :=
   longest == Some "milk"
 ```
 
+## In the editor
+
+In VS Code, the tests of a project are in the Testing panel, and the "▶ Run test" links above each test start a run there. VS Code's own keys rerun and select runs from the keyboard (on macOS Cmd, elsewhere Ctrl; each is Cmd+; and then the letter):
+
+| Keys | Does |
+|---|---|
+| Cmd+; L | run the last run again, from any file |
+| Cmd+; E | run the failed tests again |
+| Cmd+; A | run all tests, of every project open |
+| Cmd+; F | run the tests of the current file |
+| Cmd+; C | run the test the cursor is in |
+| Cmd+; Cmd+X | cancel a run |
+| Cmd+; P | run the tests of this file's project (Stitchwort) |
+| Cmd+; W | turn run on save on or off (Stitchwort) |
+
+With run on save on, each save of a `.sw` file runs the project's tests again. The test cache means only the tests whose code changed are computed, so the panel updates with what your edit touched. It is off until you turn it on, and applies to the whole window, or to one test, file or project through the eye beside it in the Testing panel. A file outside a project has no Testing panel entries: its run links report in a message instead.
+
 ## When a test fails
 
 When a test's condition is a comparison (`==`, `!=`, `<`, `<=`, `>`, `>=` or `=`), a failure shows its two sides. For two lists or two texts that differ, it also shows where they first differ:

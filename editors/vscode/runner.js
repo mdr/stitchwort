@@ -11,6 +11,9 @@ const path = require('path');
 const RUN_TEST = 'stitchwort.runTest';
 const RUN_TESTS = 'stitchwort.runTests';
 const RUN_MAIN = 'stitchwort.runMain';
+// Commands of the extension's own, bound to keys in package.json.
+const RUN_PROJECT_TESTS = 'stitchwort.runProjectTests';
+const TOGGLE_RUN_ON_SAVE = 'stitchwort.toggleRunOnSave';
 
 // The arguments of `stitchwort test` for a `target` (a file, or a namespace of
 // the project; the whole project when undefined), one test when `only` is
@@ -84,6 +87,8 @@ function fromServerTests(answer) {
     namespace: t.namespace || undefined,
     line: t.range.start.line,
     character: t.range.start.character,
+    endLine: t.range.end.line,
+    endCharacter: t.range.end.character,
   }));
 }
 
@@ -132,6 +137,33 @@ function discoverTests(text) {
     found.push({ name, line: i, character: 0 });
   });
   return found;
+}
+
+// What a continuous run (run on save) reruns after `file` is saved: the whole
+// project it is in as one `stitchwort test` (the test cache returns the tests
+// whose code didn't change), when that project is within the request's
+// `scope` (project folders; undefined means every project). Returns `{
+// project, args }`, or undefined when the save is outside the scope.
+function continuousJob(file, projectDirs, scope) {
+  const project = projectDirs.find((d) => file.startsWith(`${d}${path.sep}`));
+  if (!project || (scope && !scope.includes(project))) return undefined;
+  return { project, args: testArgs({}) };
+}
+
+// The results a continuous rerun reports: those that ran now, and any failure
+// (cached or not); a cached pass is already on the panel from before.
+const freshResults = (tests) => tests.filter((t) => !(t.cached && t.outcome === 'passed'));
+
+// A function that runs `fn` once, `ms` after the last call; `cancel()` drops
+// a pending call. Used to gather a burst of saves into one rerun.
+function debounce(fn, ms) {
+  let timer;
+  const call = (...args) => {
+    clearTimeout(timer);
+    timer = setTimeout(() => fn(...args), ms);
+  };
+  call.cancel = () => clearTimeout(timer);
+  return call;
 }
 
 // The CLI targets that together cover `namespaces` (those of the files that
@@ -215,6 +247,8 @@ module.exports = {
   RUN_TEST,
   RUN_TESTS,
   RUN_MAIN,
+  RUN_PROJECT_TESTS,
+  TOGGLE_RUN_ON_SAVE,
   testArgs,
   runTestsJson,
   summaryLine,
@@ -222,6 +256,9 @@ module.exports = {
   summary,
   discoverTests,
   fromServerTests,
+  continuousJob,
+  freshResults,
+  debounce,
   discover,
   groupNamespaces,
   inGroup,

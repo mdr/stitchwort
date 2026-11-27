@@ -70,6 +70,33 @@ Syntax colouring for `.sw` files, and a thin client for the language server
   when it is a comparison. A result from the cache has the description
   "cached" (and says so in the run's output). Debugging and coverage profiles
   are not offered.
+
+  In a project file the "▶ Run test" and "▶ Run tests" icons start an ordinary
+  run through this controller (named by the "Run" profile), so VS Code's
+  Rerun Last Run and Rerun Failed Tests repeat them; a file outside a
+  project keeps the direct run (message, Output channel, marked lines). Test
+  items carry the declaration's whole range (the server's), so Run Test at
+  Cursor runs the test the cursor is in. The "Run" profile supports
+  continuous run (run on save), off until turned on: after each save of a `.sw`
+  file, the project's tests are run again as one `stitchwort test --json`, and
+  the test cache answers for the tests the edit didn't touch, so only changed
+  results are reported. The pure parts (`continuousJob`, `freshResults`,
+  `debounce`) are in `runner.js`.
+
+  Keys (VS Code's own Cmd+; chords on macOS, Ctrl+; elsewhere; the extension
+  adds the last two, only in Stitchwort editors; they are `package.json`
+  `keybindings`, so they can be rebound):
+
+  | Keys | Does |
+  |---|---|
+  | Cmd+; L | rerun the last run |
+  | Cmd+; E | rerun the failed tests |
+  | Cmd+; A | run all tests, every project |
+  | Cmd+; F | run the tests of the current file |
+  | Cmd+; C | run the test at the cursor |
+  | Cmd+; Cmd+X | cancel the run |
+  | Cmd+; P | `Stitchwort: Run Project Tests`, the active file's project |
+  | Cmd+; W | `Stitchwort: Toggle Run Tests on Save`, VS Code's continuous run |
 - **Rename.** F2 renames a local, hypothesis, function or theorem in every
   file of the project, served by `stitchwort lsp` (`prepareRename`, `rename`).
   The renamed project is checked first: a rename that would cause an error or

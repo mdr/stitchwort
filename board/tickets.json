@@ -21628,14 +21628,14 @@
     {
       "id": 4940,
       "title": "VS Code: test items keep only the start of the server's range (runs.js:176, runner.js fromServerTests), so Run Test at Cursor (Cmd+; C) runs the wrong test below the last one",
-      "status": "doing",
+      "status": "review",
       "agent": "",
       "where": "",
       "labels": [
         "bug"
       ],
       "epic": "editor-playground",
-      "body": "[Sonnet] From SW-4939 (27 Nov). Folded into the SW-4939 implementation if Matt approves it.",
+      "body": "[Sonnet] From SW-4939 (27 Nov). Folded into the SW-4939 implementation if Matt approves it.\n\nProgress: built on lane/SW-4943 (a5b6fe0dd): lenses via Testing run, full ranges, Run Project Tests Cmd+; P, run on save Cmd+; W, docs. Warm aoc rerun 1 s (STITCHWORT_JOBS=2).",
       "created": "2026-11-27",
       "updated": "2026-11-27",
       "commits": []
@@ -21669,12 +21669,12 @@
     {
       "id": 4943,
       "title": "VS Code: keyboard test running (D3764): lenses through the Testing panel, full test ranges, Run Project Tests (Cmd+; P), run-on-save (Cmd+; W), keys in the guide",
-      "status": "doing",
+      "status": "review",
       "agent": "",
       "where": "",
       "labels": [],
       "epic": "editor-playground",
-      "body": "[Sonnet] D3764 (Matt, 27 Nov 2026: \"yes\"): build the recommendation of docs/proposals/editor-test-shortcuts.md (SW-4939): (1) in project files the code-lens \"Run test(s)\" start an ordinary Testing-panel run naming our profile, so Cmd+; L / Cmd+; E repeat them; lone files unchanged; (2) test items keep the server's full range so Cmd+; C runs the test the cursor is in (SW-4940); (3) \"Stitchwort: Run Project Tests\" for the active file's project, default key Cmd+; P in Stitchwort editors; (4) continuous run (supportsContinuousRun) off by default, Cmd+; W toggles it, one `stitchwort test` per project per save with the test cache skipping unchanged tests, measured on aoc/; (5) guide chapter 9 \"In the editor\" with the keys, chapter 1's editor bullets and the extension README.\n",
+      "body": "[Sonnet] D3764 (Matt, 27 Nov 2026: \"yes\"): build the recommendation of docs/proposals/editor-test-shortcuts.md (SW-4939): (1) in project files the code-lens \"Run test(s)\" start an ordinary Testing-panel run naming our profile, so Cmd+; L / Cmd+; E repeat them; lone files unchanged; (2) test items keep the server's full range so Cmd+; C runs the test the cursor is in (SW-4940); (3) \"Stitchwort: Run Project Tests\" for the active file's project, default key Cmd+; P in Stitchwort editors; (4) continuous run (supportsContinuousRun) off by default, Cmd+; W toggles it, one `stitchwort test` per project per save with the test cache skipping unchanged tests, measured on aoc/; (5) guide chapter 9 \"In the editor\" with the keys, chapter 1's editor bullets and the extension README.\n\nProgress: built on lane/SW-4943 (a5b6fe0dd): lenses via Testing run, full ranges, Run Project Tests Cmd+; P, run on save Cmd+; W, docs. Warm aoc rerun 1 s (STITCHWORT_JOBS=2).",
       "created": "2026-11-27",
       "updated": "2026-11-27",
       "commits": []

@@ -86,8 +86,8 @@ test('the server\'s tests are used, with the file\'s namespace', async () => {
     { name: 'b', namespace: null, range: { start: { line: 9, character: 0 }, end: { line: 9, character: 9 } } },
   ];
   assert.deepStrictEqual(await run.discover(async () => answer, 'unused'), [
-    { name: 'a', namespace: 'N.M', line: 4, character: 2 },
-    { name: 'b', namespace: undefined, line: 9, character: 0 },
+    { name: 'a', namespace: 'N.M', line: 4, character: 2, endLine: 5, endCharacter: 0 },
+    { name: 'b', namespace: undefined, line: 9, character: 0, endLine: 9, endCharacter: 9 },
   ]);
   // No regex involved: the server's list is taken as it is, even when empty.
   assert.deepStrictEqual(await run.discover(async () => [], 'test "x" := true\n'), []);
@@ -165,4 +165,36 @@ echo '{"ok":true,"tests":[{"name":"'$2'","outcome":"passed","cached":false,"file
   assert.ok(Date.now() - started < 4000, 'the slow run was killed, not waited for');
   assert.deepStrictEqual(done.slice(0, 3), [['A', 'A'], ['B', 'B'], ['C', 'C']]);
   assert.deepStrictEqual(done[3], ['slow', 'cancelled']);
+});
+
+test('a save reruns the whole project it is in, if the run covers it', () => {
+  const dirs = ['/w/aoc', '/w/tools/fmt'];
+  assert.deepStrictEqual(run.continuousJob('/w/aoc/src/Day01.sw', dirs, undefined), { project: '/w/aoc', args: ['test', '--json'] });
+  assert.deepStrictEqual(run.continuousJob('/w/tools/fmt/src/A.sw', dirs, ['/w/tools/fmt']).project, '/w/tools/fmt');
+  assert.strictEqual(run.continuousJob('/w/aoc/src/Day01.sw', dirs, ['/w/tools/fmt']), undefined);
+  assert.strictEqual(run.continuousJob('/w/aoc-other/x.sw', dirs, undefined), undefined);
+  assert.strictEqual(run.continuousJob('/elsewhere/x.sw', dirs, undefined), undefined);
+});
+
+test('a continuous rerun reports what ran and any failure, not cached passes', () => {
+  const tests = [
+    { name: 'a', outcome: 'passed', cached: true },
+    { name: 'b', outcome: 'passed', cached: false },
+    { name: 'c', outcome: 'failed', cached: true },
+  ];
+  assert.deepStrictEqual(run.freshResults(tests).map((t) => t.name), ['b', 'c']);
+});
+
+test('a burst of saves makes one call', async () => {
+  const calls = [];
+  const d = run.debounce((x) => calls.push(x), 20);
+  d(1);
+  d(2);
+  d(3);
+  await new Promise((r) => setTimeout(r, 60));
+  assert.deepStrictEqual(calls, [3]);
+  d(4);
+  d.cancel();
+  await new Promise((r) => setTimeout(r, 60));
+  assert.deepStrictEqual(calls, [3]);
 });
