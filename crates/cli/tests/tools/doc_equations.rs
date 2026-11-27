@@ -168,9 +168,10 @@ def f (x: Nat): Nat := match x with
     let _ = std::fs::remove_dir_all(&dir);
 }
 
-/// A skipped guarded equation names the guard's proof only when the guard
-/// gives it one (`if ok: P`); an unnamed guard's proof, found automatically
-/// (`if a = b && b = 0`, `if (a = b) ∧ (b = 0)`), isn't `h` (SW-4365).
+/// A guard whose condition isn't an equation (`if a = b && b = 0`, `if
+/// (a = b) ∧ (b = 0)`, `if ok: …`) gets its branch equations by
+/// `Prop.irrel`, so none is skipped over the guard's proof, and nothing
+/// names a proof `h` that the source never wrote (SW-4365, SW-4665).
 #[test]
 fn doc_names_a_guards_proof_only_when_the_guard_names_it() {
     let dir = folder("guard-proof-name");
@@ -190,18 +191,12 @@ def named (a b n: Nat): Nat :=
   if ok: (a = b) ∧ (b = 0) then takeAnd a b n else 0
 ";
     std::fs::write(dir.join("a.sw"), source).unwrap();
-    for (def, proof) in [
-        ("unnamedAnd", "the guard's proof"),
-        ("unnamedWritten", "the guard's proof"),
-        ("named", "the proof `ok`"),
-    ] {
+    for def in ["unnamedAnd", "unnamedWritten", "named"] {
         let (code, out, err) = run("doc", &dir, &[def, "a.sw"]);
         assert_eq!(code, 0, "{out}\n{err}");
-        let expected = format!("its branch uses {proof} of a condition");
-        assert!(
-            out.contains(&format!("Main.{def}.eq.ifTrue  {expected}")),
-            "{out}"
-        );
+        assert!(out.contains(&format!("Main.{def}.eq.ifTrue ")), "{out}");
+        assert!(out.contains(&format!("Main.{def}.eq.ifFalse ")), "{out}");
+        assert!(!out.contains("of a condition"), "{out}");
         assert!(!out.contains("the proof `h`"), "{out}");
     }
     let _ = std::fs::remove_dir_all(&dir);

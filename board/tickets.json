@@ -37036,7 +37036,7 @@
     {
       "id": 4901,
       "title": "[Sonnet] All-tier failures 27 Nov (at df69610cd; log /private/tmp/claude-550/-Users-agent-repos-mdr-stitchwort/8230e28a-2fab-4832-920d-c5160adb7e00/scratchpad/test-all.log): cli::tools doc_equations::{doc_lists_generated_equations_in_their_own_section (doc_equations.rs:81 'a Theorems section' missing), doc_names_a_guards_proof_only_when_the_guard_names_it (:201), search_flags_generated_equations}. Last all-tier 22 Nov passed. Find the commit with the three tests only and fix",
-      "status": "doing",
+      "status": "review",
       "agent": "Sonnet",
       "where": "",
       "labels": [],

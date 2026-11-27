@@ -807,9 +807,13 @@ impl Session {
         }
         let imports = format!("import Std ({})\n", namespaces.join(", "));
         // A file that imports a namespace itself gets a warning that it is
-        // imported twice: harmless here.
+        // imported twice: harmless here. A file that defines a name the
+        // library also has (`Pair`) keeps its own: the clash skips just that
+        // import, and the rest are in scope.
         let mut diagnostics = self.add_imports("<search imports>", &imports);
-        diagnostics.retain(|d| d.severity == stitchwort_syntax::Severity::Error);
+        diagnostics.retain(|d| {
+            d.severity == stitchwort_syntax::Severity::Error && d.code != "E-IMPORT-CLASH"
+        });
         diagnostics
     }
 
