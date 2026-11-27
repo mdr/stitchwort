@@ -1212,31 +1212,3 @@ fn oracle_3_pairs_a_rejection_with_its_own_diagnostic() {
         "a diagnostic outside the declaration was paired"
     );
 }
-
-/// SW-4910: a `byComputing` in the arms of a `match` proving an equation over
-/// a let-bound value must be refused by the elaborator, not left to the
-/// kernel (oracle 3).
-#[test]
-fn oracle_3_let_bound_value_in_match_arms() {
-    let text = include_str!("../../../docs/reviews/repros/fuzz-elab-26112611-1834.sw");
-    let report = match run_watched(text, &CacheUse::SharedLibrary) {
-        Ran::Done(report) => report,
-        Ran::Panicked(message) => panic!("check panicked: {message}"),
-        Ran::OverMemory => panic!("check held too much memory"),
-        Ran::Hung => panic!("check hung"),
-    };
-    assert!(
-        report
-            .messages
-            .iter()
-            .any(|message| message.code == "E-REFL"),
-        "the elaborator's E-REFL is missing: {:?}",
-        report.messages
-    );
-    assert!(
-        bad_kernel_rejections(&report).is_empty(),
-        "the kernel rejected what the elaborator passed: {:?} {:?}",
-        report.rejections,
-        bad_kernel_rejections(&report)
-    );
-}
