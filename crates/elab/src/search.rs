@@ -1505,9 +1505,12 @@ impl Elaborator {
                 if !keep(candidate) {
                     continue;
                 }
+                // A cancelled search (a stale query in the editor) stops
+                // between candidates, as one past its deadline does.
                 if opts
                     .deadline
                     .is_some_and(|d| stitchwort_core::budget::Instant::now() >= d)
+                    || g.machine.budget.cancel_requested()
                 {
                     stats.stopped = true;
                     break;

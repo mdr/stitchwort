@@ -284,3 +284,36 @@ fn the_library_namespace_import_line_imports_cleanly() {
         );
     });
 }
+
+/// A search from a file (the editor's `stitchwort/search`) stops part way
+/// once its cancel flag is set, rather than running to its end: a query
+/// typed over in the editor costs little more than what it had compared
+/// (SW-4942). `_ = _` names nothing, so every theorem is compared: far
+/// longer than the moment before the flag is set.
+#[test]
+fn a_search_from_a_file_stops_when_cancelled_part_way() {
+    use std::sync::Arc;
+    use std::sync::atomic::{AtomicBool, Ordering};
+    with_session(STACK, Session::for_stack, |session| {
+        session
+            .elab
+            .load_all_libraries()
+            .expect("the library loads");
+        let flag = Arc::new(AtomicBool::new(false));
+        session.share_cancel_flag(flag.clone());
+        let setter = {
+            let flag = flag.clone();
+            std::thread::spawn(move || {
+                std::thread::sleep(std::time::Duration::from_millis(100));
+                flag.store(true, Ordering::Relaxed);
+            })
+        };
+        let found = session.search_in_text("search.sw", SOURCE, "_ = _", &Options::default());
+        setter.join().unwrap();
+        assert!(
+            found.is_err(),
+            "not cancelled: {:?}",
+            found.map(|r| r.map(|r| r.total))
+        );
+    })
+}

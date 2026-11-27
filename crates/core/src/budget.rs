@@ -1016,8 +1016,9 @@ impl Budget {
     }
 
     /// Whether the flag is watched and set (or was seen set), noting it if
-    /// so.
-    fn cancel_requested(&self) -> bool {
+    /// so: for a loop to stop between pieces of work that may take no
+    /// steps.
+    pub fn cancel_requested(&self) -> bool {
         if !self.cancelled.get()
             && self.watching.get()
             && (self

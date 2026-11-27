@@ -4,7 +4,8 @@
 // hover, references and the outline; `vscode-languageclient` carries them.
 // What stays here: starting the server, and the text of library files
 // (`stitchwort-std:`, from `stitchwort std-source`), and the run icons and the
-// Testing panel (runs.js), which run the CLI. The grammar and language
+// Testing panel (runs.js), which run the CLI, and the Search by Type box
+// (typeSearch.js). The grammar and language
 // configuration are declarative, in package.json.
 
 const vscode = require('vscode');
@@ -12,6 +13,7 @@ const cp = require('child_process');
 const { LanguageClient } = require('vscode-languageclient/node');
 const cfg = require('./client');
 const runs = require('./runs');
+const typeSearch = require('./typeSearch');
 
 /** @type {LanguageClient | undefined} */
 let client;
@@ -327,6 +329,13 @@ function activate(context) {
     return c.sendRequest(cfg.TESTS, { textDocument: { uri } });
   };
   runs.register(context, () => cfg.cliPath(configuredPath()), serverTests);
+  // The server once it's up, for Search by Type.
+  typeSearch.register(context, async () => {
+    const c = client;
+    if (!c || !clientStarted) return undefined;
+    await clientStarted;
+    return c;
+  });
 }
 
 function deactivate() {

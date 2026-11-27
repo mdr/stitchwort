@@ -66,6 +66,7 @@ pub mod complete;
 mod lens;
 mod rename;
 mod source;
+mod type_search;
 use source::sources_hold;
 pub use source::{Disk, Memory, MemoryProject, ProjectFiles, Source};
 
@@ -955,6 +956,13 @@ enum SearchKind {
         versioned: Option<i32>,
         fixes: serde_json::Value,
     },
+    /// A search by type from the document (`stitchwort/search`): `query` in
+    /// `stitchwort search`'s syntax, at most `limit` results.
+    Types {
+        query: String,
+        limit: usize,
+        rewrite: bool,
+    },
 }
 
 impl Search {
@@ -1087,6 +1095,18 @@ impl Search {
                 } else {
                     serde_json::Value::Array(actions)
                 }
+            }
+            SearchKind::Types {
+                query,
+                limit,
+                rewrite,
+            } => {
+                let options = stitchwort_driver::search::Options {
+                    limit,
+                    rewrite,
+                    ..Default::default()
+                };
+                type_search::answer(server, source, target, &uri, &query, &options, cancel)
             }
         }
     }
@@ -1228,10 +1248,11 @@ struct PendingSearch {
     /// What it was asked for (`codeAction`, `contextAt`).
     kind: &'static str,
     /// Skips a search still queued, and stops one in its pause
-    /// ([`Options::search_delay`]). A search already running is not
-    /// stopped: the sessions only carry the flag
+    /// ([`Options::search_delay`]). A search by type already running stops
+    /// between candidates (`Session::search_in_text` and `search_in_project`
+    /// watch the flag); the others only carry the flag
     /// (`Session::share_cancel_flag`), and nothing turns on the check of it
-    /// (`Session::cancellable`), so it runs to its end and `searched`
+    /// (`Session::cancellable`), so they run to their end and `searched`
     /// answers null.
     cancel: Arc<AtomicBool>,
     answered: AtomicBool,
@@ -1722,6 +1743,9 @@ impl Main {
         } else if request.method == CONTEXT_AT {
             self.context_at(request);
             return;
+        } else if request.method == type_search::METHOD {
+            self.type_search(request);
+            return;
         } else if request.method == request::Completion::METHOD {
             match self.member_completion(request) {
                 Some(request) => request,
@@ -2085,6 +2109,38 @@ impl Main {
             target,
             time_ms: None,
             kind: SearchKind::ContextAt { line, character },
+        });
+    }
+
+    /// `stitchwort/search` (docs/proposals/editor-type-search.md §6): a
+    /// search by type from the document, scoped as the document sees names
+    /// and with its unsaved text ([`type_search::answer`]). A newer search
+    /// for the document, an edit or `$/cancelRequest` supersedes it, and a
+    /// running one stops between candidates.
+    fn type_search(&self, request: Request) {
+        let id = request.id.clone();
+        let p = &request.params;
+        let uri = (p["textDocument"]["uri"].as_str()).and_then(|u| Url::parse(u).ok());
+        let query = p["query"].as_str().map(str::to_string);
+        let (Some(uri), Some(query)) = (uri, query) else {
+            self.answer_null(id);
+            return;
+        };
+        let limit = (p["limit"].as_u64()).map_or(type_search::LIMIT, |n| n as usize);
+        let rewrite = p["rewrite"].as_bool().unwrap_or(false);
+        let Some(target) = self.search_target(&uri) else {
+            self.answer_null(id);
+            return;
+        };
+        self.queue_search(id, &uri.clone(), "typeSearch", move |_| Search {
+            uri,
+            target,
+            time_ms: None,
+            kind: SearchKind::Types {
+                query,
+                limit,
+                rewrite,
+            },
         });
     }
 

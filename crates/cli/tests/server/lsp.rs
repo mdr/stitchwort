@@ -2602,6 +2602,133 @@ fn context_at_in_a_projects_file_reads_the_editors_text() {
     let _ = std::fs::remove_dir_all(&dir);
 }
 
+/// The result named `name` of a `stitchwort/search` answer.
+fn search_result<'a>(answer: &'a Value, name: &str) -> &'a Value {
+    (answer["results"].as_array().expect("results").iter())
+        .find(|r| r["name"] == name)
+        .unwrap_or_else(|| panic!("no {name} in {answer}"))
+}
+
+/// `stitchwort/search` from a file on its own (editor-type-search.md §6):
+/// the CLI's JSON, each result with the name the file can write, the import
+/// it needs as an edit, and where it is; a query that doesn't parse answers
+/// with its error.
+#[test]
+fn type_search_from_a_file_gives_the_name_and_its_import() {
+    let dir = temp_dir("type-search");
+    use_shared_cache(&dir);
+    let file = dir.join("search.sw");
+    let text = "import Std (Nat)\n\ndef one: Nat := 1\n";
+    std::fs::write(&file, text).unwrap();
+    let uri = uri(&file);
+    let mut client = Client::start();
+    client.open(&uri, text);
+    client.diagnostics(&uri, 1);
+    let search = |client: &mut Client, query: &str| {
+        client.request(
+            "stitchwort/search",
+            json!({"textDocument": {"uri": uri}, "query": query}),
+        )
+    };
+    let answer = search(&mut client, "List.length (_ ++ _) = _");
+    let found = search_result(&answer, "Std.List.lengthAppend");
+    assert_eq!(found["short"], "lengthAppend");
+    assert_eq!(found["namespace"], "Std.List");
+    assert_eq!(found["import"], "import Std (List)");
+    assert_eq!(found["insertText"], "List.lengthAppend");
+    assert_eq!(
+        found["additionalTextEdits"],
+        json!([{"range": {"start": {"line": 0, "character": 15}, "end": {"line": 0, "character": 15}},
+                "newText": ", List"}])
+    );
+    assert!(
+        (found["location"]["uri"].as_str().unwrap()).contains("List/"),
+        "{found}"
+    );
+    // The file's own declaration: no import, written as the file writes it.
+    let answer = search(&mut client, "\"one\"");
+    let own = search_result(&answer, "Main.one");
+    assert_eq!(own["insertText"], "one");
+    assert_eq!(own["additionalTextEdits"], json!([]));
+    assert_eq!(own["location"]["uri"], uri);
+    assert_eq!(own["location"]["range"]["start"]["line"], 2);
+    let answer = search(&mut client, "List.length (");
+    assert!(answer["error"]["code"].is_string(), "{answer}");
+    client.shutdown();
+    let _ = std::fs::remove_dir_all(&dir);
+}
+
+/// `stitchwort/search` from a project's file reads the editor's unsaved
+/// text, and sees names as the file does: a declaration only in the editor
+/// is found, and one the file imports already needs no edit.
+#[test]
+fn type_search_in_a_projects_file_reads_the_editors_text() {
+    let dir = temp_dir("type-search-project");
+    use_shared_cache(&dir);
+    let write = |path: &str, text: &str| {
+        let file = dir.join(path);
+        std::fs::create_dir_all(file.parent().unwrap()).unwrap();
+        std::fs::write(file, text).unwrap();
+    };
+    write("stitchwort.yaml", "# for the type search test\n");
+    write(
+        "src/Shop/Spec/Spec.sw",
+        "namespace Shop.Spec\nimport Std (Nat)\n\ndef double (n: Nat): Nat := n + n\n",
+    );
+    let saved =
+        "namespace Shop.Proofs\nimport Shop.Spec (double)\nimport Std (Nat)\n\ndef one: Nat := 1\n";
+    write("src/Shop/Proofs/Proofs.sw", saved);
+    let uri = uri(&dir.join("src/Shop/Proofs/Proofs.sw"));
+    let text = format!("{saved}\ndef quadruple (a: Nat): Nat := double (double a)\n");
+    let mut client = Client::start();
+    client.open(&uri, &text);
+    client.diagnostics(&uri, 1);
+    let search = |client: &mut Client, query: &str| {
+        client.request(
+            "stitchwort/search",
+            json!({"textDocument": {"uri": uri}, "query": query}),
+        )
+    };
+    let answer = search(&mut client, "\"quadruple\"");
+    let own = search_result(&answer, "Shop.Proofs.quadruple");
+    assert_eq!(own["insertText"], "quadruple");
+    assert_eq!(own["location"]["uri"], uri);
+    let answer = search(&mut client, "\"double\"");
+    let spec = search_result(&answer, "Shop.Spec.double");
+    assert_eq!(spec["insertText"], "double");
+    assert_eq!(spec["additionalTextEdits"], json!([]), "{spec}");
+    assert!(
+        (spec["location"]["uri"].as_str().unwrap()).ends_with("src/Shop/Spec/Spec.sw"),
+        "{spec}"
+    );
+    client.shutdown();
+    let _ = std::fs::remove_dir_all(&dir);
+}
+
+/// A newer `stitchwort/search` for a document supersedes the older one
+/// (answered with null), and `$/cancelRequest` cancels one: the editor's
+/// search as you type keeps no stale query running.
+#[test]
+fn a_newer_type_search_supersedes_and_a_cancelled_one_is_answered() {
+    let dir = temp_dir("type-search-cancel");
+    let file = dir.join("swap.sw");
+    std::fs::write(&file, SWAP).unwrap();
+    let uri = uri(&file);
+    let mut options = options();
+    options.search_delay = Duration::from_secs(30);
+    let mut client = Client::start_with(options);
+    client.open(&uri, SWAP);
+    client.diagnostics(&uri, 1);
+    let params = |query: &str| json!({"textDocument": {"uri": uri}, "query": query});
+    let first = client.send("stitchwort/search", params("Nat"));
+    let second = client.send("stitchwort/search", params("Nat -> Nat"));
+    assert_eq!(client.response(&first), Ok(Value::Null));
+    client.notify("$/cancelRequest", json!({"id": second}));
+    assert_eq!(client.response(&second), Err(-32800));
+    client.shutdown();
+    let _ = std::fs::remove_dir_all(&dir);
+}
+
 /// Runs the "Search for a proof" action among `actions` (D3519): the
 /// answer of its command, and that no proof was among the actions.
 fn run_proof_search(client: &mut Client, actions: &Value) -> Value {
