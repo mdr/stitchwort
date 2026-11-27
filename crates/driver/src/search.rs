@@ -118,6 +118,29 @@ impl Kinds {
     }
 }
 
+/// Whether every namespace in `within` is `Std` or under it: then only
+/// the library's declarations are candidates (`--in`, SW-4961).
+pub fn within_library(within: &[String]) -> bool {
+    !within.is_empty() && (within.iter()).all(|ns| ns == "Std" || ns.strip_prefix("Std.").is_some())
+}
+
+/// The words of the names a query's pattern and mentions write, each
+/// segment of a qualified name apart (`"text"` parts aren't names): what a
+/// project would have to declare to change the search. `None` if the query
+/// doesn't parse.
+pub fn query_words(text: &str) -> Option<BTreeSet<String>> {
+    let query = parse(text).ok()?;
+    let mut words = BTreeSet::new();
+    for part in query.pattern.iter().chain(&query.mentions) {
+        (part.split(|c: char| !(c.is_alphanumeric() || c == '_' || c == '\''))).for_each(|w| {
+            if !w.is_empty() {
+                words.insert(w.to_string());
+            }
+        });
+    }
+    Some(words)
+}
+
 /// A query split into its parts.
 #[derive(Clone, Debug, Default, PartialEq)]
 pub struct Query {
@@ -787,7 +810,7 @@ impl Session {
             Vec::new()
         };
         let pattern = !readings.is_empty();
-        let found = if pattern {
+        let mut found = if pattern {
             merge(g, readings.into_iter().map(|(_, _, f)| f).collect())
         } else {
             let mut stats = Stats::default();
@@ -803,6 +826,11 @@ impl Session {
                 stats,
             }
         };
+        // Candidate order follows load order; by name, the lists don't
+        // depend on what else was loaded (SW-4961).
+        (found.stats.out_of_budget_items).sort_by_cached_key(|i| i.path(g).to_string());
+        (found.stats.internal_error_items)
+            .sort_by_cached_key(|(i, m)| (i.path(g).to_string(), m.clone()));
         let tier = pattern.then_some(found.tier);
         match tier {
             Some(SearchTier::Relaxed) => warnings.push(
