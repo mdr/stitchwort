@@ -14471,14 +14471,14 @@
     {
       "id": 3593,
       "title": "[Opus] Debug-build panic in hash_stability::examples: debug_assert at crates/core/src/value.rs:3515 'variable at level … read back with … in scope' (found by SW-3582 in a debug run; release builds skip it). Find the example, the cause, and whether release builds compute something wrong there",
-      "status": "backlog",
+      "status": "doing",
       "agent": "",
       "where": "",
       "labels": [],
       "epic": "elaborator-kernel",
       "body": "",
       "created": "2026-11-16",
-      "updated": "2026-11-16",
+      "updated": "2026-11-27",
       "commits": []
     },
     {
@@ -18574,14 +18574,14 @@
     {
       "id": 4679,
       "title": "[Opus] Rule K's fresh levels on 32-bit: RESERVED_LEVELS + used is unchecked, so more than 128 nested ends tests on the web build would wrap into real levels (finding A). Check the addition and answer 'not equal' (stuck) on overflow, with a test (SW-4673 follow-up)",
-      "status": "backlog",
+      "status": "doing",
       "agent": "",
       "where": "",
       "labels": [],
       "epic": "elaborator-kernel",
       "body": "",
       "created": "2026-11-23",
-      "updated": "2026-11-23",
+      "updated": "2026-11-27",
       "commits": []
     },
     {
