@@ -1,5 +1,5 @@
 {
-  "next": 4920,
+  "next": 4922,
   "tickets": [
     {
       "id": 47,
@@ -21211,22 +21211,25 @@
     {
       "id": 4914,
       "title": "[Opus] Kernel: bound a comparison's binder depth to its level range: conv goes under binders with a plain level + 1, so a test more than 2^24 binders deep (e.g. a type computed by recursion, T (Succ n) = (x: Nat) → T n) shares levels with a nested test's and w => w vs w => x can answer equal (finding A again; subject reduction lost, not directly False); on 32-bit a top-level comparison could reach 2^31. Build the repro and measure first; then one helper for the four level + 1 sites returning a resource error at the range's top; docs/core.md states the bound. Fable review (SW-4679 review N1)",
-      "status": "doing",
+      "status": "done",
       "agent": "",
       "where": "",
       "labels": [
         "core"
       ],
       "epic": "elaborator-kernel",
-      "body": "From docs/reviews/SW-4679-fable-review.md, N1. Reasoned from conv_with and the 10^10 step budget; no repro yet. Older than SW-4679.\nD3758 (Matt, 27 Nov 2026): \"proceed with the recommended fix\": option (b), compact test levels (a nested test starts above the running maximum), running out is E-RESOURCE, with Fable's additions (docs/reviews/SW-4914-fable-analysis.md, question 5). Covers SW-4915.\n",
+      "body": "From docs/reviews/SW-4679-fable-review.md, N1. Reasoned from conv_with and the 10^10 step budget; no repro yet. Older than SW-4679.\nD3758 (Matt, 27 Nov 2026): \"proceed with the recommended fix\": option (b), compact test levels (a nested test starts above the running maximum), running out is E-RESOURCE, with Fable's additions (docs/reviews/SW-4914-fable-analysis.md, question 5). Covers SW-4915.\n\nDone (D3758 option b): Machine::reached is a running maximum raised by value::fresh_past at all five fresh-variable sites before use; conv_with and same_trees_of restore it on every exit; a test starts at max(RESERVED_LEVELS, reached); cap usize::MAX - 3 (below the markers); is_type_former stops at RESERVED_LEVELS; out of levels is E-RESOURCE in kernel and reference (whose fixed 2^24 ranges stay); test-only value::check_levels on for the soundness examples. Probes: dtop1 E-REFL (main accepted), etop1 checks. Fable review: merge (docs/reviews/SW-4914-fable-review.md); follow-ups SW-4920, SW-4921. Before merge: whole-project check --no-cache of tools/fmt, aoc, rogue clean. Verifier: core rule_k/shared_case/record_eta/kernel, soundness + accepted examples (tier all, all files), 126 passed; wasm32 check clean. Model result: opus, worked, 18 + 30 min (est. 60 + 40). Covers SW-4915.\n",
       "created": "2026-11-27",
       "updated": "2026-11-27",
-      "commits": []
+      "commits": [
+        "1b5e92d59",
+        "695527195"
+      ]
     },
     {
       "id": 4915,
       "title": "[Opus] Rule K out of levels: make running out an E-RESOURCE ('no answer') instead of 'not equal', so it isn't filed in the answer memo (whose comment 'an answer found at one level holds at any' no longer holds), gives a clear message instead of a silently stuck cast, and fixes the stuck-on-a-proof note near value.rs:6522 that would report differing indices. 128 nested tests is few on the web: tower hyp 129 = 0 := byComputing is refused on the web and accepted natively (examples/accept/cast-ends-tested-once.sw nests 40); consider handing out levels compactly. User-visible: may need a D question (SW-4679 review N2-N4)",
-      "status": "backlog",
+      "status": "done",
       "agent": "",
       "where": "",
       "labels": [
@@ -21294,6 +21297,36 @@
       ],
       "epic": "proof-automation",
       "body": "From SW-3593's second round. Pre-existing imprecision, not a quoting bug; only affects which hypotheses byFacts collects.",
+      "created": "2026-11-27",
+      "updated": "2026-11-27",
+      "commits": []
+    },
+    {
+      "id": 4920,
+      "title": "[Sonnet] SW-4914 follow-ups (Fable review): check_levels::below remembers spines and shared cells by address as identical_within does (else doubled sharing walks as a tree, unbudgeted) and walks Value::Resumption frames; tests pinning invariant points 2 and 3 (a fresh_past that sets instead of raises fails; a cast with w free at RESERVED_LEVELS compared at +1 with no binder) and the other four fresh-variable sites (codomains, both etas, shared case fields); then STITCHWORT_CHECK_TEST_LEVELS=1 in the fuzz tasks",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [
+        "core"
+      ],
+      "epic": "elaborator-kernel",
+      "body": "From docs/reviews/SW-4914-fable-review.md, suggestions 1, 2, 3, 6.",
+      "created": "2026-11-27",
+      "updated": "2026-11-27",
+      "commits": []
+    },
+    {
+      "id": 4921,
+      "title": "[DeepSeek] docs/core.md wording after SW-4914: is_type_former stops at RESERVED_LEVELS (2^31 on 32-bit), not 2^40, and for a different reason than the cap; point (2) says every variable still live (same_trees_of gives its levels back early); 'alike on every target' is the rule, not the room. Also the E-RESOURCE text 'the program is nested too deeply for the comparison' reads oddly for a computed-deep type: reword",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [
+        "docs"
+      ],
+      "epic": "elaborator-kernel",
+      "body": "From docs/reviews/SW-4914-fable-review.md suggestion 4 and the lane's finding. Suggestion 5 (measure is_type_former's steps per binder on 32-bit) can go with it if cheap.",
       "created": "2026-11-27",
       "updated": "2026-11-27",
       "commits": []
