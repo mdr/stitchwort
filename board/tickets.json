@@ -1,5 +1,5 @@
 {
-  "next": 4923,
+  "next": 4924,
   "tickets": [
     {
       "id": 47,
@@ -21354,6 +21354,19 @@
         "596638bd5",
         "da4075369"
       ]
+    },
+    {
+      "id": 4923,
+      "title": "Release the playground from today's main (D3759; last release 10 Nov, 895da6c5b)",
+      "status": "doing",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "epic": "editor-playground",
+      "body": "",
+      "created": "2026-11-27",
+      "updated": "2026-11-27",
+      "commits": []
     }
   ]
 }
