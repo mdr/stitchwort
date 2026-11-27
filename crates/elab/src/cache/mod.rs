@@ -3870,6 +3870,22 @@ fn open<'a>(bytes: &'a [u8], key: &Key, salt: [u8; 16]) -> Read<(Stamp, Vec<Dep>
     Ok((stamp, deps, body))
 }
 
+/// The entry `bytes` (a whole entry for `key`, sealed with `from`), sealed
+/// again with the salt `to`, its stamp, dependencies and body unchanged.
+/// `None` unless `bytes` is a whole entry for `key` written with `from`
+/// (checksum included). It lets a store hand out entries it trusts as a
+/// whole (the installed library cache, SW-2163) to a reader whose
+/// directory has its own salt: the reader opens, stamps and replays the
+/// result exactly as one it wrote itself.
+///
+/// The caller must already trust the source of `bytes` as it trusts the
+/// binary itself: this makes any well-formed entry admissible.
+#[doc(hidden)]
+pub fn reseal(bytes: &[u8], key: &Key, from: [u8; 16], to: [u8; 16]) -> Option<Vec<u8>> {
+    let (stamp, deps, body) = open(bytes, key, from).ok()?;
+    Some(seal(key, to, &stamp, &deps, body))
+}
+
 // ---- Reading --------------------------------------------------------------
 
 /// How an entry's references are read back in this session.

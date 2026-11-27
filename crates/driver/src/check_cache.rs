@@ -56,6 +56,11 @@ pub struct CheckCache {
     written: Cell<bool>,
     /// How long entries of other builds are kept.
     grace: Duration,
+    /// The library's entries to read when this directory has none: the
+    /// installed binary's ([`LibraryBundle::installed`]), unless a test
+    /// gave one.
+    installed: Option<std::sync::Arc<LibraryBundle>>,
+    use_installed: bool,
 }
 
 impl CheckCache {
@@ -92,7 +97,44 @@ impl CheckCache {
             salt,
             written: Cell::new(false),
             grace,
+            installed: None,
+            use_installed: true,
         }
+    }
+
+    /// For tests: this cache reads library entries from `bundle` when its
+    /// directory has none, in place of the installed binary's.
+    #[doc(hidden)]
+    pub fn with_installed(mut self, bundle: std::sync::Arc<LibraryBundle>) -> CheckCache {
+        self.installed = Some(bundle);
+        self
+    }
+
+    /// For tests: this cache never reads library entries from an installed
+    /// bundle.
+    #[doc(hidden)]
+    pub fn without_installed(mut self) -> CheckCache {
+        self.installed = None;
+        self.use_installed = false;
+        self
+    }
+
+    /// The installed bundle's entry for library file `unit` at `key`, sealed
+    /// for this directory: what the directory would hold if this build had
+    /// checked the file here. An entry the directory has is always read
+    /// first, so a file the user's std edit changes, or any other miss, is
+    /// checked as without a bundle.
+    fn installed_entry(&self, unit: &str, key: &Key) -> Option<Vec<u8>> {
+        if !unit.starts_with("std.") {
+            return None;
+        }
+        let bundle = match &self.installed {
+            Some(bundle) => bundle.clone(),
+            None if self.use_installed => LibraryBundle::installed()?,
+            None => return None,
+        };
+        let entry = bundle.entries.get(&(unit.to_string(), *key))?;
+        stitchwort_elab::cache::reseal(entry, key, BUNDLE_SALT, self.salt)
     }
 
     fn file(&self, unit: &str, key: &Key) -> PathBuf {
@@ -218,7 +260,9 @@ impl Store for CheckCache {
     }
 
     fn read(&self, unit: &str, key: &Key) -> Option<Vec<u8>> {
-        std::fs::read(self.file(unit, key)).ok()
+        std::fs::read(self.file(unit, key))
+            .ok()
+            .or_else(|| self.installed_entry(unit, key))
     }
 
     fn write(&self, unit: &str, key: &Key, entry: &[u8]) {
@@ -648,7 +692,10 @@ fn random_salt() -> [u8; 16] {
 /// - **Trust:** its entries are admitted without the kernel's checks, as
 ///   a cache directory's are (check-cache.md, D1660). The salt that keeps a
 ///   directory from reading another's entries doesn't apply: the bundle
-///   comes from the build that made the WebAssembly reading it.
+///   comes from the build that made the WebAssembly reading it. The same
+///   holds for the file an installed binary reads beside its canonical
+///   executable (`share/stitchwort/std.cache`, SW-2163, D3120); a file
+///   beside a link to the binary is never read.
 #[derive(Default)]
 pub struct LibraryBundle {
     compiler: String,
@@ -746,6 +793,44 @@ impl LibraryBundle {
         })
     }
 
+    /// The length of the magic that starts an encoded bundle, for tests that
+    /// edit its bytes.
+    #[doc(hidden)]
+    pub const MAGIC_LEN: usize = BUNDLE_MAGIC.len();
+
+    /// Where an installed binary keeps its bundle, relative to the folder
+    /// the binary is in: beside the installed `std/` (`std_dir`).
+    const INSTALLED: &'static str = "../share/stitchwort/std.cache";
+
+    /// The bundle installed beside the executable `exe`
+    /// (`../share/stitchwort/std.cache`), if there is one and this build made
+    /// it ([`LibraryBundle::decode`]); else `None`, as for a build from a
+    /// checkout.
+    pub fn installed_beside(exe: &Path) -> Option<LibraryBundle> {
+        let file = exe.parent()?.join(Self::INSTALLED);
+        Self::decode(&std::fs::read(file).ok()?)
+    }
+
+    /// [`LibraryBundle::installed_beside`] for the executable `exe` once
+    /// links are resolved: a file beside a link isn't read.
+    pub fn installed_for(exe: &Path) -> Option<LibraryBundle> {
+        Self::installed_beside(&std::fs::canonicalize(exe).ok()?)
+    }
+
+    /// [`LibraryBundle::installed_beside`] for this process's executable,
+    /// read the first time it is asked for.
+    pub fn installed() -> Option<std::sync::Arc<LibraryBundle>> {
+        static INSTALLED: std::sync::OnceLock<Option<std::sync::Arc<LibraryBundle>>> =
+            std::sync::OnceLock::new();
+        INSTALLED
+            .get_or_init(|| {
+                // `installed_for` resolves links, as `std_dir` does.
+                let exe = std::env::current_exe().ok()?;
+                Self::installed_for(&exe).map(std::sync::Arc::new)
+            })
+            .clone()
+    }
+
     pub fn encode(&self) -> Vec<u8> {
         let mut out = BUNDLE_MAGIC.to_vec();
         let mut chunk = |bytes: &[u8]| {
@@ -763,6 +848,46 @@ impl LibraryBundle {
         chunk(left.join("\n").as_bytes());
         out
     }
+}
+
+/// The library checked as the CLI checks it (`Session::for_stack(stack)`,
+/// no navigation: what `check`, `run`, `test` and `search` key their entries
+/// by), as a [`LibraryBundle`] to install beside the binary
+/// ([`LibraryBundle::installed`], SW-2163). Fails unless every library file
+/// checks and a second session reads every entry back from the bundle, as a
+/// session with the installed bundle would: a key that didn't match would
+/// make a shipped bundle save nothing. The `String` says what it holds.
+pub fn cli_library_bundle(stack: usize) -> Result<(std::sync::Arc<LibraryBundle>, String), String> {
+    use crate::driver::Session;
+    let mut session = Session::for_stack(stack);
+    let recorder = std::rc::Rc::new(BundleRecorder::default());
+    session.elab.set_check_cache(recorder.clone());
+    session.elab.load_all_libraries().map_err(|ds| {
+        format!(
+            "the library doesn't check: {}",
+            ds.first().map_or(String::new(), |d| d.message.clone())
+        )
+    })?;
+    let made = session.elab.check_cache_stats();
+    let bundle = std::sync::Arc::new(recorder.finish(Default::default()));
+    let mut again = Session::for_stack(stack);
+    again
+        .elab
+        .set_check_cache(std::rc::Rc::new(BundleStore(bundle.clone())));
+    let loaded = again.elab.load_all_libraries();
+    let replayed = again.elab.check_cache_stats();
+    let summary = format!(
+        "{} library files' entries; {} not cacheable",
+        bundle.len(),
+        made.uncacheable
+    );
+    if loaded.is_err() || replayed.hits != bundle.len() || replayed.misses != made.uncacheable {
+        return Err(format!(
+            "the library doesn't load from its bundle: {} hits and {} misses ({summary})",
+            replayed.hits, replayed.misses
+        ));
+    }
+    Ok((bundle, summary))
 }
 
 /// A [`LibraryBundle`] as a session's check cache: read only, since what
