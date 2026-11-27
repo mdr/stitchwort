@@ -1,5 +1,5 @@
 {
-  "next": 4908,
+  "next": 4910,
   "tickets": [
     {
       "id": 47,
@@ -37061,15 +37061,20 @@
     {
       "id": 4902,
       "title": "[Sonnet] All-tier timeouts 27 Nov (at df69610cd, load 50-97 during the run): driver::library search_at_bench::stage_two_on_any_std_statement (1200 s limit) and driver::proofs differential::the_evaluators_agree_on_the_prelude_and_every_example (1800 s limit); also examples_wide::rewinding_changes_nothing_for_the_examples took 3,382 s. Rerun each alone on a quiet machine to see if it's load or a slowdown; if a slowdown, find the commit",
-      "status": "review",
+      "status": "done",
       "agent": "Sonnet",
       "where": "",
       "labels": [],
       "epic": "test-infra",
-      "body": "Lane result: stage_two_on_any_std_statement passes alone in 996 s (lane build) and 968 s (plain build) on a quiet machine, 430 goals, one thread: 80% of its 1200 s cap, so load pushed it over; no slowdown found (at 13ab4fc67 it panicked after 116 s, so it has no earlier full time). differential: not load alone; it fails its own MAX_SKIPPED (139 distinct skips vs 115), from large-type-stuck-parameter.sw (19) and cast-ends-tested-once.sw (13), added 23 Nov, 831 s on 4 threads. Fixed: MAX_SKIPPED 145; nextest caps raised (differential 60 min, stage 2 60 min). Finding: a lane worktree's own (incremental) release build of the proofs binary overflows the stack on fin-pattern-numbers.sw in the differential, the cached build does not.",
+      "body": "Lane result: stage_two_on_any_std_statement passes alone in 996 s (lane build) and 968 s (plain build) on a quiet machine, 430 goals, one thread: 80% of its 1200 s cap, so load pushed it over; no slowdown found (at 13ab4fc67 it panicked after 116 s, so it has no earlier full time). differential: not load alone; it fails its own MAX_SKIPPED (139 distinct skips vs 115), from large-type-stuck-parameter.sw (19) and cast-ends-tested-once.sw (13), added 23 Nov, 831 s on 4 threads. Fixed: MAX_SKIPPED 145; nextest caps raised (differential 60 min, stage 2 60 min). Finding: a lane worktree's own (incremental) release build of the proofs binary overflows the stack on fin-pattern-numbers.sw in the differential, the cached build does not.\n\nLoad, not slowdown: stage_two 968-996 s quiet (cap 20 -> 30 min at 120 s periods = 60 min); differential 831 s quiet but failing MAX_SKIPPED 139 > 115 from SW-4671/SW-4673's examples (limit 145, orchestrator's call: a test tolerance, not a tool's scope). examples_wide::rewinding 3,382 s not examined. Findings SW-4908, SW-4909. Model result: sonnet, worked, 72 min (est. 75).",
       "created": "2026-11-27",
       "updated": "2026-11-27",
-      "commits": []
+      "commits": [
+        "4482d397a",
+        "7098787f0",
+        "c8892e872",
+        "3290e53d3"
+      ]
     },
     {
       "id": 4903,
@@ -37131,6 +37136,32 @@
       "where": "",
       "labels": [],
       "epic": "docs-tutorials",
+      "body": "",
+      "created": "2026-11-27",
+      "updated": "2026-11-27",
+      "commits": []
+    },
+    {
+      "id": 4908,
+      "title": "[Opus] A lane worktree's release build of the proofs test binary overflows the stack in differential::the_evaluators_agree_on_the_prelude_and_every_example on fin-pattern-numbers.sw (STITCHWORT_DIFFERENTIAL_ONLY), while a plain release build at the same source passes (25.9 MB vs 24.4 MB binaries; the dev shell sets CARGO_PROFILE_RELEASE_INCREMENTAL=true, and lanes build through kache). Find the difference (incremental codegen units, inlining) and make the reference evaluator's depth independent of it (a guard measured, not assumed), so a lane's results match the verifier's (SW-4902 finding)",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "epic": "test-infra",
+      "body": "",
+      "created": "2026-11-27",
+      "updated": "2026-11-27",
+      "commits": []
+    },
+    {
+      "id": 4909,
+      "title": "[DeepSeek] Tier reports list only the 15 slowest tests; record every test's time per run (e.g. a JSON beside target/tier-report/*.md) and say in docs/testing.md where per-test all-tier times live (SW-4902 finding)",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "epic": "test-infra",
       "body": "",
       "created": "2026-11-27",
       "updated": "2026-11-27",
