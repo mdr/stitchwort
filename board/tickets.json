@@ -1,5 +1,5 @@
 {
-  "next": 4947,
+  "next": 4948,
   "tickets": [
     {
       "id": 47,
@@ -1299,7 +1299,7 @@
     {
       "id": 1204,
       "title": "std/Float/Float.sw is never cached: Std.Float.mul isn't admitted with a body",
-      "status": "backlog",
+      "status": "doing",
       "agent": "",
       "where": "",
       "labels": [
@@ -2375,16 +2375,16 @@
     {
       "id": 1491,
       "title": "Proof search: search_at_text loads all of std eagerly for every search, so entries the cache leaves out are re-checked each time; try a lazy library load to cut the remaining ~1.75 s",
-      "status": "backlog",
+      "status": "done",
       "agent": "",
       "where": "",
       "labels": [
         "playground"
       ],
       "epic": "proof-search",
-      "body": "From SW-1458, 6 Nov 2026. Small improvement.\n\nAudit note (22 Nov): Audit 22 Nov: still true: search_at_text calls load_all_libraries (search_at.rs:1939).\n",
+      "body": "From SW-1458, 6 Nov 2026. Small improvement.\n\nAudit note (22 Nov): Audit 22 Nov: still true: search_at_text calls load_all_libraries (search_at.rs:1939).\n\nSW-4935 (27 Nov): a lazy load cannot work as written: search lists every library file, so all must load. The real costs are the deferred equations and Float.sw (SW-4947, SW-1204).\n",
       "created": "2026-11-06",
-      "updated": "2026-11-22",
+      "updated": "2026-11-27",
       "commits": []
     },
     {
@@ -21730,6 +21730,21 @@
       ],
       "epic": "editor-playground",
       "body": "[DeepSeek] From SW-4943 (27 Nov): node --test test/runner.test.js; fails 1 in 3 alone, also on the old code. Make it order-independent.",
+      "created": "2026-11-27",
+      "updated": "2026-11-27",
+      "commits": []
+    },
+    {
+      "id": 4947,
+      "title": "Design: keep search's derived data in the check cache: the library's deferred equations (34% of a warm std search, est. -0.45 s) and type_index (11%, -0.17 s), and load a project only when --in or the pattern needs it (-0.8 s in aoc/)",
+      "status": "doing",
+      "agent": "",
+      "where": "",
+      "labels": [
+        "perf"
+      ],
+      "epic": "proof-search",
+      "body": "[Opus, paper] From SW-4935's profile (27 Nov): warm std-only search 1.49 s. A design note in docs/proposals/: what's cached, keyed by what, what the trusted replay must check before admitting cached equations (trust: Matt's decision), and loading the project lazily so --in Std stays as fast as std-only without losing project types in patterns.",
       "created": "2026-11-27",
       "updated": "2026-11-27",
       "commits": []
