@@ -1,5 +1,5 @@
 {
-  "next": 4948,
+  "next": 4953,
   "tickets": [
     {
       "id": 47,
@@ -21666,7 +21666,7 @@
     {
       "id": 4942,
       "title": "Language server: a running search never checks its cancel flag (crates/lsp/src/lib.rs:1229-1236), so a stale search can't be stopped",
-      "status": "review",
+      "status": "done",
       "agent": "",
       "where": "",
       "labels": [],
@@ -21674,7 +21674,11 @@
       "body": "[Sonnet] From SW-4938 (27 Nov). Needed before search-as-you-type in the editor; overlaps SW-4935's code, so after it.\n\nLane (Opus, in SW-4945, b61815769): a type search now stops part way: search_in_text/project watch the shared flag, and the engine's candidate loop (crates/elab/src/search.rs, one condition beside the deadline check) breaks on Budget::cancel_requested (made pub). Test: library search_match::a_search_from_a_file_stops_when_cancelled_part_way (fails without the watch: ran to the end, 6420 matches). Not done: proof searches (\"Search for a proof\", contextAt, splits) still don't watch their flag; wrapping actions_at_project in cancellable is a follow-up.\n",
       "created": "2026-11-27",
       "updated": "2026-11-27",
-      "commits": []
+      "commits": [
+        "b61815769",
+        "e51a3e6e4",
+        "bafe06619"
+      ]
     },
     {
       "id": 4943,
@@ -21709,15 +21713,19 @@
     {
       "id": 4945,
       "title": "VS Code: Search by Type quick pick (D3766): live results, Enter inserts the name and its import, go-to button, from a ? or a selection; stitchwort/search request; cancellable search (SW-4942)",
-      "status": "review",
+      "status": "done",
       "agent": "",
       "where": "",
       "labels": [],
       "epic": "proof-search",
-      "body": "[Opus] D3766 (Matt, 27 Nov 2026: \"yes\"): stage 1 of docs/proposals/editor-type-search.md: \"Stitchwort: Search by Type…\" quick pick with live results (200 ms debounce, newest query only), rows in variant C's layout without colour, Enter inserts the name and its import in one undo, a row button goes to the definition, started also from a `?` (goal pre-filled) or a selection (its type); a `stitchwort/search` LSP request over the existing engine scoped to the open file with unsaved text; SW-4942 (search checks its cancel flag) folded in. The playground panel and the coloured Search view are later (the second decision is still open).\n\n\nLane (Opus, 27 Nov, b61815769): built. `stitchwort/search` on the search pool (crates/lsp/src/type_search.rs; driver Session::search_in_text / search_in_project in crates/driver/src/search_in.rs), the warm library session for both a file on its own and a project's file; a project's file loads only what its namespace uses (load_for_probe), not the project's other namespaces. VS Code: \"Stitchwort: Search by Type…\" (typeSearch.js; pure parts in client.js), no default key; the type is in the description, not the label (quick-pick fuzzy re-sort; no headless VS Code host to test it in, so the note's fallback). Tests: 3 server tests (file, project with unsaved text, supersede/cancel), 2 lsp unit tests, 5 node tests, all pass.\n",
+      "body": "[Opus] D3766 (Matt, 27 Nov 2026: \"yes\"): stage 1 of docs/proposals/editor-type-search.md: \"Stitchwort: Search by Type…\" quick pick with live results (200 ms debounce, newest query only), rows in variant C's layout without colour, Enter inserts the name and its import in one undo, a row button goes to the definition, started also from a `?` (goal pre-filled) or a selection (its type); a `stitchwort/search` LSP request over the existing engine scoped to the open file with unsaved text; SW-4942 (search checks its cancel flag) folded in. The playground panel and the coloured Search view are later (the second decision is still open).\n\n\nLane (Opus, 27 Nov, b61815769): built. `stitchwort/search` on the search pool (crates/lsp/src/type_search.rs; driver Session::search_in_text / search_in_project in crates/driver/src/search_in.rs), the warm library session for both a file on its own and a project's file; a project's file loads only what its namespace uses (load_for_probe), not the project's other namespaces. VS Code: \"Stitchwort: Search by Type…\" (typeSearch.js; pure parts in client.js), no default key; the type is in the description, not the label (quick-pick fuzzy re-sort; no headless VS Code host to test it in, so the note's fallback). Tests: 3 server tests (file, project with unsaved text, supersede/cancel), 2 lsp unit tests, 5 node tests, all pass.\n\nDone (Opus): stitchwort/search LSP request (crates/lsp/src/type_search.rs) on the search workers, superseded by a newer search, an edit or $/cancelRequest; results carry insertText and the import edit (add_import). Extension: typeSearch.js + client.js, the type in the description (quick pick re-sort fallback), Enter inserts name + import in one undo, go-to and copy buttons, from a ? (quick action) or a selection; no default key. Cancel: elab search loop checks budget.cancel_requested (core: made pub; not on check's path, so the whole-project re-checks were skipped, orchestrator's call). Proof searches still don't stop on cancel. Verified on main: 26 named tests + client.test.js 20/20. Not tried in a VS Code window. Model result: opus, worked, 24 min (est. 150).\n",
       "created": "2026-11-27",
       "updated": "2026-11-27",
-      "commits": []
+      "commits": [
+        "b61815769",
+        "e51a3e6e4",
+        "bafe06619"
+      ]
     },
     {
       "id": 4946,
@@ -21745,6 +21753,75 @@
       ],
       "epic": "proof-search",
       "body": "[Opus, paper] From SW-4935's profile (27 Nov): warm std-only search 1.49 s. A design note in docs/proposals/: what's cached, keyed by what, what the trusted replay must check before admitting cached equations (trust: Matt's decision), and loading the project lazily so --in Std stays as fast as std-only without losing project types in patterns.",
+      "created": "2026-11-27",
+      "updated": "2026-11-27",
+      "commits": []
+    },
+    {
+      "id": 4948,
+      "title": "Proof searches (Search for a proof, the goal panel's context, splits) don't stop when cancelled: wrap actions_at_project and the others in cancellable",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "epic": "proof-search",
+      "body": "[Sonnet] From SW-4945 (27 Nov); the type search half of SW-4942 is done.",
+      "created": "2026-11-27",
+      "updated": "2026-11-27",
+      "commits": []
+    },
+    {
+      "id": 4949,
+      "title": "Move the CLI's type shortening (SW-4936, search_render.rs) into the driver so the language server and playground show short types too",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "epic": "proof-search",
+      "body": "[Sonnet] From SW-4945 (27 Nov).",
+      "created": "2026-11-27",
+      "updated": "2026-11-27",
+      "commits": []
+    },
+    {
+      "id": 4950,
+      "title": "search: a constructor mention filters nothing (search --in Std MkPair lists all 9,732 std declarations); the type index seems to skip constructors",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [
+        "bug"
+      ],
+      "epic": "proof-search",
+      "body": "[Sonnet] From SW-4947 (27 Nov).",
+      "created": "2026-11-27",
+      "updated": "2026-11-27",
+      "commits": []
+    },
+    {
+      "id": 4951,
+      "title": "search patterns: a project type clashing with a std one can't be named (Pair → Nat gives E-ARITY via Std.Pair) though a project's lowercase length wins over std's",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [
+        "bug"
+      ],
+      "epic": "proof-search",
+      "body": "[Opus] From SW-4947 (27 Nov): shadowing in patterns is inconsistent.",
+      "created": "2026-11-27",
+      "updated": "2026-11-27",
+      "commits": []
+    },
+    {
+      "id": 4952,
+      "title": "worktree:new builds the release CLI up front: 4 min 17 s at 22:13 on 27 Nov after a crates/core merge with two builds running; consider letting the lane build on first need",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "epic": "dev-loop-speed",
+      "body": "[Sonnet] Matt asked why making worktrees was slow (27 Nov). kache makes it seconds when another checkout built the same code; after a core merge nothing is cached.",
       "created": "2026-11-27",
       "updated": "2026-11-27",
       "commits": []
