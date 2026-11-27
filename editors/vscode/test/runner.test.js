@@ -142,7 +142,9 @@ test('the pool runs a few at a time, reports each as it finishes, and stops star
 });
 
 test('per-group runs against a stub CLI report progressively and a stop kills the rest', async () => {
-  // Group "slow" takes a while; the others answer at once.
+  // Group "slow" takes a while; the others answer at once. A and B run side by
+  // side and either may finish first, so the reports are checked by group,
+  // not by the order the two workers happen to finish in.
   const cli = stub(`
 case "$2" in
   slow) sleep 5;;
@@ -158,12 +160,25 @@ echo '{"ok":true,"tests":[{"name":"'$2'","outcome":"passed","cached":false,"file
     (g) => run.runTestsJson(cli, run.testArgs({ target: g }), os.tmpdir(), abort.signal),
     (g, result) => {
       done.push([g, result.cancelled ? 'cancelled' : result.tests && result.tests[0].name]);
-      if (g === 'C') abort.abort();
+      if (g === 'C') {
+        // C starts once a worker is free, and is reported while slow still
+        // runs: the results are reported as each group finishes, not at the end.
+        const beforeSlow = !done.some(([reported]) => reported === 'slow');
+        abort.abort();
+        assert.ok(beforeSlow, 'C was reported before slow');
+      }
     },
     () => abort.signal.aborted,
   );
   assert.ok(Date.now() - started < 4000, 'the slow run was killed, not waited for');
-  assert.deepStrictEqual(done.slice(0, 3), [['A', 'A'], ['B', 'B'], ['C', 'C']]);
+  // All four are reported, each with the result of its own run: the three
+  // quick groups first (A and B in either order, then C, whose report stops
+  // the rest), and slow last, cancelled.
+  assert.strictEqual(done.length, 4, `every group reported: ${JSON.stringify(done)}`);
+  assert.deepStrictEqual(done.slice(0, 3).map(([g]) => g).sort(), ['A', 'B', 'C']);
+  for (const [g, name] of done.slice(0, 3)) {
+    assert.strictEqual(name, g, `group ${g} is reported with its own result`);
+  }
   assert.deepStrictEqual(done[3], ['slow', 'cancelled']);
 });
 
