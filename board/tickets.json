@@ -37200,17 +37200,20 @@
     {
       "id": 4912,
       "title": "fmt: two attribute groups before a local definition format to text that doesn't parse (fmt refuses)",
-      "status": "doing",
+      "status": "done",
       "agent": "",
       "where": "",
       "labels": [
         "bug"
       ],
       "epic": "syntax-language",
-      "body": "[DeepSeek] Found by Overmind, fuzz batch 28 (`task fuzz:fmt SEED=0x2611261c CASES=1000000`, no comments, at 98f88b21a, case 711300). Internal error: \"the output doesn't parse: attributes can't be used on a statement that isn't a local definition\". Fails safe: fmt refuses and leaves the file unchanged.\n\nRepro: docs/reviews/repros/fuzz-fmt-2611261c-711300.sw. It parses: `check` gives only the semantic E-ATTRIBUTE (\"`tailrec` is written twice here\"), so the formatter's output is what breaks. Trigger: two attribute groups before a local definition (the original had a local `theorem`); one `@[tailrec]` formats unchanged. The bad output wasn't captured: capture it first to see how the groups are rearranged.\n\nFix in crates/fmt; check tools/fmt for the same and match it (formatters stay in sync). Add the repro as a fmt test, failing first.\n",
+      "body": "[DeepSeek] Found by Overmind, fuzz batch 28 (`task fuzz:fmt SEED=0x2611261c CASES=1000000`, no comments, at 98f88b21a, case 711300). Internal error: \"the output doesn't parse: attributes can't be used on a statement that isn't a local definition\". Fails safe: fmt refuses and leaves the file unchanged.\n\nRepro: docs/reviews/repros/fuzz-fmt-2611261c-711300.sw. It parses: `check` gives only the semantic E-ATTRIBUTE (\"`tailrec` is written twice here\"), so the formatter's output is what breaks. Trigger: two attribute groups before a local definition (the original had a local `theorem`); one `@[tailrec]` formats unchanged. The bad output wasn't captured: capture it first to see how the groups are rearranged.\n\nFix in crates/fmt; check tools/fmt for the same and match it (formatters stay in sync). Add the repro as a fmt test, failing first.\n\nThe formatter printed the two groups on separate lines (`@[tailrec]⏎@[tailrec]⏎def g`), and a group alone on a line in a block starts a new statement. Fix: in a block, groups stay on one line unless a comment needs its own line (then indented as a continuation). Golden local-def-two-attribute-groups (failed before). fuzz:fmt 20k at the seed clean. tools/fmt refuses the input (attributes are outside slice 6a), so the formatters agree. Model result: deepseek, worked, 10 min (est. 25).\n",
       "created": "2026-11-27",
       "updated": "2026-11-27",
-      "commits": []
+      "commits": [
+        "f0a12b883",
+        "3731b209e"
+      ]
     }
   ]
 }
