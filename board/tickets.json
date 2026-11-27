@@ -1,5 +1,5 @@
 {
-  "next": 4931,
+  "next": 4933,
   "tickets": [
     {
       "id": 47,
@@ -21481,6 +21481,36 @@
         "493047e62",
         "f113b6e40"
       ]
+    },
+    {
+      "id": 4931,
+      "title": "Elaborator: a conjunct missing its argument after four full ones (x ∧ … ∧ d.contains ∧ …) runs past 60 s instead of giving E-NOT-A-TYPE; time grows steeply with the conjuncts before it (fuzz 0x26112643 #3455)",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [
+        "bug"
+      ],
+      "epic": "audit-fuzzing",
+      "body": "[Opus] Overmind, fuzz:elab batch 67 (SEED=0x26112643 CASES=5000 at aa188260e), case 3455 (rng 0xa3fe11dccf15abf5, from accept/build-eight.sw). Repro: docs/reviews/repros/fuzz-elab-26112643-3455-hang.sw. A conjunct missing its argument (`d.contains ∧ …`) should give E-NOT-A-TYPE; time grows steeply with the number of full conjuncts before it: 1 or 2 about 10 s (a --no-cache check's usual time on Overmind), 3 about 13.5 s, 4 past 60 s; unreduced past 300 s at ~284 MB with no error and no E-RESOURCE. Also on 98f88b21a (before 27 Nov afternoon's merges), so not new today. Find where the elaborator retries (likely error recovery or unification over the ∧ chain re-elaborating each alternative), make it linear or bounded; the error comes promptly. Test: the repro checks with E-NOT-A-TYPE in a few seconds (an example in examples/reject with its snapshot).\n",
+      "created": "2026-11-27",
+      "updated": "2026-11-27",
+      "commits": []
+    },
+    {
+      "id": 4932,
+      "title": "Conversion: a false equation between two different stuck casts (cast-ends-tested-once mutated, tower 40 vs 39) takes 50 s and 3.7 GB before E-REFL; the ends-tested-once memo may miss the failing path (fuzz 0x26112643 #3457)",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [
+        "bug"
+      ],
+      "epic": "audit-fuzzing",
+      "body": "[Opus] Overmind, fuzz:elab batch 67 (SEED=0x26112643 at aa188260e), case 3457 (rng 0x86c9bc16310fe031, from accept/cast-ends-tested-once.sw). Mutation in `oneStep`: `… = J (y e => Nat) 0 (hyp (tower hyp 40))` became `(tower hyp 39)`, so the statement compares two different stuck casts (plus a stray duplicated `def idn` line). Original: 1.5 s, 175 MB. Mutant: 50 s, 3,708 MB peak, then E-PARSE and E-REFL. Overmind's guess (unverified): the ends-tested-once memo (the example's header says the work \"doubled at each level\" without it) doesn't cover the failing, unequal-ends path. Not reduced, not run on an older build. Get the case file from Overmind (S/fuzz/elab-0x26112643.findings/26112643-3457.sw) into docs/reviews/repros/, reduce it (the mutation in oneStep alone), find whether the memo misses the failing path, fix, and test: the refusal comes in about the original's time and memory. A kernel/conversion change: Fable review before merge.\n",
+      "created": "2026-11-27",
+      "updated": "2026-11-27",
+      "commits": []
     }
   ]
 }
