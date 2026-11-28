@@ -1,5 +1,5 @@
 {
-  "next": 5032,
+  "next": 5033,
   "tickets": [
     {
       "id": 47,
@@ -23225,6 +23225,19 @@
       "labels": [],
       "epic": "std-library",
       "body": "D3779, Matt 28 Nov: 'D3779 yes'. docs/reviews/SW-5022-nonempty-results.md rec 2; waits for SW-5026.",
+      "created": "2026-11-28",
+      "updated": "2026-11-28",
+      "commits": []
+    },
+    {
+      "id": 5032,
+      "title": "worktree:new blocks on a release build that is a full compile whenever crates/core or elab changed since kache last saw them (12:14, 28 Nov: several minutes at load 60-97); make the worktree first and let the lane's first build fill it, or build in the background",
+      "status": "backlog",
+      "agent": "DeepSeek",
+      "where": "",
+      "labels": [],
+      "epic": "dev-loop-speed",
+      "body": "Matt, 28 Nov: 'Making the worktree still seems super slow, do we have an issue still?'",
       "created": "2026-11-28",
       "updated": "2026-11-28",
       "commits": []
