@@ -11503,14 +11503,14 @@
     {
       "id": 2929,
       "title": "[Sonnet] A Bool used as a statement shows without its '= True': hypothesis h: beats mine theirs, hover on rockBeatsScissors shows beats Rock Scissors; show '= True' (or say it's a Bool fact) so a learner sees the statement (book SW-2918; with D3522)",
-      "status": "backlog",
+      "status": "doing",
       "agent": "Sonnet",
       "where": "",
       "labels": [],
       "epic": "diagnostics",
       "body": "\n\nAudit note (22 Nov): Audit 22 Nov: SW-2901 (merged) added a note for a hole whose goal is False = True; this ticket's hover/hypothesis case is separate; not re-run.\n",
       "created": "2026-11-11",
-      "updated": "2026-11-22",
+      "updated": "2026-11-28",
       "commits": []
     },
     {
