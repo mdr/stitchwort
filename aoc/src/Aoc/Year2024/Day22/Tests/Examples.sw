@@ -21,9 +21,10 @@ def best: Changes := changesOf (-2) 1 (-1) 3
 test "mixing 15 into 42 gives 37" := mix 15 42 == 37
 test "pruning 100000000 gives 16113920" := prune 100000000 == 16113920
 test "the ten secrets after 123" :=
-  secrets 10 123 == [123, 15887950, 16495136, 527345, 704524, 1553684, 12683156, 11100544, 12249484, 7753432, 5908254]
+  (secrets 123).take 11
+    == [123, 15887950, 16495136, 527345, 704524, 1553684, 12683156, 11100544, 12249484, 7753432, 5908254]
 test "the 2000th secrets" :=
-  [1, 10, 100, 2024].map (buyer => Nat.iterate 2000 nextSecret buyer) == [8685429, 4700978, 15273692, 8667524]
+  [1, 10, 100, 2024].map (buyer => (secrets buyer).at 2000) == [8685429, 4700978, 15273692, 8667524]
 test "the step is the puzzle's, for secrets of 24 bits and more" :=
   [0, 1, 123, 16777215, 16777216, 100000000, 123456789012].all (secret => nextSecret secret == evolve secret)
 test "0 stays 0" := nextSecret 0 == 0

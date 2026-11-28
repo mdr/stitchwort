@@ -86,8 +86,8 @@ theorem sellsAtIn ∀ (possible: List Changes)
 theorem pricesDigits ∀ (count buyer price: Nat) (inPrices: price ∈ prices count buyer): price < 10 :=
   List.anyElim _
     (price < 10)
-    (secrets count buyer)
-    (List.memMapAny (secrets count buyer) (% 10) price inPrices)
+    ((secrets buyer).take (count + 1))
+    (List.memMapAny ((secrets buyer).take (count + 1)) (% 10) price inPrices)
     (secret member digit => rewrite Eq.flipped digit then Nat.modLess secret 10 (Nat.succNotZero 9))
 
 --| The rest is stated for any list holding the changes of every five digits,

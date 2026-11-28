@@ -46,5 +46,5 @@ theorem nextSecretEvolves ∀ (secret: Nat): nextSecret secret = evolve secret :
       Nat.modSmall second modulus secondSmall
 
 theorem part1Correct ∀ (buyers: List Nat): solvePart1 buyers = part1 buyers :=
-  List.sumByCong buyers (buyer => Nat.iterate 2000 nextSecret buyer) (buyer => Nat.iterate 2000 evolve buyer) (buyer =>
+  List.sumByCong buyers (buyer => (secrets buyer).at 2000) (buyer => Nat.iterate 2000 evolve buyer) (buyer =>
     Nat.iterateCong 2000 nextSecret evolve buyer nextSecretEvolves)

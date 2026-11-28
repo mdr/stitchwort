@@ -19,7 +19,7 @@
 
 namespace Aoc.Year2021.Day11
 import Aoc.Common (Grid, Position, firstWidth, parseGrid)
-import Std (Bool, Fail, Fin, IO, List, Nat, Option, Parse, Text)
+import Std (Bool, Fail, Fin, IO, List, Nat, Option, Parse, Stream, Text)
 import Std.Parse (digit)
 
 --| The cavern: a grid of octopuses, each with its energy level.
@@ -113,24 +113,18 @@ def Cavern.zeros (cavern: Cavern): Nat := cavern.cells.count (((_, level)) => le
 --| Whether every octopus is at 0.
 def Cavern.allZero (cavern: Cavern): Bool := cavern.cells.all (((_, level)) => level == 0)
 
---| The flashes in `steps` steps from `cavern`.
-def Cavern.flashesIn (cavern: Cavern): (steps: Nat) → Nat
-  | Zero => 0
-  | Succ more =>
-    let next := cavern.step
-    next.zeros + next.flashesIn more
+--| The cavern after each step: after step 1 first, then step 2, and so on.
+def Cavern.afterSteps (cavern: Cavern): Stream Cavern := Stream.iterate Cavern.step cavern.step
+
+--| The flashes in the first `steps` steps: those at 0 after each.
+def Cavern.flashesIn (cavern: Cavern) (steps: Nat): Nat := cavern.afterSteps.take steps |> .sumBy .zeros
 
 def Cavern.solvePart1 (cavern: Cavern): Nat := cavern.flashesIn 100
 
 --| How far part 2 looks.
 def syncLimit: Nat := 10000
 
---| The first step, counting from `number`, after which every octopus is at
---| 0 (every one flashed in it), within `steps` steps.
-def Cavern.firstSync (cavern: Cavern) (number: Nat): (steps: Nat) → Option Nat
-  | Zero => None
-  | Succ more =>
-    let next := cavern.step
-    if next.allZero then Some number else next.firstSync (Succ number) more
-
-def Cavern.solvePart2 (cavern: Cavern): Option Nat := cavern.firstSync 1 syncLimit
+--| The first step after which every octopus is at 0 (every one flashed in
+--| it), counting from 1, within `syncLimit` steps.
+def Cavern.solvePart2 (cavern: Cavern): Option Nat :=
+  cavern.afterSteps.findIndex syncLimit .allZero |> .map (index => index + 1)

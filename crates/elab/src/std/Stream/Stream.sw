@@ -225,6 +225,11 @@ theorem Stream.takeSucc ∀ (s: Stream a) (n: Nat): s.take (Succ n) = [s.head, .
     Eq.cong (x => [x, ..(Stream.Cells.fromAt s.tail.at 0 n).toList]) (Stream.headIs s).flipped
   _ = [s.head, ..s.tail.take n] := Eq.cong (c => [s.head, ..c]) (Stream.takeCells s.tail n).flipped
 
+--| The first `n + 1` values of an iterated stream are its seed, then the first `n` iterated from the next value.
+theorem Stream.iterateTakeSucc ∀ (f: a → a) (x: a) (n: Nat):
+    (Stream.iterate f x).take (Succ n) = [x, ..(Stream.iterate f (f x)).take n] :=
+  byComputing
+
 --| `take n` has `n` values.
 theorem Stream.takeLength ∀ (s: Stream a) (n: Nat): (s.take n).length = n := match n with
   | Zero => Eq.cong (xs => xs.length) (Stream.takeZero s)

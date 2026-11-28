@@ -269,3 +269,90 @@ Timing before and after should show no change, since both read with `take`
 and `at`; if 2021 day 11 is written with `fold`/`find` instead, the
 re-walk's doubling of `Cavern.step` should show, and measuring that is
 itself useful for D3776.
+
+## Phase 2: the two rewrites
+
+Both days were rewritten on streams after SW-5003 merged (`findIndex`,
+`iterateCongr`, and `fold`/`find` reading the walk once). Every top theorem
+keeps its statement: 2021 day 11's `part1Correct`, `part1Unique`,
+`part2Correct`, `part2None`; 2024 day 22's `part1Correct` and the part 2
+theorems. Only helpers were restated (`programRun` and `runIsProgram` say
+`Nat.iterate steps Cavern.step cavern` where they said the proofs' own
+`stepsFrom`; `secretsMatch` says `(secrets secret).take (count + 1)`).
+One std lemma was added, `Stream.iterateTakeSucc` (an iterated stream's
+first n + 1 values are its seed, then n from the next value; by
+computing), which adds one line to the prelude hash snapshot.
+
+### Measured
+
+| | before | after |
+|---|---|---|
+| 2021 day 11, `run` on the committed input (3 runs each, alternating, load about 6) | 2.05 to 2.09 s | 2.08 to 2.10 s |
+| 2021 day 11, calls of `Cavern.step` (`run --profile`) | 594 | 595 |
+| 2021 day 11, `check --no-project-cache` of `Day11.Proofs`: elaboration / kernel | 250 / 52 ms | 312 / 46 ms |
+| 2021 day 11, `Proofs/Parts.sw` | 140 lines | 152 lines |
+| 2021 day 11, the program's step loops | 13 lines (`flashesIn`, `firstSync`) | 6 lines (`afterSteps`, `flashesIn`, `solvePart2`) |
+| 2024 day 22, `run` on 300 generated buyers (2 runs each) | 28.85 s | 29.0 s |
+
+- **The re-walk doesn't show**, as predicted: both days read with `take`,
+  `at` and `findIndex`, which walk once. One extra `Cavern.step` is the
+  walk's cell for the value after the last one read.
+- **Proof size about even for day 11.** Part 2's proofs shrank from about
+  45 lines of fuel induction (`syncFound`, `syncNone`) to about 25 (one
+  helper, `notAllFlash`, plus `findIndexSome`/`findIndexNone` and
+  `Option.mapEqSome`/`mapEqNone`). Part 1 grew by about the same: the old
+  `flashesIn` unfolded one step by computing, and its stream version needs
+  a lemma (`flashesInSucc`) and two `Eq.subst`s where a `rewrite` used to
+  do. Day 22's proofs are the same size.
+
+### Friction notes, and the proof style
+
+- **`findIndexSome` and `findIndexNone` were the best part.** Stated by
+  position with `at`, they gave part 2's "first step, and none before" in a
+  few lines, with the index bookkeeping gone. This is what streams buy a
+  proof: a search's laws once, in std, instead of an induction per day.
+- **Rewriting under a stream of an expensive step is slow or fails.** In
+  `programRun`, `rewrite <- stepCorrect …` over a goal holding
+  `cavern.step.flashesIn steps` ran out of its search budget
+  (`W-REWRITE-UNCONFIRMED`), because the search computes `flashesIn` into
+  the stream's walk and then into `Cavern.step`'s grid; in `runIsProgram`
+  `rewrite flashesInSucc cavern _` failed outright (`E-REWRITE-BUDGET`).
+  `Eq.subst` with a written motive, and a helper (`totalOfStep`) taking
+  the step count explicitly, fixed both. The old code had no such
+  problem, since `flashesIn` was a plain recursion the search could unfold
+  one step of. A finding for the rewrite search rather than for streams:
+  it unfolds a definition all the way into a large closed term rather than
+  stopping at the stream's structure.
+- **`calc … := byComputing` through a stream can be costly.** The first
+  `flashesInSucc` went through `Stream.takeSucc`, `headIs` and
+  `iterateTail` and took 533 ms and 12 million steps to elaborate (the
+  checker computed `Cavern.step`). Through the generic
+  `Stream.iterateTakeSucc` it took 86 ms. A day should reach for a lemma
+  about `iterate`'s values, stated for any `f`, rather than `head`/`tail`
+  laws instantiated at a heavy step.
+- **No `tailAt`/`headIs`/`ext`/`bisim` was needed.** Both days are
+  questions about finitely many values, so `take`, `at` and `findIndex`
+  carried them; the coinductive tools stayed unused. That is the honest
+  shape of AoC: the puzzles ask finite questions of infinite sequences.
+- **The match on an index hidden by a constructor pattern.** In
+  `runIsProgram`'s `Step` arm the rest's step count has no name, so a
+  lemma needing it (`flashesInSucc cavern n`) can't be given it; `_`
+  inside a rewrite rule didn't unify. Passing the equation to a helper
+  whose type mentions the count let unification find it. Old friction,
+  sharper here because the stream made the count matter.
+- **2024 day 22 was as small as expected**: `secrets` became
+  `Stream.iterate nextSecret buyer`, part 1 reads `.at 2000` and part 2
+  `.take (count + 1)`, so both parts now read one definition of the
+  sequence. `secretsMatch` moved to `iterateTakeSucc`; `part1Correct`
+  needed only its lambda changed, since `at` of an `iterate` is
+  `Nat.iterate` by computing. `iterateCongr` would serve where a whole
+  stream is compared, which no theorem here does.
+
+### Verdict after the rewrites
+
+Streams help a day whose answers are finite questions about one sequence,
+read with `take`, `at` or `findIndex`: the program gets clearer, a search
+proof gets std's laws, and the run time doesn't change. They don't make the
+proofs shorter overall, and over a heavy step they make `rewrite` and
+`byComputing` slower, which is the main thing to fix before recommending
+streams more widely.
