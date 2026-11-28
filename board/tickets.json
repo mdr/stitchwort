@@ -22078,14 +22078,14 @@
     {
       "id": 4966,
       "title": "stitchwort axioms NAME in a project prints every other namespace's errors before its answer",
-      "status": "doing",
+      "status": "review",
       "agent": "",
       "where": "",
       "labels": [
         "bug"
       ],
       "epic": "diagnostics",
-      "body": "[Sonnet] From SW-4962 (27 Nov).",
+      "body": "[Sonnet] From SW-4962 (27 Nov).\n\nFixed: axioms loads only the names' namespaces (Target::Namespaces, as run does); test a_project_report_ignores_other_namespaces_errors.",
       "created": "2026-11-27",
       "updated": "2026-11-28",
       "commits": []
