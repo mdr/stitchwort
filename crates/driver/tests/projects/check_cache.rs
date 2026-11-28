@@ -18,13 +18,13 @@ use std::rc::Rc;
 use std::sync::{Arc, Mutex};
 
 use stitchwort_driver::check_cache::{
-    BundleRecorder, CheckCache, EntrySink, LayeredStore, LibraryBundle, StoreLog,
+    BundleRecorder, CheckCache, EntrySink, LayeredStore, LibraryBundle, MemoryStore, StoreLog,
 };
 use stitchwort_driver::driver::{Session, all_tier, par_map, tier_sample, with_stack};
 use stitchwort_driver::project::{DiskFiles, Target};
 use stitchwort_driver::render::render;
 use stitchwort_elab::JournalStats;
-use stitchwort_elab::cache::{Stats, canonical_dump};
+use stitchwort_elab::cache::{Stats, Store, canonical_dump};
 use stitchwort_syntax::Diagnostic;
 
 mod core_entry;
@@ -2669,5 +2669,247 @@ fn a_library_change_a_carried_namespace_does_not_use_still_carries() {
                 "{stats:?}"
             );
         },
+    );
+}
+
+// ---- Deferred equations (docs/proposals/search-cache.md §2, SW-4954) ----
+
+/// A library file whose two definitions have equations made on demand, the
+/// second's naming the first.
+const EQUATIONS_FILE: &str = "def Nat.libDouble: (n: Nat) → Nat\n  | Zero => Zero\n  \
+     | Succ k => Succ (Succ (Nat.libDouble k))\n\n\
+     def Nat.libQuad: (n: Nat) → Nat\n  | Zero => Zero\n  \
+     | Succ k => Nat.libDouble (Succ (Succ (Nat.libQuad k)))\n";
+
+/// A session whose library is `A.sw` holding `text`, given to `setup` (its
+/// check cache, say) before anything loads; then every library file is
+/// loaded and every deferred equation made, as `search` makes them. What
+/// `setup` gave, the session's dump and the cache's statistics.
+fn with_equations<R: Send>(
+    text: &str,
+    setup: impl FnOnce(&mut Session) -> R + Send,
+) -> (R, String, Stats) {
+    with_stack(STACK, || {
+        let mut session =
+            Session::with_library_files(&[("A.sw", text)], false, false).expect("a session");
+        let r = setup(&mut session);
+        session
+            .elab
+            .load_all_libraries()
+            .expect("the library loads");
+        session
+            .elab
+            .generate_deferred_equations()
+            .expect("the equations are made");
+        (
+            r,
+            canonical_dump(&session.elab),
+            session.elab.check_cache_stats(),
+        )
+    })
+}
+
+/// Sets `store` as the session's check cache, checking its entries again
+/// with `recheck`.
+fn through(store: &MemoryStore, recheck: bool) -> impl FnOnce(&mut Session) + Send + '_ {
+    move |s| {
+        s.elab.set_check_cache(Rc::new(store.clone()));
+        s.elab.set_recheck(recheck);
+    }
+}
+
+#[test]
+fn deferred_equations_replay_from_the_cache_unchanged() {
+    let (_, fresh, _) = with_equations(EQUATIONS_FILE, |_| ());
+    let store = MemoryStore::default();
+    let (_, cold, c) = with_equations(EQUATIONS_FILE, through(&store, false));
+    assert!(
+        cold == fresh,
+        "writing the equations changed the result: {}",
+        first_difference(&fresh, &cold)
+    );
+    assert!(c.equation_misses >= 2 && c.equation_hits == 0, "{c:?}");
+    // The core's and `A.sw`'s.
+    assert_eq!(c.equation_entries_written, 2, "{c:?}");
+    let (_, warm, w) = with_equations(EQUATIONS_FILE, through(&store, false));
+    assert!(
+        warm == fresh,
+        "replaying the equations changed the result: {}",
+        first_difference(&fresh, &warm)
+    );
+    assert_eq!(
+        (
+            w.equation_hits,
+            w.equation_misses,
+            w.equation_entries_written
+        ),
+        (c.equation_misses, 0, 0),
+        "{w:?}"
+    );
+    assert_eq!((w.refused, w.equation_rechecked), (0, 0), "{w:?}");
+}
+
+#[test]
+fn recheck_sends_replayed_equations_through_the_kernel() {
+    let (_, fresh, _) = with_equations(EQUATIONS_FILE, |_| ());
+    let store = MemoryStore::default();
+    with_equations(EQUATIONS_FILE, through(&store, false));
+    let (_, rechecked, s) = with_equations(EQUATIONS_FILE, through(&store, true));
+    assert!(
+        rechecked == fresh,
+        "{}",
+        first_difference(&fresh, &rechecked)
+    );
+    assert!(s.equation_hits > 0, "{s:?}");
+    assert_eq!(s.equation_rechecked, s.equation_hits, "{s:?}");
+    assert_eq!((s.refused, s.refused_on_recheck), (0, 0), "{s:?}");
+}
+
+/// Equations another build wrote, with this build's kernel side, aren't
+/// carried over with the library files that are: they are made fresh, and
+/// not written, since the session holds what this build didn't elaborate.
+#[test]
+fn deferred_equations_are_never_carried_over() {
+    let (_, fresh, _) = with_equations(EQUATIONS_FILE, |_| ());
+    let cache = temp_dir("equations-carry");
+    let (_, _, earlier) = with_equations(EQUATIONS_FILE, |s| {
+        s.use_check_cache_as_build(&cache, "earlierbuild", KERNEL);
+    });
+    assert_eq!(earlier.equation_entries_written, 2, "{earlier:?}");
+    let (_, carried, s) = with_equations(EQUATIONS_FILE, |s| {
+        s.use_check_cache(&cache);
+        s.elab.set_carry_over(true);
+    });
+    let _ = std::fs::remove_dir_all(&cache);
+    assert!(carried == fresh, "{}", first_difference(&fresh, &carried));
+    assert!(s.carried > 0, "no library file was carried over: {s:?}");
+    assert_eq!(
+        (
+            s.equation_hits,
+            s.equation_misses,
+            s.equation_entries_written
+        ),
+        (0, earlier.equation_misses, 0),
+        "{s:?}"
+    );
+}
+
+/// `text`'s equations entry for `A.sw`, written in `store` by a session with
+/// the library `written`, forged (as a key that misses an input would leave
+/// it) into the entry `text`'s session reads, each segment filed under
+/// `rename` of its definition: that session's dump and statistics, and a
+/// fresh session's dump.
+fn with_forged_equations(
+    written: &str,
+    text: &str,
+    rename: fn(&str) -> String,
+) -> (String, Stats, String) {
+    let store = MemoryStore::default();
+    let ((unit, from), ..) = with_equations(written, |s| {
+        through(&store, false)(s);
+        s.elab.equations_entry_of("A.sw").expect("an entry")
+    });
+    let bytes = store.read(&unit, &from).expect("the entry was written");
+    let ((), dump, stats) = with_equations(text, |s| {
+        through(&store, false)(s);
+        let (unit, to) = s.elab.equations_entry_of("A.sw").expect("an entry");
+        let forged = (s.elab)
+            .equations_entry_forged(&bytes, &from, &to, rename)
+            .expect("a forged entry");
+        store.write(&unit, &to, &forged);
+    });
+    let (_, fresh, _) = with_equations(text, |_| ());
+    (dump, stats, fresh)
+}
+
+/// A segment whose definition has another hash than the one it was made
+/// against isn't admitted, whatever its key says (check 5): `Nat.libDouble`'s
+/// first arm changed, so both definitions' equations are made fresh, as
+/// they would be without the cache, while the core's still replay.
+#[test]
+fn an_equations_segment_whose_definition_changed_is_made_fresh() {
+    let edited = EQUATIONS_FILE.replacen("| Zero => Zero", "| Zero => 0 + 0", 1);
+    assert_ne!(edited, EQUATIONS_FILE);
+    let (dump, s, fresh) = with_forged_equations(EQUATIONS_FILE, &edited, str::to_string);
+    assert!(dump == fresh, "{}", first_difference(&fresh, &dump));
+    assert_eq!((s.equation_misses, s.refused), (2, 0), "{s:?}");
+    assert!(
+        s.equation_hits > 0,
+        "the core's equations didn't replay: {s:?}"
+    );
+}
+
+/// A segment filed under another definition than the one it makes isn't
+/// admitted: the two segments of `A.sw` swapped are both made fresh.
+#[test]
+fn an_equations_segment_filed_under_another_definition_is_made_fresh() {
+    let swap = |k: &str| match k {
+        "Std.Nat.libDouble" => "Std.Nat.libQuad".to_string(),
+        "Std.Nat.libQuad" => "Std.Nat.libDouble".to_string(),
+        other => other.to_string(),
+    };
+    let (dump, s, fresh) = with_forged_equations(EQUATIONS_FILE, EQUATIONS_FILE, swap);
+    assert!(dump == fresh, "{}", first_difference(&fresh, &dump));
+    assert_eq!((s.equation_misses, s.refused), (2, 0), "{s:?}");
+}
+
+/// A store that keeps no equations entry (the playground's and the
+/// language server's, `LayeredStore`) has the equations made fresh, as
+/// without a cache, and none encoded only to be dropped.
+#[test]
+fn a_store_that_keeps_no_equations_entry_makes_them_without_encoding() {
+    let (_, fresh, _) = with_equations(EQUATIONS_FILE, |_| ());
+    let (_, dump, s) = with_equations(EQUATIONS_FILE, |s| {
+        let store = LayeredStore::new(Arc::new(LibraryBundle::default()));
+        s.elab.set_check_cache(Rc::new(store));
+    });
+    assert!(dump == fresh, "{}", first_difference(&fresh, &dump));
+    assert!(s.equation_misses >= 2, "{s:?}");
+    assert_eq!(
+        (s.equation_segments_encoded, s.equation_entries_written),
+        (0, 0),
+        "{s:?}"
+    );
+}
+
+/// The standard library files a small program loads, and the core: every
+/// deferred equation made once is stored, so the next run makes none
+/// (none is a segment that encodes but can never replay). The same over
+/// all of std is a verifier's job: `stitchwort search --in Std 'Nat'`
+/// twice in a fresh cache folder with `STITCHWORT_CACHE_DEBUG=1`, the
+/// second printing no `eqs.` miss.
+#[test]
+fn a_warm_run_makes_no_deferred_equation_again() {
+    let run_equations = |store: Option<&MemoryStore>| {
+        with_stack(STACK, || {
+            let mut session = Session::for_stack(STACK);
+            if let Some(store) = store {
+                session.elab.set_check_cache(Rc::new(store.clone()));
+            }
+            let Source::File(name, text) = small_program() else {
+                unreachable!("a file")
+            };
+            session.load(&name, &text).expect("the program checks");
+            (session.elab)
+                .generate_deferred_equations()
+                .expect("the equations are made");
+            (
+                canonical_dump(&session.elab),
+                session.elab.check_cache_stats(),
+            )
+        })
+    };
+    let (fresh, _) = run_equations(None);
+    let store = MemoryStore::default();
+    let (cold, c) = run_equations(Some(&store));
+    assert!(cold == fresh, "{}", first_difference(&fresh, &cold));
+    assert!(c.equation_misses > 0, "{c:?}");
+    assert_eq!(c.equation_segments_encoded, c.equation_misses, "{c:?}");
+    let (warm, w) = run_equations(Some(&store));
+    assert!(warm == fresh, "{}", first_difference(&fresh, &warm));
+    assert_eq!(
+        (w.equation_misses, w.equation_hits, w.refused),
+        (0, c.equation_misses, 0),
+        "{w:?}"
     );
 }

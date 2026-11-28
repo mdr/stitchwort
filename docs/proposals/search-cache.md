@@ -164,6 +164,14 @@ and `search --at`. The language server's held session makes them once per
 session already (`equations_done` makes a second call free), so it gains
 only at start and after a std edit.
 
+Built (SW-4954, 27 Nov 2026), as above, plus one check: a segment must
+mark its own definition done, since which segment is filed under which
+definition is only the container's word. Measured: warm `search --in Std
+'() → {Parse Char} Int'` 1.27 s → 0.79 s, `doc Nat.gcd` 1.56 s → 1.10 s,
+results byte-identical; the first search after a change writes the
+entries (1.65 s once). The installed bundle (SW-2163) doesn't carry them
+yet: its recorder loads the library without making the equations.
+
 ### 2.5 Not proposed: `check`'s on-demand equations
 
 A project namespace that names a std equation makes it on demand at every

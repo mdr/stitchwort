@@ -207,6 +207,25 @@ pub(crate) struct Delta {
 }
 
 impl Delta {
+    /// The keys whose deferred equations the entry says it made.
+    pub(crate) fn equations_done(&self) -> &[String] {
+        &self.equations_done
+    }
+
+    /// For tests: rows saying `keys`' equations were made, and nothing else.
+    #[cfg(test)]
+    pub(crate) fn marking_done(keys: &[&str]) -> Self {
+        Delta {
+            equations_done: keys.iter().map(|k| k.to_string()).collect(),
+            ..Delta::default()
+        }
+    }
+
+    /// Whether the entry adds instances.
+    pub(crate) fn has_instances(&self) -> bool {
+        !self.instances.is_empty()
+    }
+
     /// The helpers of the parameter defaults the entry holds: the kernel
     /// marks them ([`stitchwort_core::check::mark_param_default`]) as it
     /// admits them.

@@ -21881,14 +21881,14 @@
     {
       "id": 4954,
       "title": "search cache stage 2 (docs/proposals/search-cache.md): std's deferred equations in the check cache, a segment per definition, admitted as cached std theorems are (D3768)",
-      "status": "doing",
+      "status": "review",
       "agent": "",
       "where": "",
       "labels": [
         "perf"
       ],
       "epic": "proof-search",
-      "body": "[Opus] D3768 (Matt, 27 Nov 2026: \"yeah, that seems a no brainer tbh\"): trust cached equations as cached std declarations are trusted (D1660): exact stamp, file loaded, not yet made, definition final, dependency content hashes match; refused segments undone and made fresh. Est. 50 min. After SW-1204 merges (both edit crates/elab/src/cache/mod.rs). Fable review (stage 2r) before merge.",
+      "body": "[Opus] D3768 (Matt, 27 Nov 2026: \"yeah, that seems a no brainer tbh\"): trust cached equations as cached std declarations are trusted (D1660): exact stamp, file loaded, not yet made, definition final, dependency content hashes match; refused segments undone and made fresh. Est. 50 min. After SW-1204 merges (both edit crates/elab/src/cache/mod.rs). Fable review (stage 2r) before merge.\n\nLane (Opus, 27 Nov): built as search-cache.md §2 (crates/elab/src/cache/equations_entry.rs), plus a check that a segment marks its own key done. Warm search --in Std '() → {Parse Char} Int' 1.27 → 0.79 s, doc Nat.gcd 1.56 → 1.10 s; six queries and three docs byte-identical; no FORMAT change. Tests: five new check_cache:: equations tests, check_cache::digest:: (40), library hash_stability::+pinned_hashes:: (19), all pass. Follow-up: the installed bundle (SW-2163) doesn't carry equations entries. Commit ffb51240c. ~35 min (est. 50).",
       "created": "2026-11-27",
       "updated": "2026-11-27",
       "commits": []

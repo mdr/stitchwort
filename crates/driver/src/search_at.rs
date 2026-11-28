@@ -2029,6 +2029,9 @@ impl stitchwort_elab::cache::Store for Gated {
             self.inner.write(unit, key, entry);
         }
     }
+    fn keeps(&self, unit: &str) -> bool {
+        self.writable.get() && self.inner.keeps(unit)
+    }
 }
 
 impl Session {

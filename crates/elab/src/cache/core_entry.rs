@@ -181,6 +181,7 @@ impl Elaborator {
             library: true,
             interface: false,
             core: true,
+            digest: true,
         };
         self.encode_stamped(
             &unit,

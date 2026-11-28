@@ -1071,6 +1071,10 @@ impl Store for WorkerStore {
         self.claims.abandon(unit, key)
     }
 
+    fn keeps(&self, unit: &str) -> bool {
+        self.claims.keeps(unit)
+    }
+
     fn read_interface(&self, unit: &str, key: &Key) -> Option<Vec<u8>> {
         if !self.serve.get() {
             return None;

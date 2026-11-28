@@ -591,6 +591,10 @@ impl Store for ClaimStore {
         self.inner.abandon(unit, key);
         self.release(unit, key);
     }
+
+    fn keeps(&self, unit: &str) -> bool {
+        self.inner.keeps(unit)
+    }
 }
 
 /// Numbers this process's temporary files, so that two threads writing in
@@ -908,6 +912,10 @@ impl Store for BundleStore {
     }
 
     fn write(&self, _: &str, _: &Key, _: &[u8]) {}
+
+    fn keeps(&self, _: &str) -> bool {
+        false
+    }
 }
 
 /// What a [`LayeredStore`] did with a namespace's entry, for tests that check
@@ -1128,8 +1136,12 @@ impl Store for LayeredStore {
         found
     }
 
+    fn keeps(&self, unit: &str) -> bool {
+        unit.starts_with("ns.")
+    }
+
     fn write(&self, unit: &str, key: &Key, entry: &[u8]) {
-        if !unit.starts_with("ns.") {
+        if !self.keeps(unit) {
             return;
         }
         self.note(unit, StoreEvent::Wrote);
@@ -1207,8 +1219,12 @@ impl Store for BundleRecorder {
         None
     }
 
+    fn keeps(&self, unit: &str) -> bool {
+        unit.starts_with("std.")
+    }
+
     fn write(&self, unit: &str, key: &Key, entry: &[u8]) {
-        if unit.starts_with("std.") {
+        if self.keeps(unit) {
             (self.entries.borrow_mut()).insert((unit.to_string(), *key), entry.to_vec());
         }
     }
@@ -1224,8 +1240,9 @@ impl std::fmt::Debug for LibraryBundle {
     }
 }
 
-/// A check cache that keeps only library files' entries (unit names
-/// `std.…`), not those of project namespaces: `--no-project-cache`.
+/// A check cache that keeps only the library's entries (unit names `std.…`,
+/// and its files' equations, `eqs.std.…`), not those of project
+/// namespaces: `--no-project-cache`.
 pub struct LibraryOnly(pub CheckCache);
 
 impl Store for LibraryOnly {
@@ -1238,18 +1255,21 @@ impl Store for LibraryOnly {
     fn salt(&self) -> [u8; 16] {
         self.0.salt()
     }
+    fn keeps(&self, unit: &str) -> bool {
+        unit.starts_with("std.") || unit.starts_with("eqs.std.")
+    }
     fn read(&self, unit: &str, key: &Key) -> Option<Vec<u8>> {
-        unit.starts_with("std.").then(|| self.0.read(unit, key))?
+        self.keeps(unit).then(|| self.0.read(unit, key))?
     }
     fn read_others(&self, unit: &str, key: &Key) -> Vec<Vec<u8>> {
-        if unit.starts_with("std.") {
+        if self.keeps(unit) {
             self.0.read_others(unit, key)
         } else {
             Vec::new()
         }
     }
     fn write(&self, unit: &str, key: &Key, entry: &[u8]) {
-        if unit.starts_with("std.") {
+        if self.keeps(unit) {
             self.0.write(unit, key, entry);
         }
     }
