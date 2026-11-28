@@ -165,21 +165,28 @@ impl Capture {
                 out.push(v.clone());
             }
         }
+        // A worklist, not recursion: `Await` frames nest as deeply as the
+        // program's handlers waited, which nothing bounds.
         fn walk(frames: &[Frame], out: &mut Vec<Value>) {
-            for frame in frames {
-                match frame {
-                    Frame::Bind(v) | Frame::Tie(v) => out.push(v.clone()),
-                    Frame::Map(a, b) => out.extend([a.clone(), b.clone()]),
-                    Frame::Await {
-                        cont: c,
-                        upper,
-                        back,
-                    } => {
-                        cont(c, out);
-                        walk(upper, out);
-                        out.extend(back.iter().map(|(_, v)| v.clone()));
+            let mut work: Vec<&[Frame]> = vec![frames];
+            while let Some(frames) = work.pop() {
+                for frame in frames {
+                    match frame {
+                        Frame::Bind(v) | Frame::Tie(v) => out.push(v.clone()),
+                        Frame::Map(a, b) => out.extend([a.clone(), b.clone()]),
+                        Frame::Await {
+                            cont: c,
+                            upper,
+                            back,
+                        } => {
+                            cont(c, out);
+                            work.push(upper);
+                            out.extend(back.iter().map(|(_, v)| v.clone()));
+                        }
+                        Frame::Handle { done, call } => {
+                            out.extend([done.clone(), call.clone()]);
+                        }
                     }
-                    Frame::Handle { done, call } => out.extend([done.clone(), call.clone()]),
                 }
             }
         }
