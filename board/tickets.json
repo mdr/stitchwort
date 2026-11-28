@@ -11274,15 +11274,19 @@
     {
       "id": 2888,
       "title": "[Sonnet] Split from a ?: offered only on a ? that is a whole body (after := or =>, or alone on its line), not a ? inside an expression (SW-2885)",
-      "status": "review",
+      "status": "done",
       "agent": "Sonnet",
       "where": "",
       "labels": [],
       "epic": "editor-playground",
-      "body": "\n\nAudit note (22 Nov): Audit 22 Nov: still open; no commit besides board edits mentions it and no later ticket covers it.\n",
+      "body": "\n\nAudit note (22 Nov): Audit 22 Nov: still open; no commit besides board edits mentions it and no later ticket covers it.\n\nDone (Sonnet): inline holes were already refused by arms::split_hole (SW-2885); the gap was a ? alone on its line used as an argument. Now that case needs the previous code line (comments and blank lines skipped) to end in := or =>. Tests a_hole_that_is_a_whole_body_is_split_in_each_position, a_hole_inside_an_expression_is_not_split (failing first). else ?/then ? still not offered (safe side). Orchestrator: wasm check clean. Model result: sonnet, worked, 5 min (est. 30).",
       "created": "2026-11-11",
       "updated": "2026-11-28",
-      "commits": []
+      "commits": [
+        "f94b113ed",
+        "39c25c61d",
+        "8fd500dde"
+      ]
     },
     {
       "id": 2891,
