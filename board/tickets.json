@@ -1,5 +1,5 @@
 {
-  "next": 4997,
+  "next": 4998,
   "tickets": [
     {
       "id": 47,
@@ -22666,7 +22666,7 @@
       "where": "",
       "labels": [],
       "epic": "syntax-language",
-      "body": "Matt, 28 Nov: 'tbh that's probably my first intuition I'd have about a stream, is it's something I could recurse on with head and tail'; 'Start the Fable paper lane to explore the space further.' Follows SW-4962 (docs/proposals/streams.md) and SW-4988 (docs/proposals/streams-one-type.md). Expected: 30 min.\n\nDone (Fable, paper): docs/proposals/streams-head-tail.md. Option E: Seq carries a finite front of cells behind Quot (Front.same), re-walking twice as far when it runs out; head/tail loop linear on average: 20,000 values 0.14 s (three-field 33.24 s), 2,000,000 2.32 s at 79 MB. Seq.ext, tailAt, iterate and map tail laws proved, Quot.sound only (orchestrator reran check/test 17 pass and axioms). Thunk alone doesn't fix the loop; option C (runtimes keep unfold's step and state, ~5 proved natives) fallback, simulated only; kernel coinduction does make the loop linear, D3771 stands. D3775 (E with pilot S0, rec yes), D3776 (C if E too heavy, decide later).",
+      "body": "Matt, 28 Nov: 'tbh that's probably my first intuition I'd have about a stream, is it's something I could recurse on with head and tail'; 'Start the Fable paper lane to explore the space further.' Follows SW-4962 (docs/proposals/streams.md) and SW-4988 (docs/proposals/streams-one-type.md). Expected: 30 min.\n\nDone (Fable, paper): docs/proposals/streams-head-tail.md. Option E: Seq carries a finite front of cells behind Quot (Front.same), re-walking twice as far when it runs out; head/tail loop linear on average: 20,000 values 0.14 s (three-field 33.24 s), 2,000,000 2.32 s at 79 MB. Seq.ext, tailAt, iterate and map tail laws proved, Quot.sound only (orchestrator reran check/test 17 pass and axioms). Thunk alone doesn't fix the loop; option C (runtimes keep unfold's step and state, ~5 proved natives) fallback, simulated only; kernel coinduction does make the loop linear, D3771 stands. D3775 (E with pilot S0, rec yes), D3776 (C if E too heavy, decide later).\n\nD3775: Matt, 28 Nov: 'D3775 yes, try that'. Pilot S0 is SW-4997.",
       "created": "2026-11-28",
       "updated": "2026-11-28",
       "commits": [
@@ -22709,6 +22709,19 @@
       "labels": [],
       "epic": "docs-tutorials",
       "body": "SW-4993: computing at 0 on every call made a stream probe quadratic (20,000 values in 31 s); passing at fixed it.",
+      "created": "2026-11-28",
+      "updated": "2026-11-28",
+      "commits": []
+    },
+    {
+      "id": 4997,
+      "title": "Streams S0 pilot (D3775): Std.Stream as option E (the reader's place behind a quotient), with Cells, the three-field base, head, tail, cons, iterate, unfold, map, take, ext, headIs, tailAt, bisim; timings again; proof lines per function; stop if one needs over ~30 lines",
+      "status": "doing",
+      "agent": "Opus",
+      "where": "",
+      "labels": [],
+      "epic": "std-library",
+      "body": "D3775 (Matt, 28 Nov: 'D3775 yes, try that'). Plan: docs/proposals/streams-head-tail.md §6 S0. Expected: 45 min.",
       "created": "2026-11-28",
       "updated": "2026-11-28",
       "commits": []
