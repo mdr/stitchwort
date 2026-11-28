@@ -17986,14 +17986,14 @@
     {
       "id": 4505,
       "title": "[Sonnet] Docs for lanes: how to record new insta snapshots in this repo (docs/testing.md), and how to profile the elaborator on macOS (samply or /usr/bin/sample; docs/performance/) (SW-4498)",
-      "status": "backlog",
+      "status": "doing",
       "agent": "",
       "where": "",
       "labels": [],
       "epic": "docs-tutorials",
       "body": "\n\nBacklog grooming 27 Nov 2026: Half done: docs/testing.md:166 documents `task snap:examples NAME=…` and `task snap:hashes NAME=…` (recording snapshots), and docs/workflow.md:197 mentions `INSTA_UPDATE=always`. Remaining: how to profile the elaborator on macOS (samply only appears in docs/evaluator-speed.md:63; docs/performance has only log.md).\n",
       "created": "2026-11-21",
-      "updated": "2026-11-27",
+      "updated": "2026-11-28",
       "commits": []
     },
     {
@@ -21291,7 +21291,7 @@
     {
       "id": 4918,
       "title": "[Sonnet] check: a panic in a worker thread is re-raised (crates/driver/src/parallel.rs) and ends the CLI with exit 101 and a Rust panic message; report it as E-INTERNAL naming the namespace and declaration instead, with a test (SW-3593 finding)",
-      "status": "backlog",
+      "status": "doing",
       "agent": "",
       "where": "",
       "labels": [
@@ -21300,7 +21300,7 @@
       "epic": "diagnostics",
       "body": "From SW-3593's second round: the release read-back assert's panic reached the user as an uncaught worker panic, not E-INTERNAL as assumed.",
       "created": "2026-11-27",
-      "updated": "2026-11-27",
+      "updated": "2026-11-28",
       "commits": []
     },
     {
