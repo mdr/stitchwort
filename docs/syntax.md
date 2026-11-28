@@ -13,6 +13,9 @@ For a lane writing a small fixture or probe project (every line below was checke
 - **Clauses:** `def Q2.val: Q2 -> Nat` then `| MkQ2 w => w` and `| MkQ3 => 5`; with two parameters, `def pick: Nat -> Q2 -> Nat` then `| x, MkQ2 w => 5` and `| x, MkQ3 => x`.
 - **Lambdas:** `n => n + 1` and `(n: Nat) => n + 1`; there is no `\n =>` (`unexpected character`).
 - **Booleans and proofs:** `True`, `False`; `theorem t: two 2 = 4 := byComputing`; `rfl` doesn't exist (`E-UNKNOWN-NAME`). `≠` is a proposition, which `byComputing` can't prove (`E-TYPE-MISMATCH`); to test an inequality by computing, write `theorem t: (3 == 4) = False := byComputing`.
+- **Conjunction and existence:** `Both hp hq` proves `p ∧ q`; `h.left` and `h.right` (also `And.left h`, `And.right h`) take it apart. `Witness x proof` proves `∃ (x: a) => P x`; take it apart with `Exists.elim h (x px => …)`. `import Std (Exists)` for `Witness` and `Exists.elim`.
+- **Flipping an equation:** `h.flipped` turns `h: a = b` into `b = a`; `Eq.flipped h` is the same function, and needs `import Std (Eq)`.
+- **Pairs:** `(a, b)` is a `Pair a b`; its fields are `.fst` and `.snd` (or `Pair.fst`, `Pair.snd`).
 - **Record eta** (`theorem Pt.eta ∀ (p: Pt): { x = p.x, y = p.y } = p := byComputing`) holds for a type declared with braces; for a one-constructor type such as `type Wrap = | MkWrap (n: Nat)`, `MkWrap w.n = w` by `byComputing` fails (`E-REFL`).
 - **Lists:** `[1, 2]`, `[x, ..xs]`, `[]`.
 
