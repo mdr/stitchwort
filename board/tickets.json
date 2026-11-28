@@ -22576,15 +22576,18 @@
     {
       "id": 4987,
       "title": "Core tests: tests/it/common says how to make a bodiless axiom for hand-built terms, and admit_trusted_group/opens_by_tree say a multi-member group counts as recursive (the tree comparison skips it), from SW-4920's friction",
-      "status": "doing",
+      "status": "done",
       "agent": "DeepSeek",
       "where": "",
       "labels": [],
       "epic": "elaborator-kernel",
-      "body": "SW-4920 lost ~13 min to these two. Comments only.",
+      "body": "SW-4920 lost ~13 min to these two. Comments only.\n\nDone (DeepSeek): comments on declare (common/mod.rs), admit_trusted_group and opens_by_tree. Orchestrator checked: check.rs:2801 (group.len() > 1 is recursive), value.rs opens_by_tree's !def.recursive, check::assume at check.rs:3175. Model result: deepseek, worked, ~5 min (est. 10).",
       "created": "2026-11-28",
       "updated": "2026-11-28",
-      "commits": []
+      "commits": [
+        "ec7cb491b",
+        "24aaec340"
+      ]
     }
   ]
 }
