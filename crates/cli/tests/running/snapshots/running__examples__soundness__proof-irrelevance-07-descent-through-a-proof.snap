@@ -1,7 +1,19 @@
 ---
-source: crates/cli/tests/examples.rs
+source: crates/cli/tests/running/examples.rs
 expression: output
 ---
+[W-NO-VALUES] Warning: `Loop` has no values: every constructor needs a value of `Loop` first
+    ╭─[ soundness/proof-irrelevance-07-descent-through-a-proof.sw:13:6 ]
+    │
+ 13 │ type Loop: Prop =
+    │      ──┬─  
+    │        ╰─── this type can never be built
+ 14 │   | MkLoop (next: Loop)
+    │                   ──┬─  
+    │                     ╰─── a `Loop` is needed here
+    │ 
+    │ Note: a value is built from finitely many constructors, so a type whose every constructor holds one of itself is empty. Give a constructor without that field (an end case, as `Nil` is for a list), or, for an endless stream, a function from the position: `Nat -> a`
+────╯
 [E-TERMINATION] Error: can't show that `f` terminates
     ╭─[ soundness/proof-irrelevance-07-descent-through-a-proof.sw:19:21 ]
     │
