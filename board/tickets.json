@@ -21545,15 +21545,18 @@
     {
       "id": 4934,
       "title": "AoC 2020 day 8: argument duplicates Std.Parse.int; use Parse.int",
-      "status": "doing",
+      "status": "done",
       "agent": "",
       "where": "",
       "labels": [],
       "epic": "aoc-2020",
-      "body": "[DeepSeek] Found by Matt's `stitchwort search '() → {Parse Char} Int'` (27 Nov): Aoc.Year2020.Day08.argument (Day08.sw:57) and Std.Parse.int (std/Parse/Chars.sw:59) are both `() → {Parse Char} Int`, both a sign and a whole number. Check they accept the same text, replace argument with Parse.int, keep the day's proofs and tests passing (check Aoc.Year2020.Day08 only).\n",
+      "body": "[DeepSeek] Found by Matt's `stitchwort search '() → {Parse Char} Int'` (27 Nov): Aoc.Year2020.Day08.argument (Day08.sw:57) and Std.Parse.int (std/Parse/Chars.sw:59) are both `() → {Parse Char} Int`, both a sign and a whole number. Check they accept the same text, replace argument with Parse.int, keep the day's proofs and tests passing (check Aoc.Year2020.Day08 only).\n\nDone (DeepSeek): argument was already a wrapper around Parse.int; removed it, the two proofs now name Parse.int (statements keep their meaning). On main: day 8 and its Proofs check, 20 tests pass. Model result: deepseek, worked, ~5 min (est. 15).",
       "created": "2026-11-27",
       "updated": "2026-11-28",
-      "commits": []
+      "commits": [
+        "1bde69b72",
+        "31c1c6df3"
+      ]
     },
     {
       "id": 4935,
