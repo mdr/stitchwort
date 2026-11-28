@@ -482,3 +482,39 @@ theorem plainBool (b: Bool): b = b := byComputing
     assert_eq!(found("None"), ["withNone"]);
     assert_eq!(found("Some _ = _"), ["withSome"]);
 }
+
+/// The helpers a `partial` definition generates (`f.description`,
+/// `f.recur`, `f.body`, `f.Request`, `f.Response`) aren't results, unless
+/// `--all` asks for them (SW-4957).
+#[test]
+fn a_partial_definitions_helpers_are_hidden_unless_all() {
+    const PARTIAL: &str = "\
+def loopCount (n: Nat): {Partial} Nat :=
+  if n ≤ 1 then 0 else 1 + loopCount (n - 1)
+";
+    let names = |all: bool| -> Vec<String> {
+        with_session(STACK, Session::for_stack, |session| {
+            session.load("loop.sw", PARTIAL).expect("the file checks");
+            let options = Options {
+                all,
+                ..Options::default()
+            };
+            let report = session
+                .search("\"loopCount\"", &options, &Scope::File)
+                .map_err(|d| d.code.to_string())
+                .expect("searches");
+            report.results.iter().map(|r| r.name.clone()).collect()
+        })
+    };
+    assert_eq!(names(false), ["Main.loopCount"]);
+    let all = names(true);
+    for helper in [
+        "description",
+        "recur",
+        "body",
+        "Request.loopCount.request",
+        "Response",
+    ] {
+        assert!(all.contains(&format!("Main.loopCount.{helper}")), "{all:?}");
+    }
+}

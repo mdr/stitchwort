@@ -740,9 +740,10 @@ impl Session {
         }
         let g = &self.elab.ev();
         let all = options.all;
+        let helpers = partial_helpers(g);
         let candidates = self.elab.search_candidates(&|item, path| {
             options.kinds.allows(item.kind(g))
-                && (all || !hidden(path))
+                && (all || !(hidden(path) || helpers.contains(path)))
                 && query.names.iter().all(|n| path.contains(n.as_str()))
                 && in_namespaces(path, &options.within)
         });
@@ -1198,6 +1199,43 @@ pub(crate) fn hidden(path: &str) -> bool {
                 .rsplit('.')
                 .next()
                 .is_some_and(|l| l.ends_with("Example")))
+}
+
+/// The full names of what the elaborator makes for `partial` definitions
+/// (`f.description`, `f.recur`, `f.body`, `f.Request` with its constructors,
+/// `f.Response`): the machinery that ties the knot, not something to apply
+/// in a proof, so results leave it out unless `--all`. A helper is a
+/// declaration whose name extends a definition's by one of those names and
+/// whose span (the definition's name) lies inside that definition's.
+pub(crate) fn partial_helpers(g: &Ev) -> BTreeSet<String> {
+    const SUFFIXES: [&str; 5] = ["description", "recur", "body", "Request", "Response"];
+    let owners: HashMap<&str, Span> = (g.env.defs().iter())
+        .map(|def| (&**def.path(), def.span()))
+        .collect();
+    let made = |span: Span, path: &str| {
+        let Some((owner, last)) = path.rsplit_once('.') else {
+            return false;
+        };
+        SUFFIXES.contains(&last)
+            && owners
+                .get(owner)
+                .is_some_and(|o| o.file == span.file && o.start <= span.start && span.end <= o.end)
+    };
+    let mut out = BTreeSet::new();
+    for def in g.env.defs() {
+        if made(def.span(), def.path()) {
+            out.insert(def.path().to_string());
+        }
+    }
+    for data in g.env.datas() {
+        if made(data.span(), data.path()) {
+            out.insert(data.path().to_string());
+            for c in data.ctors() {
+                out.insert(format!("{}.{}", data.path(), c.name));
+            }
+        }
+    }
+    out
 }
 
 /// The warning for comparisons that ran out of their budget, naming the
