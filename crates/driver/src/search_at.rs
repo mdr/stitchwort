@@ -1451,8 +1451,9 @@ fn searchable(
     prop: bool,
 ) -> Vec<Candidate> {
     let g = &elab.ev();
+    let helpers = crate::search::partial_helpers(g);
     elab.search_candidates(&|item, path| {
-        (options.all || !hidden(path))
+        (options.all || !(hidden(path) || helpers.contains(path)))
             && (!prop || item.kind(g) != Kind::Definition)
             && !options.exclude.iter().any(|e| e == path)
             && crate::search::in_namespaces(path, &options.within)
