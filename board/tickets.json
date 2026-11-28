@@ -11374,14 +11374,14 @@
     {
       "id": 2905,
       "title": "[DeepSeek] Bundler checks run only through web/test.sh after a full build; add a test that bundles into a temp dir and checks the manifests without Chrome (SW-2892)",
-      "status": "backlog",
+      "status": "doing",
       "agent": "DeepSeek",
       "where": "",
       "labels": [],
       "epic": "editor-playground",
       "body": "\n\nAudit note (22 Nov): Audit 22 Nov: still open; no commit besides board edits mentions it and no later ticket covers it.\n",
       "created": "2026-11-11",
-      "updated": "2026-11-22",
+      "updated": "2026-11-28",
       "commits": []
     },
     {
