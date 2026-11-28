@@ -1,5 +1,5 @@
 {
-  "next": 4979,
+  "next": 4980,
   "tickets": [
     {
       "id": 47,
@@ -22327,6 +22327,21 @@
       ],
       "epic": "proof-search",
       "body": "[Sonnet] From SW-4976 (28 Nov): generate the equations before the session's mark, lazily at the first search; keep out of live.rs. Measure first.",
+      "created": "2026-11-28",
+      "updated": "2026-11-28",
+      "commits": []
+    },
+    {
+      "id": 4979,
+      "title": "stitchwort test, run and build have no panic boundary: a checker panic there is an uncaught Rust panic with exit 101 (check reports E-INTERNAL since SW-4918)",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [
+        "bug"
+      ],
+      "epic": "diagnostics",
+      "body": "[Sonnet] From SW-4918 (28 Nov): reuse internal_error_on_panic (crates/cli/src/main.rs) and namespace_being_checked; test with STITCHWORT_TEST_PANIC_IN.",
       "created": "2026-11-28",
       "updated": "2026-11-28",
       "commits": []
