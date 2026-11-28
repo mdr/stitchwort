@@ -1,5 +1,5 @@
 {
-  "next": 5023,
+  "next": 5026,
   "tickets": [
     {
       "id": 47,
@@ -10885,9 +10885,9 @@
       "where": ".claude/worktrees/SW-2809",
       "labels": [],
       "epic": "syntax-language",
-      "body": "\nFable review F1 (high): under a false goal, an erased proof-typed assumption can give a mistyped value (h: Nat = Bool := ?; h ▸ 0 runs as 0 at Bool) or reach panic! 'impossible branch' (value.rs:2312, pick False ?). Check rt, native and JS on both, turn the panic into a diagnostic naming the goal, and bring the result to Matt before shipping (D3507). F7: rt lower.rs:130, js lib.rs:1001, js run.rs:152 say 'hasn't been checked successfully' for a data-typed assumption: name the open goal. (docs/reviews/SW-2804-assumptions-review.md)\nParked (Matt, 11 Nov 2026): D3516 (what a run does at a cast or Array.getLt bound whose proof relies on a goal; rec: run-time bound check, stop at casts, JS load-time fix, warning names unchecked goals, mark passes relying on goals) goes on the backlog undecided. Work stays on lane/SW-2809 (ab1b7dcb8, 7eb0b39e9); Opus review docs/reviews/SW-2809-running-with-goals-review.md.\n\nD3683 (Matt, 18 Nov 2026): worktree removed to free 1.6 GB of build output; the branch is kept. To pick this up again (after D3516 is decided): (1) branch lane/SW-2809, local and pushed to origin, tip 7eb0b39e9 (work commit ab1b7dcb8, about 760 lines in 27 files: runtimes, JS, web, docs); (2) Opus review docs/reviews/SW-2809-running-with-goals-review.md; (3) Fable review of the design docs/reviews/SW-2804-assumptions-review.md (F1: a false goal behind an erased proof can give a mistyped value or the 'impossible branch' panic at value.rs:2312; F7: messages at rt lower.rs:130, js lib.rs:1001, js run.rs:152 should name the open goal); (4) design docs/proposals/using-unfinished-proofs.md, decisions D3504-D3507, open D3516 (what a run does at a cast or Array.getLt bound relying on a goal). Restart with 'git worktree add .claude/worktrees/SW-2809 lane/SW-2809' (or worktree:new, then merge the branch), merge main first: it is a week behind.\n\nAudit note (22 Nov): Audit 22 Nov: Matt (D3683, 15 Nov): the worktree was removed for disk, the branch and Opus review (docs/reviews, ef8b26be4) are kept with a resume note; SW-2861 and SW-2862 are the review's follow-ups. Earlier title, kept for its detail: Running with open goals (D3507): run/build/test run programs with open goals, warning line, value-? reached at run time stops naming the goal; test under warn runs tests instead of skipping (replaces SW-2793's skip); check what the runtime does with a false proof the program uses (bound, termination, cast) and report to Matt before shipping if it isn't a clear error (docs/proposals/using-unfinished-proofs.md; D3504-D3507)\n",
+      "body": "\nFable review F1 (high): under a false goal, an erased proof-typed assumption can give a mistyped value (h: Nat = Bool := ?; h ▸ 0 runs as 0 at Bool) or reach panic! 'impossible branch' (value.rs:2312, pick False ?). Check rt, native and JS on both, turn the panic into a diagnostic naming the goal, and bring the result to Matt before shipping (D3507). F7: rt lower.rs:130, js lib.rs:1001, js run.rs:152 say 'hasn't been checked successfully' for a data-typed assumption: name the open goal. (docs/reviews/SW-2804-assumptions-review.md)\nParked (Matt, 11 Nov 2026): D3516 (what a run does at a cast or Array.getLt bound whose proof relies on a goal; rec: run-time bound check, stop at casts, JS load-time fix, warning names unchecked goals, mark passes relying on goals) goes on the backlog undecided. Work stays on lane/SW-2809 (ab1b7dcb8, 7eb0b39e9); Opus review docs/reviews/SW-2809-running-with-goals-review.md.\n\nD3683 (Matt, 18 Nov 2026): worktree removed to free 1.6 GB of build output; the branch is kept. To pick this up again (after D3516 is decided): (1) branch lane/SW-2809, local and pushed to origin, tip 7eb0b39e9 (work commit ab1b7dcb8, about 760 lines in 27 files: runtimes, JS, web, docs); (2) Opus review docs/reviews/SW-2809-running-with-goals-review.md; (3) Fable review of the design docs/reviews/SW-2804-assumptions-review.md (F1: a false goal behind an erased proof can give a mistyped value or the 'impossible branch' panic at value.rs:2312; F7: messages at rt lower.rs:130, js lib.rs:1001, js run.rs:152 should name the open goal); (4) design docs/proposals/using-unfinished-proofs.md, decisions D3504-D3507, open D3516 (what a run does at a cast or Array.getLt bound relying on a goal). Restart with 'git worktree add .claude/worktrees/SW-2809 lane/SW-2809' (or worktree:new, then merge the branch), merge main first: it is a week behind.\n\nAudit note (22 Nov): Audit 22 Nov: Matt (D3683, 15 Nov): the worktree was removed for disk, the branch and Opus review (docs/reviews, ef8b26be4) are kept with a resume note; SW-2861 and SW-2862 are the review's follow-ups. Earlier title, kept for its detail: Running with open goals (D3507): run/build/test run programs with open goals, warning line, value-? reached at run time stops naming the goal; test under warn runs tests instead of skipping (replaces SW-2793's skip); check what the runtime does with a false proof the program uses (bound, termination, cast) and report to Matt before shipping if it isn't a clear error (docs/proposals/using-unfinished-proofs.md; D3504-D3507)\n\nSW-5017 (D3777) merged the runtime part for data ?s. What's left on lane/SW-2809 is the proof-gap side, gated by D3516 (SW-5024).",
       "created": "2026-11-11",
-      "updated": "2026-11-22",
+      "updated": "2026-11-28",
       "commits": []
     },
     {
@@ -23027,10 +23027,13 @@
       "where": "",
       "labels": [],
       "epic": "syntax-language",
-      "body": "D3777, Matt 28 Nov: 'D3777 yes, build this please.' Reverses SW-2909's 'needs is decided before running' (docs/proposals/tests-with-errors.md §4.4). A data ? compiles to a stop in every runtime; reaching it fails the test naming the ?; proof/type gaps unchanged; static hash unchanged (covers every gap the code mentions); run/eval same rule. Repro: Matt's 2018 day 1 in /Users/matt/stitchwort-aoc (Pass.passesToCheck).\n\nStarted 11:39 on Opus, est. 60 min.\n\nDone 12:05 (about 25 min): bb8e59a31 on lane/SW-5017. Repro (Matt's 2018 day 1, passesToCheck with Greater/Less as ?): before, all 7 'passes to check' tests 'not run'; after, 'no net change' passes and the others 'ran (reached `?` at …Day01.sw:37:16 (`passesToCheck` isn't written yet))'. Runtime parts taken from lane/SW-2809 (ab1b7dcb8), restricted to open goals. run/eval run only what relies solely on data ?s (proof ? or error still refused; D3516 open); build still refuses goals. Tests: open_goals (26 incl. 4 new, 2 updated), repl type_only test, core assumptions/indexed running tests, hash_stability (no hash moved). No snapshots mentioned the old line.",
+      "body": "D3777, Matt 28 Nov: 'D3777 yes, build this please.' Reverses SW-2909's 'needs is decided before running' (docs/proposals/tests-with-errors.md §4.4). A data ? compiles to a stop in every runtime; reaching it fails the test naming the ?; proof/type gaps unchanged; static hash unchanged (covers every gap the code mentions); run/eval same rule. Repro: Matt's 2018 day 1 in /Users/matt/stitchwort-aoc (Pass.passesToCheck).\n\nStarted 11:39 on Opus, est. 60 min.\n\nDone 12:05 (about 25 min): bb8e59a31 on lane/SW-5017. Repro (Matt's 2018 day 1, passesToCheck with Greater/Less as ?): before, all 7 'passes to check' tests 'not run'; after, 'no net change' passes and the others 'ran (reached `?` at …Day01.sw:37:16 (`passesToCheck` isn't written yet))'. Runtime parts taken from lane/SW-2809 (ab1b7dcb8), restricted to open goals. run/eval run only what relies solely on data ?s (proof ? or error still refused; D3516 open); build still refuses goals. Tests: open_goals (26 incl. 4 new, 2 updated), repl type_only test, core assumptions/indexed running tests, hash_stability (no hash moved). No snapshots mentioned the old line.\n\nMerged 829d0a8f4, not yet pushed: verifier + Fable review of the crates/core part running. Lane: 25 min (est. 60); runtime part taken from parked lane/SW-2809 and limited to open goals. Matt's 2018 day 1: Equal test passes, ? branches fail naming 37:16 / 39:13. run: warning line + E-UNREACHABLE stop, all four runtimes; eval same; build unchanged. Model result: opus, worked.",
       "created": "2026-11-28",
       "updated": "2026-11-28",
-      "commits": []
+      "commits": [
+        "3b7a30aea bb8e59a31",
+        "829d0a8f4"
+      ]
     },
     {
       "id": 5018,
@@ -23101,6 +23104,45 @@
       "labels": [],
       "epic": "std-library",
       "body": "Matt, 28 Nov: 'we should also consider if any other stdlib functions would be better off returning NEL rather than List for better type safety'. Paper lane.",
+      "created": "2026-11-28",
+      "updated": "2026-11-28",
+      "commits": []
+    },
+    {
+      "id": 5023,
+      "title": "Tests that rely on any ? run only on the reference evaluator; data ?s now stop cleanly on every runtime, so only proof gaps need the evaluator's cast check: run the rest on the fast runtime",
+      "status": "backlog",
+      "agent": "Opus",
+      "where": "",
+      "labels": [],
+      "epic": "dev-loop-speed",
+      "body": "From SW-5017.",
+      "created": "2026-11-28",
+      "updated": "2026-11-28",
+      "commits": []
+    },
+    {
+      "id": 5024,
+      "title": "run/eval on programs relying on a proof ? (SW-2809's D3507 behaviour): still refused while test runs them; waits on D3516",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "epic": "syntax-language",
+      "body": "From SW-5017; D question when D3516 is taken up (rec there: keep refusing until D3516 is decided).",
+      "created": "2026-11-28",
+      "updated": "2026-11-28",
+      "commits": []
+    },
+    {
+      "id": 5025,
+      "title": "crates/js/src/run.rs: comment says exit codes 70 to 72 are taken; now 73 (exit status) and 74 (reached a ?) too",
+      "status": "backlog",
+      "agent": "DeepSeek",
+      "where": "",
+      "labels": [],
+      "epic": "test-infra",
+      "body": "From SW-5017.",
       "created": "2026-11-28",
       "updated": "2026-11-28",
       "commits": []
