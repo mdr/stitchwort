@@ -1,0 +1,14 @@
+---
+source: crates/cli/tests/running/examples.rs
+expression: output
+---
+[E-NONEXHAUSTIVE] Error: missing case: no alternative of this `match` matches `Outer.Shape.Square _`
+| Outer.Shape.Square _ => ?
+    ╭─[ missing-cases-full-key/src/Day.sw:10:3 ]
+    │
+ 10 │ ╭─▶   match make n with
+ 11 │ ├─▶     | Circle r => r * r
+    │ │                             
+    │ ╰───────────────────────────── missing case: no alternative of this `match` matches `Outer.Shape.Square _`
+────╯
+try: add `| Outer.Shape.Square s => ?`
