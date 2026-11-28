@@ -1,5 +1,5 @@
 {
-  "next": 4974,
+  "next": 4975,
   "tickets": [
     {
       "id": 47,
@@ -22220,6 +22220,21 @@
       "labels": [],
       "epic": "proof-search",
       "body": "[Sonnet] From SW-4941 (28 Nov): filtered pass, not relaxed; such a rule might hide wanted results, so compare before/after for the usual queries.",
+      "created": "2026-11-28",
+      "updated": "2026-11-28",
+      "commits": []
+    },
+    {
+      "id": 4974,
+      "title": "Goal-search ladder rungs have a 500 ms wall-clock budget, so under load byComputing can miss and the code action lists every closer: features::a_code_action_on_a_goal_offers_a_search_that_runs_when_asked failed once on Overmind (left 3, right 1); make the rung budget robust (work steps, or a generous budget for rungs that are cheap by construction) or the test independent of wall time",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [
+        "flaky"
+      ],
+      "epic": "proof-search",
+      "body": "[Sonnet] Overmind, 28 Nov: red once at 4cdc0e87e in the loop's niced lsp-features step right after the quick tier (test 13.7 s vs 7 s usually); not reproduced alone 3/3 there nor in the full step 50/50, nor 3/3 on Speedwell. Ladder: crates/driver/src/search_at.rs (RUNG_TIME, LADDER_TIME).",
       "created": "2026-11-28",
       "updated": "2026-11-28",
       "commits": []
