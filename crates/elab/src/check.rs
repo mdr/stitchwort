@@ -11263,6 +11263,20 @@ fn written_sides(cx: &Ctx, a: &Value, b: &Value) -> Option<(String, String)> {
     if !same(ga, a)? || !same(gb, b)? {
         return None;
     }
+    // In a `match` arm the goal's term still names the scrutinee the arm
+    // refined (`beats m m` in the `Rock` arm), so its sides are shown
+    // from their values, which the arm has substituted into.
+    let level = cx.level();
+    let refined = (0..level).any(|at| {
+        cx.env
+            .get(at)
+            .is_some_and(|v| !matches!(v, Value::Neutral(..)))
+            && (ga.mentions(level - 1 - at) || gb.mentions(level - 1 - at))
+    });
+    if refined {
+        let shown = |t: &Term| Some(cx.show_as_written(&cx.eval(t).ok()?));
+        return Some((shown(ga)?, shown(gb)?));
+    }
     let show = |t: &Term| pretty::term_for_message_in(&cx.g(), cx.e, &cx.shown_names(false), t);
     Some((show(ga), show(gb)))
 }

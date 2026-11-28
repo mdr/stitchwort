@@ -1,0 +1,43 @@
+---
+source: crates/cli/tests/running/examples.rs
+expression: output
+---
+[E-REFL] Error: `byComputing` can't prove this
+    ╭─[ reject/byComputing-in-arm-shows-refined-goal.sw:13:15 ]
+    │
+ 13 │     | Rock => byComputing
+    │               ─────┬─────  
+    │                    ╰─────── `beats Rock Rock` and `True` aren't equal
+    │ 
+    │ Note 1: computing the left side gives `False`
+    │ 
+    │ Note 2: `byComputing` proves `a = b` only when both sides compute to the same value
+    │ 
+    │ Note 3: this statement is false; a counterexample:
+    │           m = Rock
+    │         `beats m m` is false:
+    │           left:  False
+    │           right: True
+────╯
+[E-REFL] Error: `byComputing` can't prove this
+    ╭─[ reject/byComputing-in-arm-shows-refined-goal.sw:14:16 ]
+    │
+ 14 │     | Paper => byComputing
+    │                ─────┬─────  
+    │                     ╰─────── `beats Paper Paper` and `True` aren't equal
+    │ 
+    │ Note 1: computing the left side gives `False`
+    │ 
+    │ Note 2: (see the note above: "`byComputing` proves `a =…")
+────╯
+[E-REFL] Error: `byComputing` can't prove this
+    ╭─[ reject/byComputing-in-arm-shows-refined-goal.sw:15:19 ]
+    │
+ 15 │     | Scissors => byComputing
+    │                   ─────┬─────  
+    │                        ╰─────── `beats Scissors Scissors` and `True` aren't equal
+    │ 
+    │ Note 1: computing the left side gives `False`
+    │ 
+    │ Note 2: (see the note above: "`byComputing` proves `a =…")
+────╯
