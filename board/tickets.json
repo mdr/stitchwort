@@ -1,5 +1,5 @@
 {
-  "next": 5007,
+  "next": 5010,
   "tickets": [
     {
       "id": 47,
@@ -22786,7 +22786,9 @@
       "body": "From SW-5000's friction.\n\nFolded into SW-5003 (S2), which edits the same file.",
       "created": "2026-11-28",
       "updated": "2026-11-28",
-      "commits": []
+      "commits": [
+        "ac82fd958"
+      ]
     },
     {
       "id": 5002,
@@ -22804,15 +22806,21 @@
     {
       "id": 5003,
       "title": "Streams S2: Stream.findRepeat and foldUntil with their laws, the stream timings in the performance log; and SW-5001's pass writing clashing dot calls in full",
-      "status": "doing",
+      "status": "done",
       "agent": "Sonnet",
       "where": "",
       "labels": [],
       "epic": "std-library",
-      "body": "Matt, 28 Nov: 'Proceed with S2-S4 - I'm interested in which AoC days might genuinely benefit from streams'. Plan: docs/proposals/streams-head-tail.md §6.\n\nScope added (orchestrator, from SW-5005's survey): Stream.findIndex with position laws; fold/find/findIndex/findRepeat/foldUntil read the walk once (head/tail loops pay E's re-walk, about 2n steps for n values); optional iterateCongr. Est. +15 min.",
+      "body": "Matt, 28 Nov: 'Proceed with S2-S4 - I'm interested in which AoC days might genuinely benefit from streams'. Plan: docs/proposals/streams-head-tail.md §6.\n\nScope added (orchestrator, from SW-5005's survey): Stream.findIndex with position laws; fold/find/findIndex/findRepeat/foldUntil read the walk once (head/tail loops pay E's re-walk, about 2n steps for n values); optional iterateCongr. Est. +15 min.\n\nDone (Sonnet): findRepeat (Ord, seen Map; Some law only), findIndex (Some/None by position), foldUntil, iterateCongr; fold/find read the walk once (slow step at 20,000: ~2.0 s vs 8.4 s head/tail, reference evaluator). Dot-call pass on definitions only. Orchestrator checked statements (D2436): each says what its name claims; findRepeat lacks minimality and a None law (follow-up). Model result: sonnet, worked, 23 min (est. 25 + 15 added).",
       "created": "2026-11-28",
       "updated": "2026-11-28",
-      "commits": []
+      "commits": [
+        "ac82fd958",
+        "6cab9caa9",
+        "0f0717a18",
+        "617a8bf60",
+        "817cd19dc"
+      ]
     },
     {
       "id": 5004,
@@ -22853,6 +22861,45 @@
       "labels": [],
       "epic": "test-infra",
       "body": "Seen 28 Nov in the SW-5004 verifier; a gitignored cache from 04:12 that day. Reproduce by running stitchwort check in examples/projects/reject.",
+      "created": "2026-11-28",
+      "updated": "2026-11-28",
+      "commits": []
+    },
+    {
+      "id": 5007,
+      "title": "Stream.findRepeat: prove minimality (no earlier repeat) and a None law (no repeat below the limit); strengthen the seen-map invariant (est. ~40 lines)",
+      "status": "backlog",
+      "agent": "Sonnet",
+      "where": "",
+      "labels": [],
+      "epic": "std-library",
+      "body": "From SW-5003.",
+      "created": "2026-11-28",
+      "updated": "2026-11-28",
+      "commits": []
+    },
+    {
+      "id": 5008,
+      "title": "Std Stream tests: shrink the slow ones (20,000-state findRepeat cycle, slow-step fold vs head/tail at 20,000) so the Stream namespace runs in seconds on the reference evaluator; timings belong in docs/performance/log.md, not repo tests",
+      "status": "backlog",
+      "agent": "DeepSeek",
+      "where": "",
+      "labels": [],
+      "epic": "test-infra",
+      "body": "From SW-5003: the namespace now takes over 170 s.",
+      "created": "2026-11-28",
+      "updated": "2026-11-28",
+      "commits": []
+    },
+    {
+      "id": 5009,
+      "title": "stitchwort test --std runs on the reference evaluator only; add a way to run std tests on the fast runtime",
+      "status": "backlog",
+      "agent": "Sonnet",
+      "where": "",
+      "labels": [],
+      "epic": "dev-loop-speed",
+      "body": "From SW-5003: std stream perf tests 10-100x slower than programs.",
       "created": "2026-11-28",
       "updated": "2026-11-28",
       "commits": []
