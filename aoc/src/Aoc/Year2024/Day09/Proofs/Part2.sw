@@ -63,7 +63,7 @@ theorem filesMoveLeft ∀ (diskMap: DiskMap):
       (file free => (free.moveFile file).snd)
       (file free => moveFileLeft free file)
       layout.fst.reverse
-      (List.scanLeft layout.fst.reverse initial (free file => (free.moveFile file).fst))
+      (List.scanLeft layout.fst.reverse initial (free file => (free.moveFile file).fst)).toList
 
 theorem moveFileBlocks ∀ (free: FreeSpace) (file: File): (free.moveFile file).snd.blocks = file.blocks :=
   match fit: free.leftmostFit file.span.length file.span.start with | None | Some _ => byComputing
@@ -76,7 +76,7 @@ theorem movedBlocks ∀ (diskMap: DiskMap):
   rewrite List.mapAccumLeftList layout.fst.reverse initial FreeSpace.moveFile then
     let zipped :=
       List.zipWith layout.fst.reverse
-        (List.scanLeft layout.fst.reverse initial (free file => (free.moveFile file).fst))
+        (List.scanLeft layout.fst.reverse initial (free file => (free.moveFile file).fst)).toList
         (file free => (free.moveFile file).snd)
     calc zipped.flatMap .blocks
       _ = (zipped.map File.blocks).concat := List.flatMapEqConcatMap File.blocks zipped

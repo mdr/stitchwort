@@ -67,13 +67,6 @@ def List.foldLeft: (xs: List a) → (initial: b) → (f: b → a → {e} b) → 
   | [], initial, f => initial
   | [x, ..xs], initial, f => List.foldLeft xs (f initial x) f
 
---| Running accumulations, the initial value first (Haskell's `scanLeft`):
---| `List.scanLeft [x, y] initial f` is `[initial, f initial x, f (f initial x) y]`. Always one longer than
---| the input.
-def List.scanLeft: (xs: List a) → (initial: b) → (f: b → a → b) → List b
-  | [], initial, f => [initial]
-  | [x, ..xs], initial, f => [initial, ..List.scanLeft xs (f initial x) f]
-
 --| Right fold: `List.foldRight [x, y] initial f` is `f x (f y initial)`. Runs
 --| as a loop over the reversed list, so it is stack-safe on long lists. `f`
 --| may perform abilities, which run last element first, as the definition

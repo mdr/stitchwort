@@ -515,13 +515,6 @@ theorem List.lengthZipWithAtLeast: ∀ (u: List a) (n: Nat) (v: List b) => n ≤
   | [x, ..xs], Succ n, [], hu, hv, f => hv
   | [x, ..xs], Succ n, [y, ..ys], hu, hv, f => List.lengthZipWithAtLeast xs n ys hu hv f
 
---| Running results: one more than the elements, the start first.
-theorem List.lengthScanLeft ∀ (xs: List a) (start: b) (f: b → a → b):
-    List.length (List.scanLeft xs start f) = Succ (List.length xs) :=
-  match xs with
-    | [] => byComputing
-    | [x, ..xs] => Eq.cong Succ (List.lengthScanLeft xs (f start x) f)
-
 --| A sum over the numbers below b is the sum below t and the sum from t up to b.
 theorem List.sumByRangeSplit ∀ (f: Nat → Nat) (t b: Nat)
     (tb: t ≤ b):

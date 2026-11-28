@@ -20,7 +20,7 @@ theorem zerosLandedOnCons ∀ [n: Nat]
     zerosLandedOn [t, ..ts] dial = Bool.toNat (Dial.isZero (Dial.move dial t)) + zerosLandedOn ts (Dial.move dial t) :=
   Eq.trans
     (Eq.cong (.count Dial.isZero) (List.scanLeftCons ts (Dial.move dial t) Dial.move))
-    (List.countCons (List.drop (List.scanLeft ts (Dial.move dial t) Dial.move) 1) (Dial.move dial t) Dial.isZero)
+    (List.countCons (List.scanLeft ts (Dial.move dial t) Dial.move).tail (Dial.move dial t) Dial.isZero)
 
 --| The clicks of one turn, then the rest.
 theorem zerosPassedSplit ∀ [n: Nat]
@@ -50,7 +50,7 @@ theorem zerosPassedFrom ∀ [n: Nat]
         _ = Dial.zerosDuring dial t + zerosPassed ts (Dial.move dial t) :=
           List.sumCons
             (Dial.zerosDuring dial t)
-            (List.zipWith (List.scanLeft ts (Dial.move dial t) Dial.move) ts Dial.zerosDuring)
+            (List.zipWith (List.scanLeft ts (Dial.move dial t) Dial.move).toList ts Dial.zerosDuring)
         _ = Dial.zerosDuring dial t + zerosLandedOn (List.concatMap ts Turn.clicks) (Dial.move dial t) :=
           rewrite zerosPassedFrom (Dial.move dial t) ts
         _ = zerosLandedOn (List.concatMap [t, ..ts] Turn.clicks) dial := (zerosPassedSplit dial t ts).flipped

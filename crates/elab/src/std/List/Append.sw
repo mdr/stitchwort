@@ -19,10 +19,6 @@ theorem List.appendTakeDrop ∀ (xs: List a) (n: Nat): List.append (List.take xs
     | [], Succ n => byComputing
     | [x, ..xs], Succ n => Eq.cong (Cons x) (List.appendTakeDrop xs n)
 
-theorem List.scanLeftNil: List.scanLeft [] 5 (acc x => acc + x) = [5] := byComputing
-
-theorem List.scanLeftSums: List.scanLeft [1, 2, 3] 0 (acc x => acc + x) = [0, 1, 3, 6] := byComputing
-
 theorem List.foldLeftReverseOnto ∀ (xs acc: List a) (z: b) (f: a → b → b):
     List.foldLeft (List.reverseOnto xs acc) z (r x => f x r)
       = List.foldLeft acc (List.foldLeft (List.reverseOnto xs []) z (r x => f x r)) (r x => f x r) :=

@@ -10,7 +10,8 @@ type Item = { id: Nat, size: Nat, start: Nat }
 def moveTo (offset: Nat) (item: Item): Item := { item | start = offset }
 
 def layout (start: Nat) (items: List Item): List Item :=
-  List.zipWith items (List.scanLeft items start (offset item => offset + item.size)) (item offset => moveTo offset item)
+  List.zipWith items (List.scanLeft items start (offset item => offset + item.size)).toList (item offset =>
+    moveTo offset item)
 
 def blank: Item := { id = 0, size = 0, start = 0 }
 
