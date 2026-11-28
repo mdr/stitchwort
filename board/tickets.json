@@ -17131,15 +17131,17 @@
     {
       "id": 4200,
       "title": "[Sonnet] Lane environment: a short section in every proof brief (or docs/workflow.md) on zsh globs and word splitting, GNU sed in the dev shell, python3/jq on PATH, no sleep (use Monitor), the 120 s foreground limit; and 'board show N --body' plus 'board note N TEXT' to append (SW-4195 friction 4)",
-      "status": "backlog",
+      "status": "done",
       "agent": "Sonnet",
       "where": "",
       "labels": [],
       "epic": "dev-loop-speed",
-      "body": "From SW-4195's checkpoint, friction 4: dozens of 1-5 minute rows in docs/agent-feedback/2026-11.md. board note appends a dated line without replacing the body (board edit --body-file replaces it).\n\nAudit note (22 Nov): board has no `note` command yet (board/board checked 22 Nov).\n\nBacklog grooming 27 Nov 2026: The \"board has no note command\" audit note is stale: `board/board note N TEXT` exists (board/board:242; board/README.md command list). Drop that sentence; the card is then only the lane-environment section on zsh globs, GNU sed, python3/jq on PATH. CLAUDE.md \"Lane agents\" already says GNU sed, zsh word splitting and quoted globs (SW-3779/D3740, 25 Nov), so check what is left before starting.\n",
+      "body": "From SW-4195's checkpoint, friction 4: dozens of 1-5 minute rows in docs/agent-feedback/2026-11.md. board note appends a dated line without replacing the body (board edit --body-file replaces it).\n\nAudit note (22 Nov): board has no `note` command yet (board/board checked 22 Nov).\n\nBacklog grooming 27 Nov 2026: The \"board has no note command\" audit note is stale: `board/board note N TEXT` exists (board/board:242; board/README.md command list). Drop that sentence; the card is then only the lane-environment section on zsh globs, GNU sed, python3/jq on PATH. CLAUDE.md \"Lane agents\" already says GNU sed, zsh word splitting and quoted globs (SW-3779/D3740, 25 Nov), so check what is left before starting.\n\nDone by the orchestrator (450b40b0b): what was left after CLAUDE.md's GNU sed / zsh lines (D3740) is the env-before-nice line and writing scratch paths in full, now in docs/testing.md 'Running tests in a lane'. The 120 s vs 170 s mismatch was the orchestrator's briefs (agent definitions say 170 s with timeout); briefs fixed.",
       "created": "2026-11-19",
-      "updated": "2026-11-27",
-      "commits": []
+      "updated": "2026-11-28",
+      "commits": [
+        "450b40b0b"
+      ]
     },
     {
       "id": 4201,
