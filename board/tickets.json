@@ -23022,17 +23022,19 @@
     {
       "id": 5017,
       "title": "Tests (and run/eval) run until they reach a data ?, instead of being skipped because their code contains one (D3777, Matt: yes)",
-      "status": "review",
+      "status": "done",
       "agent": "Opus",
       "where": "",
       "labels": [],
       "epic": "syntax-language",
-      "body": "D3777, Matt 28 Nov: 'D3777 yes, build this please.' Reverses SW-2909's 'needs is decided before running' (docs/proposals/tests-with-errors.md §4.4). A data ? compiles to a stop in every runtime; reaching it fails the test naming the ?; proof/type gaps unchanged; static hash unchanged (covers every gap the code mentions); run/eval same rule. Repro: Matt's 2018 day 1 in /Users/matt/stitchwort-aoc (Pass.passesToCheck).\n\nStarted 11:39 on Opus, est. 60 min.\n\nDone 12:05 (about 25 min): bb8e59a31 on lane/SW-5017. Repro (Matt's 2018 day 1, passesToCheck with Greater/Less as ?): before, all 7 'passes to check' tests 'not run'; after, 'no net change' passes and the others 'ran (reached `?` at …Day01.sw:37:16 (`passesToCheck` isn't written yet))'. Runtime parts taken from lane/SW-2809 (ab1b7dcb8), restricted to open goals. run/eval run only what relies solely on data ?s (proof ? or error still refused; D3516 open); build still refuses goals. Tests: open_goals (26 incl. 4 new, 2 updated), repl type_only test, core assumptions/indexed running tests, hash_stability (no hash moved). No snapshots mentioned the old line.\n\nMerged 829d0a8f4, not yet pushed: verifier + Fable review of the crates/core part running. Lane: 25 min (est. 60); runtime part taken from parked lane/SW-2809 and limited to open goals. Matt's 2018 day 1: Equal test passes, ? branches fail naming 37:16 / 39:13. run: warning line + E-UNREACHABLE stop, all four runtimes; eval same; build unchanged. Model result: opus, worked.\n\nFable review of the crates/core part: sound (docs/reviews/SW-5017-core-review.md); low findings filed as SW-5029.",
+      "body": "D3777, Matt 28 Nov: 'D3777 yes, build this please.' Reverses SW-2909's 'needs is decided before running' (docs/proposals/tests-with-errors.md §4.4). A data ? compiles to a stop in every runtime; reaching it fails the test naming the ?; proof/type gaps unchanged; static hash unchanged (covers every gap the code mentions); run/eval same rule. Repro: Matt's 2018 day 1 in /Users/matt/stitchwort-aoc (Pass.passesToCheck).\n\nStarted 11:39 on Opus, est. 60 min.\n\nDone 12:05 (about 25 min): bb8e59a31 on lane/SW-5017. Repro (Matt's 2018 day 1, passesToCheck with Greater/Less as ?): before, all 7 'passes to check' tests 'not run'; after, 'no net change' passes and the others 'ran (reached `?` at …Day01.sw:37:16 (`passesToCheck` isn't written yet))'. Runtime parts taken from lane/SW-2809 (ab1b7dcb8), restricted to open goals. run/eval run only what relies solely on data ?s (proof ? or error still refused; D3516 open); build still refuses goals. Tests: open_goals (26 incl. 4 new, 2 updated), repl type_only test, core assumptions/indexed running tests, hash_stability (no hash moved). No snapshots mentioned the old line.\n\nMerged 829d0a8f4, not yet pushed: verifier + Fable review of the crates/core part running. Lane: 25 min (est. 60); runtime part taken from parked lane/SW-2809 and limited to open goals. Matt's 2018 day 1: Equal test passes, ? branches fail naming 37:16 / 39:13. run: warning line + E-UNREACHABLE stop, all four runtimes; eval same; build unchanged. Model result: opus, worked.\n\nFable review of the crates/core part: sound (docs/reviews/SW-5017-core-review.md); low findings filed as SW-5029.\n\nVerified: open_goals, repl, core assumptions/indexed/running, hash_stability, all example kinds (124 of 125; the goal example fixed in 7fb9c856a, then goal_ 2 of 2), wasm. Fable review sound.",
       "created": "2026-11-28",
       "updated": "2026-11-28",
       "commits": [
         "3b7a30aea bb8e59a31",
-        "829d0a8f4"
+        "829d0a8f4",
+        "7fb9c856a",
+        "4a80bf6ca"
       ]
     },
     {
