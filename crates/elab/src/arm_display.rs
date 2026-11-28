@@ -708,6 +708,28 @@ fn unsplit(cx: &Ctx, arms: &[Rc<Arm>]) -> Vec<usize> {
     levels
 }
 
+/// The variable `l` names in a context of `level` variables. A level outside
+/// the context would wrap, which release builds print as some other variable
+/// rather than failing: it is an internal error in every build, as in
+/// `value.rs`'s quote (SW-3593).
+fn level_var(level: usize, l: usize) -> Term {
+    assert!(
+        l < level,
+        "internal error: variable at level {l} read back with {level} in scope: \
+         the caller is quoting outside the context the value was made in"
+    );
+    Term::Var(level - 1 - l)
+}
+
+/// The term for level `l` in the shown goal: the arm's own value where the
+/// split gave it one, otherwise the variable.
+fn shown_level(level: usize, values: &[(usize, Term)], l: usize) -> crate::Result<Term> {
+    Ok(match values.iter().find(|(x, _)| *x == l) {
+        Some((_, v)) => v.clone(),
+        None => level_var(level, l),
+    })
+}
+
 /// What `leaf_goal` computes to, with each value the leaf gave a variable the
 /// arms left alone written as that variable.
 fn computed_back(
@@ -733,10 +755,7 @@ fn computed_back(
         &g,
         &shown,
         level,
-        &|l| match values.iter().find(|(x, _)| *x == l) {
-            Some((_, v)) => Ok(v.clone()),
-            None => Ok(Term::Var(level - 1 - l)),
-        },
+        &|l| shown_level(level, &values, l),
         &|_, _| None,
     )
     .ok()?;
@@ -766,9 +785,8 @@ fn computed_back(
             crate::matching::same_shifted(&value, t, under, 0)
                 .then(|| Term::Var(under + level - 1 - x))
         };
-        term =
-            crate::lift::replace_with(&g, &term, level, &|l| Ok(Term::Var(level - 1 - l)), &hook)
-                .ok()?;
+        term = crate::lift::replace_with(&g, &term, level, &|l| Ok(level_var(level, l)), &hook)
+            .ok()?;
     }
     eval(&g, &view.env, &term).ok()
 }
@@ -936,5 +954,26 @@ fn case_text(shown: &str) -> String {
         (_, false) => crate::quoted_text(&text),
         (true, true) => "…".to_string(),
         (false, true) => format!("{} ++ …", crate::quoted_text(&text)),
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    /// A level in the shown goal that is not one of the context's variables
+    /// would wrap in `level - 1 - l`; it is an internal error in every build,
+    /// as in `value.rs`'s quote (SW-3593).
+    #[test]
+    #[should_panic(expected = "variable at level 0 read back with 0 in scope")]
+    fn a_shown_level_outside_the_context_does_not_read_back() {
+        let _ = shown_level(0, &[], 0);
+    }
+
+    /// The same for a level the term read back from the leaf's value names.
+    #[test]
+    #[should_panic(expected = "variable at level 0 read back with 0 in scope")]
+    fn a_body_level_outside_the_context_does_not_read_back() {
+        let _ = level_var(0, 0);
     }
 }
