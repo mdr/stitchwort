@@ -11412,15 +11412,19 @@
     {
       "id": 2911,
       "title": "[DeepSeek] Hover on a ? returns the goal twice (a code block and plain text); confirm in VS Code and show it once (book SW-2902)",
-      "status": "doing",
+      "status": "done",
       "agent": "DeepSeek",
       "where": "",
       "labels": [],
       "epic": "editor-playground",
-      "body": "\n\nAudit note (22 Nov): Audit 22 Nov: still open; no commit besides board edits mentions it and no later ticket covers it.\n",
+      "body": "\n\nAudit note (22 Nov): Audit 22 Nov: still open; no commit besides board edits mentions it and no later ticket covers it.\n\nDone (DeepSeek): reproduced (features::hover_on_an_open_goal_shows_the_goal_once failed: goal twice). hover_at (driver at.rs) no longer appends goal.text (label repeating the goal + notes); adds facts to the code block, then 'computes to', then notes. Orchestrator fixup 74afa5f53: the new Goal fields are serde(skip), so goalAt's JSON is unchanged. Orchestrator checks: lsp/server/driver goal and hover tests 68 pass; wasm clean. Model result: deepseek, needed fixes (protocol fields), ~12 min (est. 20).",
       "created": "2026-11-11",
       "updated": "2026-11-28",
-      "commits": []
+      "commits": [
+        "af96a30d0",
+        "74afa5f53",
+        "e6aac93c0"
+      ]
     },
     {
       "id": 2916,
