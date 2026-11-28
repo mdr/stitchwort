@@ -5,11 +5,15 @@
 namespace Aoc.Year2024.Day22.Proofs
 import Aoc.Year2024.Day22 (..)
 import Aoc.Year2024.Day22.Spec (..)
-import Std (Bool, DecEq, Eq, List, Map, Nat, Option, Void)
+import Std (Bool, DecEq, Eq, List, Map, Nat, Option, Stream, Void)
 
-theorem secretsMatch ∀ (count secret: Nat): secrets count secret = secretNumbers count secret := match count with
-  | Zero => byComputing
-  | Succ count => rewrite nextSecretEvolves secret, secretsMatch count (evolve secret)
+theorem secretsMatch ∀ (count secret: Nat): (secrets secret).take (count + 1) = secretNumbers count secret :=
+  match count with
+    | Zero => byComputing
+    | Succ count =>
+      rewrite Stream.iterateTakeSucc nextSecret secret (count + 1),
+          secretsMatch count (nextSecret secret),
+          nextSecretEvolves secret
 
 theorem pricesMatch ∀ (count buyer: Nat): prices count buyer = offeredPrices count buyer :=
   rewrite secretsMatch count buyer

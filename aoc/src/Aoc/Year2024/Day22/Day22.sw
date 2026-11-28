@@ -11,7 +11,7 @@
 --| `Aoc.Year2024.Day22.Tests` (Tests/); `run` checks neither.
 
 namespace Aoc.Year2024.Day22
-import Std (Fail, IO, Int, List, Map, Nat, Parse, Text)
+import Std (Fail, IO, Int, List, Map, Nat, Parse, Stream, Text)
 import Std.Parse (nat)
 
 def main(): {IO, Fail} () :=
@@ -33,12 +33,11 @@ def nextSecret (secret: Nat): Nat :=
   let second := (first / 32).xor first
   (second * 2048 % modulus).xor second
 
---| The initial secret and the `count` secrets after it.
-def secrets: (count: Nat) → (secret: Nat) → List Nat
-  | Zero, secret => [secret]
-  | Succ count, secret => [secret, ..secrets count (nextSecret secret)]
+--| A buyer's secret numbers: the initial one, then each the next of the one
+--| before.
+def secrets (buyer: Nat): Stream Nat := Stream.iterate nextSecret buyer
 
-def solvePart1 (buyers: List Nat): Nat := buyers.sumBy (Nat.iterate (count := 2000) (step := nextSecret))
+def solvePart1 (buyers: List Nat): Nat := buyers.sumBy (buyer => (secrets buyer).at 2000)
 
 -- Part 2.
 
@@ -47,8 +46,9 @@ type Changes = { first: Int, second: Int, third: Int, fourth: Int }
 
 def change (before after: Nat): Int := after.toInt - before.toInt
 
---| A buyer's prices: the last digit of each secret.
-def prices (count buyer: Nat): List Nat := secrets count buyer |> .map (% 10)
+--| A buyer's prices: the last digit of the initial secret and the `count`
+--| after it.
+def prices (count buyer: Nat): List Nat := (secrets buyer).take (count + 1) |> .map (% 10)
 
 --| The changes into the fifth of `prices` and that price, if there are five.
 def sale: List Nat → Option (Changes, Nat) := match some
