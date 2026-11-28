@@ -21082,15 +21082,18 @@
     {
       "id": 4904,
       "title": "[DeepSeek] A driver test that runs the theorem search (crates/driver/src/search.rs import_library_namespaces) on a file defining a std top-level name (Pair, List), so an import clash is caught in the quick tier, not only by the all tier's CLI doc tests (SW-4901 finding)",
-      "status": "doing",
+      "status": "done",
       "agent": "",
       "where": "",
       "labels": [],
       "epic": "test-infra",
-      "body": "",
+      "body": "Done (DeepSeek): search_match::a_file_defining_its_own_pair_still_searches_the_library and ..._list_... (2 pass; no clash today). Model result: deepseek, worked, ~8 min (est. 15).",
       "created": "2026-11-27",
       "updated": "2026-11-28",
-      "commits": []
+      "commits": [
+        "55c91c88d",
+        "b7a9afee9"
+      ]
     },
     {
       "id": 4905,
