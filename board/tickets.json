@@ -22306,7 +22306,7 @@
     {
       "id": 4978,
       "title": "Goal search: every native search still replays std's 895 equation segments (~0.5 s) because the warm search session is rewound after each search; and actions_at_text (a file with no cache folder) makes a fresh session per search and regenerates them",
-      "status": "backlog",
+      "status": "doing",
       "agent": "",
       "where": "",
       "labels": [
