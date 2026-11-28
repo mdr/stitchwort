@@ -11361,15 +11361,18 @@
     {
       "id": 2903,
       "title": "[DeepSeek] ctor_written's last fallback writes a constructor's full key when neither its short nor Type.Ctor name resolves (type not in scope at all); check that form parses and checks as a pattern, and add a test of the qualified branch (Nat.O when O isn't imported) (SW-2889)",
-      "status": "doing",
+      "status": "done",
       "agent": "DeepSeek",
       "where": "",
       "labels": [],
       "epic": "editor-playground",
-      "body": "\n\nAudit note (22 Nov): Audit 22 Nov: still true: ctor_written/ctor_qualified at crates/elab/src/missing.rs:340-358.\n",
+      "body": "\n\nAudit note (22 Nov): Audit 22 Nov: still true: ctor_written/ctor_qualified at crates/elab/src/missing.rs:340-358.\n\nDone (DeepSeek): the full-key fallback (Outer.Shape.Square) parses and checks when pasted. Pinned by examples/projects/reject/missing-cases-full-key (snapshot) and tools project::a_missing_case_on_a_type_out_of_scope_is_suggested_by_its_full_key (pastes and checks). Model result: deepseek, worked, ~12 min (est. 20).",
       "created": "2026-11-11",
       "updated": "2026-11-28",
-      "commits": []
+      "commits": [
+        "1f3997dfc",
+        "7f3e300e5"
+      ]
     },
     {
       "id": 2905,
