@@ -21798,14 +21798,14 @@
     {
       "id": 4949,
       "title": "Move the CLI's type shortening (SW-4936, search_render.rs) into the driver so the language server and playground show short types too",
-      "status": "backlog",
+      "status": "doing",
       "agent": "",
       "where": "",
       "labels": [],
       "epic": "proof-search",
       "body": "[Sonnet] From SW-4945 (27 Nov).",
       "created": "2026-11-27",
-      "updated": "2026-11-27",
+      "updated": "2026-11-28",
       "commits": []
     },
     {
@@ -21967,7 +21967,7 @@
     {
       "id": 4960,
       "title": "Prebuilt std cache: add the editor's modes (checker +nav+ty, search +nav) to the installed bundle so VS Code skips the cold std fill too",
-      "status": "backlog",
+      "status": "doing",
       "agent": "",
       "where": "",
       "labels": [
@@ -21976,7 +21976,7 @@
       "epic": "dev-loop-speed",
       "body": "[Sonnet] From SW-2163 (27 Nov): the bundle holds the CLI's mode only; the reader already serves any std.* unit, so the build adds stitchwort_lsp::library_bundle entries. Watch the server's native limits: a key mismatch is a silent all-miss, so test a hit count.",
       "created": "2026-11-27",
-      "updated": "2026-11-27",
+      "updated": "2026-11-28",
       "commits": []
     },
     {
