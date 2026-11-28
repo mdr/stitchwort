@@ -21930,15 +21930,19 @@
     {
       "id": 4957,
       "title": "search lists a partial definition's generated helpers (loopCount.description, loopCount.recur) as ordinary results",
-      "status": "review",
+      "status": "done",
       "agent": "",
       "where": "",
       "labels": [],
       "epic": "proof-search",
-      "body": "[Sonnet] From SW-4944 (27 Nov).",
+      "body": "[Sonnet] From SW-4944 (27 Nov).\nDone (Sonnet): partial_helpers(g) in driver search.rs (name = a definition plus .description/.recur/.body/.Response/.Request, span inside the definition), used by search and search_at searchable; --all shows them. Std unchanged (no partial definitions). On main: search_match:: and search:: pass. Model result: sonnet, worked, 12 min (est. 25).\n",
       "created": "2026-11-27",
       "updated": "2026-11-28",
-      "commits": []
+      "commits": [
+        "875fc1c81",
+        "2a998cdb9",
+        "7d4caa372"
+      ]
     },
     {
       "id": 4958,
