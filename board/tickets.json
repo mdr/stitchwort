@@ -1,5 +1,5 @@
 {
-  "next": 4980,
+  "next": 4981,
   "tickets": [
     {
       "id": 47,
@@ -22363,6 +22363,21 @@
         "aa78bd566",
         "217050b03"
       ]
+    },
+    {
+      "id": 4980,
+      "title": "features::a_code_action_on_a_goal_offers_a_search_that_runs_when_asked went from ~7 s to ~13 s in Overmind's loop between 49b02cfe0 and 4cdc0e87e: a fresh server's first goal search now spends ~2.4 s cold (more under load) generating std's put-off equations; find which merge moved it (SW-4954? SW-4960?) and whether a real editor's first search pays it",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [
+        "perf"
+      ],
+      "epic": "proof-search",
+      "body": "[Sonnet] From SW-4974 and Overmind (28 Nov, 4ca5b79a3 green with the test at 12.7 s). SW-4976/SW-4978 made later searches cheap; this is the first one. Time the phases per commit (build only the suspects).",
+      "created": "2026-11-28",
+      "updated": "2026-11-28",
+      "commits": []
     }
   ]
 }
