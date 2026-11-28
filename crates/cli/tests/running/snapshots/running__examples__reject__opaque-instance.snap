@@ -7,7 +7,7 @@ expression: output
    │
  8 │ opaque instance Box.instShow: Show Box := { show = box => box.contents.show }
    │        ────┬───  
-   │            ╰───── an instance can't be `opaque`
+   │            ╰───── here
    │ 
    │ Note: an instance is used by taking it apart, which needs its body
 ───╯

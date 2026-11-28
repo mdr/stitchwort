@@ -7,5 +7,5 @@ expression: output
    │
  4 │ type Shape = | Circle (id: Text) { radius: Nat }
    │                                  ┬  
-   │                                  ╰── `Circle` has fields in brackets already; declare all of its explicit fields in brackets or all in braces
+   │                                  ╰── here
 ───╯

@@ -7,7 +7,7 @@ expression: output
    │
  9 │   char ',';
    │           ┬  
-   │           ╰── `;` needs an expression after it: `(a; b)` runs `a`, then gives `b`'s value
+   │           ╰── here
    │ 
    │ Note: the next line starts a new line of the block: leave out the `;` at the end of this one
 ───╯

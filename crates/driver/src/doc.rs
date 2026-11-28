@@ -134,6 +134,8 @@ struct ExampleDecl {
 pub struct Decls {
     sources: SourceMap,
     files: Vec<File>,
+    /// The stack budget for the parsing these docs do, from the session.
+    stack: usize,
     entries: Vec<Entry>,
     tests: Vec<TestDecl>,
     /// The program's namespaces, as the files declare them.
@@ -167,11 +169,13 @@ pub struct Resolution {
 }
 
 impl Decls {
-    /// Parses the library and `inputs`, a program's files.
-    pub fn new(inputs: Vec<Input>) -> Decls {
+    /// Parses the library and `inputs`, a program's files, using at most
+    /// `stack` bytes of stack for each parse.
+    pub fn new(inputs: Vec<Input>, stack: usize) -> Decls {
         let mut decls = Decls {
             sources: SourceMap::new(),
             files: Vec::new(),
+            stack,
             entries: Vec::new(),
             tests: Vec::new(),
             project: BTreeSet::new(),
@@ -433,7 +437,7 @@ impl Decls {
         let file = &self.files[e.file];
         let docs = cache
             .entry(e.file)
-            .or_insert_with(|| docs(file.id, &self.sources.get(file.id).text));
+            .or_insert_with(|| docs(file.id, &self.sources.get(file.id).text, self.stack));
         docs.get(&e.name_at).cloned()
     }
 
@@ -442,7 +446,7 @@ impl Decls {
     fn file_namespace(&self, file: usize) -> Option<String> {
         let file = &self.files[file];
         let text = &self.sources.get(file.id).text;
-        file_doc_namespace(file.id, text, file.std.as_deref())
+        file_doc_namespace(file.id, text, file.std.as_deref(), self.stack)
             .or_else(|| file.namespace.clone().filter(|_| file.std.is_none()))
     }
 
@@ -456,7 +460,7 @@ impl Decls {
         let f = &self.files[file];
         let imports = cache
             .entry(file)
-            .or_insert_with(|| file_imports(f.id, &self.sources.get(f.id).text));
+            .or_insert_with(|| file_imports(f.id, &self.sources.get(f.id).text, self.stack));
         doc.links
             .iter()
             .map(|link| {
@@ -578,7 +582,7 @@ impl Decls {
         let mut out = Vec::new();
         for file in &self.files {
             let text = &self.sources.get(file.id).text;
-            let owner = file_doc_namespace(file.id, text, file.std.as_deref())
+            let owner = file_doc_namespace(file.id, text, file.std.as_deref(), self.stack)
                 .or_else(|| file.namespace.clone().filter(|_| file.std.is_none()));
             if owner.as_deref() != Some(ns) {
                 continue;
@@ -1781,7 +1785,7 @@ mod tests {
 
     #[test]
     fn every_header_is_a_declaration_up_to_its_body() {
-        let decls = Decls::new(Vec::new());
+        let decls = Decls::new(Vec::new(), DEFAULT_STACK);
         for e in &decls.entries {
             let h = e.header.trim_start();
             assert!(!h.is_empty(), "{}", e.path);
@@ -1794,12 +1798,15 @@ mod tests {
 
     #[test]
     fn a_match_inside_a_statement_stays_in_the_header() {
-        let decls = Decls::new(vec![Input {
-            display: "Demo.sw".to_string(),
-            text: "namespace Demo\n\ntheorem matchInBrackets ∀ (place: Bool):\n    (match place with\n      | True => False\n      | False => True) = True :=\n  match place with\n    | True => True\n    | False => False\n"
-                .to_string(),
-            namespace: Some("Demo".to_string()),
-        }]);
+        let text = "namespace Demo\n\ntheorem matchInBrackets ∀ (place: Bool):\n    (match place with\n      | True => False\n      | False => True) = True :=\n  match place with\n    | True => True\n    | False => False\n";
+        let decls = Decls::new(
+            vec![Input {
+                display: "Demo.sw".to_string(),
+                text: text.to_string(),
+                namespace: Some("Demo".to_string()),
+            }],
+            DEFAULT_STACK,
+        );
         let found = decls.resolve("Demo.matchInBrackets");
         let [i] = found.entries[..] else {
             panic!("one entry, got {}", found.entries.len());
@@ -1823,12 +1830,15 @@ mod tests {
     /// declaration, rules and all (SW-3662).
     #[test]
     fn a_rule_set_has_a_page_showing_its_rules() {
-        let decls = Decls::new(vec![Input {
-            display: "Demo.sw".to_string(),
-            text: "namespace Demo\n\nrules appends := [List.appendAssoc, <- List.appendNil]\n"
-                .to_string(),
-            namespace: Some("Demo".to_string()),
-        }]);
+        let decls = Decls::new(
+            vec![Input {
+                display: "Demo.sw".to_string(),
+                text: "namespace Demo\n\nrules appends := [List.appendAssoc, <- List.appendNil]\n"
+                    .to_string(),
+                namespace: Some("Demo".to_string()),
+            }],
+            DEFAULT_STACK,
+        );
         let found = decls.resolve("Demo.appends");
         let [i] = found.entries[..] else {
             panic!("one entry, got {}", found.entries.len());
@@ -1843,7 +1853,7 @@ mod tests {
 
     #[test]
     fn a_library_name_resolves_with_or_without_std() {
-        let decls = Decls::new(Vec::new());
+        let decls = Decls::new(Vec::new(), DEFAULT_STACK);
         for name in ["List.filterMap", "Std.List.filterMap"] {
             let found = decls.resolve(name);
             assert_eq!(found.entries.len(), 1, "{name}");

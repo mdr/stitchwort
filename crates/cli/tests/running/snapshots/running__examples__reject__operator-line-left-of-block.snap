@@ -7,5 +7,5 @@ expression: output
    │
  7 │   ∧ b
    │   ┬  
-   │   ╰── expected the end of the declaration, but found `∧`
+   │   ╰── here
 ───╯

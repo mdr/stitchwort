@@ -7,5 +7,5 @@ expression: output
    │
  3 │ def f (a: Bool) (b: Bool): Bool := a & b
    │                                      ┬  
-   │                                      ╰── unexpected character `&`
+   │                                      ╰── here
 ───╯

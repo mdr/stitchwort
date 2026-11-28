@@ -9,7 +9,7 @@ expression: output
    │                                         ─┬─   ─┬─  
    │                                          ╰───────── this range already has both ends
    │                                                │   
-   │                                                ╰─── ranges don't chain
+   │                                                ╰─── here
    │ 
    │ Note: `a ..< b ..< c` has no meaning; to join two ranges, write `[..a ..< b, ..c ..< d]`
 ───╯

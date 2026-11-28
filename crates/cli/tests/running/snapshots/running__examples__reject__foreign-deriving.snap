@@ -8,7 +8,7 @@ expression: output
    │
  5 │   deriving DecEq
    │   ────┬───  
-   │       ╰───── expected the end of the declaration, but found `deriving`
+   │       ╰───── here
    │ 
    │ Note: there's no `deriving`: a declared type gets `==`, `<` and `${…}` derived when its fields have them (and `Finite` when they're all finite), so delete this line
 ───╯

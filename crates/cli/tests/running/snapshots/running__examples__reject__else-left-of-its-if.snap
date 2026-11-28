@@ -7,5 +7,5 @@ expression: output
    │
  7 │   else 2
    │   ──┬─  
-   │     ╰─── expected `else`, but the line starting with `else` (in column 3) is at or left of the enclosing block's column (5), so it starts a new statement
+   │     ╰─── here
 ───╯

@@ -7,7 +7,7 @@ expression: output
    │
  4 │ theorem sub (xs: List Nat) (ys: List Nat): xs ⊆ ys := ?
    │                                               ┬  
-   │                                               ╰── unexpected character `⊆`
+   │                                               ╰── here
    │ 
    │ Note: `⊆` isn't supported: there are no set operators: write it with a function, such as `List.All`
 ───╯

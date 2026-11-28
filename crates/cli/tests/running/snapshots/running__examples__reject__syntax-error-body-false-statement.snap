@@ -7,7 +7,7 @@ expression: output
    │
  4 │ theorem wrong (n: Nat): n + 1 = n := (byComputing
    │                                                  │ 
-   │                                                  ╰─ expected `)`, but reached the end of the declaration
+   │                                                  ╰─ here
    │ 
    │ Note: this statement is false; a counterexample:
    │         n = 0

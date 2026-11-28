@@ -7,7 +7,7 @@ expression: output
    │
  3 │ def bad: (Nat, Nat) := (1, 2: Nat)
    │                             ┬  
-   │                             ╰── an annotation can't be written inside a tuple without brackets
+   │                             ╰── here
    │ 
    │ Note: to annotate one component, write `(a, (b: T))`; to annotate the pair, write `((a, b): T)`
 ───╯

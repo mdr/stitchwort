@@ -7,5 +7,5 @@ expression: output
    │
  5 │   def f (s: Nat):
    │                  │ 
-   │                  ╰─ expected an expression, but reached the end of the declaration
+   │                  ╰─ here
 ───╯

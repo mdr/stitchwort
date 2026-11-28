@@ -314,6 +314,10 @@ struct Parser<'t> {
     file: FileId,
     eof: u32,
     modes: Modes,
+    /// Whether this is a lone expression (`parse_expression`, for the REPL
+    /// and `--at`) rather than a declaration in a file: then the end of the
+    /// text is the end of the input, not of the declaration.
+    expression: bool,
     /// For each opening bracket (`(`, `[`, `{`), the index of its partner,
     /// and `NO_PARTNER` for every other token and for unmatched brackets.
     /// Built once per declaration, so that skipping a bracketed group is one
@@ -441,6 +445,7 @@ impl<'t> Parser<'t> {
             file,
             eof,
             modes: Modes::default(),
+            expression: false,
             matching: match_brackets(tokens),
             stack,
             keep_header: false,
@@ -912,6 +917,17 @@ impl<'t> Parser<'t> {
         )
     }
 
+    /// What the parser calls the end of the text: a file's declaration can
+    /// be followed by more declarations, so its end isn't the end of the
+    /// input.
+    fn end_phrase(&self) -> &'static str {
+        if self.expression {
+            "the end of the input"
+        } else {
+            "the end of the declaration"
+        }
+    }
+
     fn unexpected(&self, expected: &str) -> Diagnostic {
         if !self.is_stop(self.pos) && self.tokens.get(self.pos).map(|t| &t.tok) == Some(&Tok::At) {
             return Diagnostic::error("E-ATTRIBUTE", "attributes can't be written here")
@@ -977,7 +993,7 @@ impl<'t> Parser<'t> {
                 };
             }
             Some(token) => format!("found {}", self.spelled(token)),
-            None => "reached the end of the declaration".to_string(),
+            None => format!("reached {}", self.end_phrase()),
         };
         let found_arrow = self
             .tokens
@@ -1093,6 +1109,12 @@ impl<'t> Parser<'t> {
     /// A component of a tuple pattern: a pattern, or `-k`, which the
     /// tuple's brackets already delimit (`(-1, 0)`, `(0, -1)`).
     fn tuple_component(&mut self) -> Result<()> {
+        self.tuple_component_expected("a pattern")
+    }
+
+    /// [`Self::tuple_component`] where the caller names what it expects
+    /// instead of a pattern, as a `let` expects `:=` after its pattern.
+    fn tuple_component_expected(&mut self, expected: &str) -> Result<()> {
         let start = self.mark();
         if self.ctor_ahead() {
             // A constructor's arguments run to the next `,` or `)`:
@@ -1107,7 +1129,7 @@ impl<'t> Parser<'t> {
             return self.pattern_append(start, Self::tuple_component);
         }
         if self.peek() != Some(&Tok::Minus) {
-            self.pattern()?;
+            self.pattern_expected(expected)?;
             return self.pattern_append(start, Self::tuple_component);
         }
         self.bump();
@@ -1133,7 +1155,7 @@ impl<'t> Parser<'t> {
 
     fn finish(&self) -> Result<()> {
         if self.pos < self.tokens.len() {
-            let error = self.unexpected("the end of the declaration");
+            let error = self.unexpected(self.end_phrase());
             // Haskell's `deriving` and Lean's `deriving instance` have no
             // Stitchwort spelling: the instances are made with the type.
             if self.text_at(self.pos as u32) == "deriving" {
@@ -1221,7 +1243,7 @@ impl<'t> Parser<'t> {
         let Some(token) = self.tokens.get(self.pos) else {
             return error(
                 at,
-                format!("expected {expected}, but reached the end of the declaration"),
+                format!("expected {expected}, but reached {}", self.end_phrase()),
             );
         };
         let ends_line = self
@@ -1570,6 +1592,12 @@ impl<'t> Parser<'t> {
     }
 
     fn pattern(&mut self) -> Result<()> {
+        self.pattern_expected("a pattern")
+    }
+
+    /// [`Self::pattern`] where the caller says what it expects, for a token
+    /// that can't start one.
+    fn pattern_expected(&mut self, expected: &str) -> Result<()> {
         self.deeper()?;
         let start = self.mark();
         match self.peek() {
@@ -1677,7 +1705,7 @@ impl<'t> Parser<'t> {
                 self.expect(Tok::RParen, "`)`")?;
                 self.node(start, NodeKind::PatternParen);
             }
-            _ => return Err(self.unexpected_name("a pattern or `=`").into()),
+            _ => return Err(self.unexpected_name(expected).into()),
         }
         Ok(())
     }
@@ -2526,7 +2554,7 @@ impl<'t> Parser<'t> {
                 matches!(t, Some(Tok::Equals | Tok::ColonEq | Tok::Colon) | None)
             });
         }
-        self.tuple_component()
+        self.tuple_component_expected("a pattern or `:=`")
     }
 
     /// A `{` starting a line at the block's own column continues the line
@@ -2967,7 +2995,7 @@ impl<'t> Parser<'t> {
             })?;
             return self.pattern_append(start, Self::alt_pattern_one);
         }
-        self.tuple_component()
+        self.tuple_component_expected("a pattern of a `match` arm")
     }
 
     /// After a pattern from token `start`, `++ q`: a text pattern's fixed
@@ -5252,10 +5280,10 @@ fn old_in(at: Span, construct: &str) -> Diagnostic {
     ))
 }
 
-/// An `E-PARSE` error at `span`, labelled with its message.
+/// An `E-PARSE` error at `span`, labelled `here`: the message already says
+/// what went wrong, and repeating it under the caret adds nothing.
 pub(crate) fn error(span: Span, message: impl Into<String>) -> Diagnostic {
-    let message = message.into();
-    Diagnostic::error("E-PARSE", message.clone()).with_label(span, message)
+    Diagnostic::error("E-PARSE", message).with_label(span, "here")
 }
 
 #[cfg(test)]

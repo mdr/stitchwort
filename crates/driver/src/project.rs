@@ -1582,7 +1582,7 @@ fn analyse_units(
                         diagnostics.push(not_first.clone());
                         continue;
                     }
-                    match parse_namespace_line(id, &text) {
+                    match parse_namespace_line(id, &text, stack) {
                         Ok(line) => line,
                         Err(d) => {
                             // The namespace line itself is the trouble.

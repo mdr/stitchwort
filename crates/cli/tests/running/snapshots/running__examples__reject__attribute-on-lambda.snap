@@ -7,7 +7,7 @@ expression: output
    │
  2 │ def double: Nat → Nat := (@[js.name "x"] n) => n + n
    │                           ┬  
-   │                           ╰── expected a pattern or `=`
+   │                           ╰── expected a pattern
    │ 
    │ Note: attributes go before a data type's `type`, after a constructor's `|`, or before a field's name: `@[js.tag "type"]`, `| @[js.name "CIRCLE"] Circle`, `(@[js.name "center_x"] centerX: Nat)`
 ───╯

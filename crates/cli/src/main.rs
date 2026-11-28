@@ -2196,7 +2196,7 @@ fn file_mode_context(path: &Path, text: &str, verb: &'static str) -> Option<File
     let mut namespaces = BTreeSet::new();
     for (file, text) in &found {
         let id = sources.add(file.clone(), text.clone());
-        if let Ok(Some(line)) = parse_namespace_line(id, text) {
+        if let Ok(Some(line)) = parse_namespace_line(id, text, STACK) {
             namespaces.insert(line.path.text);
         }
     }
@@ -2204,7 +2204,7 @@ fn file_mode_context(path: &Path, text: &str, verb: &'static str) -> Option<File
         return None;
     }
     let id = sources.add("<file>", text);
-    let own = parse_namespace_line(id, text).ok().flatten();
+    let own = parse_namespace_line(id, text, STACK).ok().flatten();
     let note = match (&own, verb) {
         (Some(n), "run") => format!(
             "to use the project, run a function by name: `stitchwort run {}.main`",
@@ -4807,7 +4807,7 @@ fn project_of_file(
             };
             let mut scratch = SourceMap::new();
             let id = scratch.add(relative.clone(), text.as_str());
-            let namespace = parse_namespace_line(id, text)
+            let namespace = parse_namespace_line(id, text, STACK)
                 .ok()
                 .flatten()
                 .map(|line| line.path.text);
@@ -6115,7 +6115,7 @@ fn load_for_evaluation(session: &mut Session, path: &Path) -> bool {
     };
     let mut scratch = SourceMap::new();
     let id = scratch.add("<file>", text.as_str());
-    let Ok(Some(line)) = parse_namespace_line(id, &text) else {
+    let Ok(Some(line)) = parse_namespace_line(id, &text, session.elab.options.limits.stack) else {
         return load(session, path);
     };
     let namespace = line.path.text;

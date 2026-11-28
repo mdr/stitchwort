@@ -7,7 +7,7 @@ expression: output
    │
  4 │   calc a = b := h
    │          ┬  
-   │          ╰── `calc` starts with one expression; each relation goes on a line of its own
+   │          ╰── here
    │ 
    │ Note: write `calc a` and then, indented below it, `_ = b := proof`
 ───╯

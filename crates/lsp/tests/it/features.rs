@@ -501,6 +501,23 @@ fn hover_at(s: &mut Session, text: &str, needle: &str) -> Value {
     )
 }
 
+/// A syntax error's label is the bare `here` (SW-1877): the editor shows the
+/// message alone, not the message and a line saying `here`.
+#[test]
+fn a_parse_error_shows_its_message_without_a_here_line() {
+    big_stack(|| {
+        let s = Session::open("namespace Demo\n\ndef broken: Nat := )\n");
+        let parse = s
+            .diagnostics
+            .iter()
+            .find(|d| d["code"] == "E-PARSE")
+            .unwrap_or_else(|| panic!("{:?}", s.diagnostics));
+        let message = parse["message"].as_str().unwrap();
+        assert!(message.starts_with("expected an expression"), "{message}");
+        assert!(!message.lines().any(|l| l == "here"), "{message}");
+    });
+}
+
 #[test]
 fn hover_and_semantic_tokens_work_outside_a_declaration_with_an_unclosed_string() {
     big_stack(|| {

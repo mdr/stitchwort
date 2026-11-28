@@ -7,5 +7,5 @@ expression: output
    │
  3 │ import List (map, ..)
    │                   ─┬  
-   │                    ╰── `..` imports everything from a namespace, so it goes on its own: `import List (..)`
+   │                    ╰── here
 ───╯

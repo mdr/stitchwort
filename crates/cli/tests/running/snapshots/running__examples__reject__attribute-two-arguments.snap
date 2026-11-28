@@ -7,5 +7,5 @@ expression: output
    │
  3 │   | @[js.name "CIRCLE" "ROUND"] Circle (radius: Nat)
    │                        ───┬───  
-   │                           ╰───── expected `,` or `]` after the attribute, but found `"ROUND"`
+   │                           ╰───── here
 ───╯

@@ -5241,7 +5241,8 @@ fn relative(dir: &Path, path: &Path) -> Option<String> {
 }
 
 /// A diagnostic for the client: the message, then the first label's
-/// explanation and the notes, one per line (as the extension showed them).
+/// explanation (unless it is the bare `here` most errors use) and the notes,
+/// one per line (as the extension showed them).
 fn diagnostic(
     ws: &WorkspaceNav,
     root: &Path,
@@ -5251,6 +5252,7 @@ fn diagnostic(
     if let Some((_, first)) = d.labels.first()
         && !first.is_empty()
         && *first != d.message
+        && first != "here"
     {
         message.push('\n');
         message.push_str(first);

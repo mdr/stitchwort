@@ -7,7 +7,7 @@ expression: output
    │
  3 │ def f (xs: List Nat): Nat := xs.
    │                                ┬  
-   │                                ╰── expected a field name after `.`
+   │                                ╰── here
    │ 
    │ Note: `.` is for field access, as in `p.name`
 ───╯
@@ -16,5 +16,5 @@ expression: output
    │
  7 │ def g (n: Nat): Nat := (n +
    │                            │ 
-   │                            ╰─ expected an expression, but reached the end of the declaration
+   │                            ╰─ here
 ───╯

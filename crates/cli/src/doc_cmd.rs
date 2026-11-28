@@ -77,7 +77,7 @@ pub(super) fn doc(args: &Args) -> ExitCode {
                 text: text.clone(),
                 // A file without a `namespace` line is in `Main`.
                 namespace: Some(
-                    parse_namespace_line(id, &text)
+                    parse_namespace_line(id, &text, session.elab.options.limits.stack)
                         .ok()
                         .flatten()
                         .map_or_else(|| "Main".to_string(), |line| line.path.text),
@@ -142,7 +142,7 @@ pub(super) fn doc(args: &Args) -> ExitCode {
         }
     }
 
-    let decls = Decls::new(inputs);
+    let decls = Decls::new(inputs, session.elab.options.limits.stack);
     if let Some(names) = args.coverage {
         let code = coverage(&decls, names, program.is_some(), args);
         discard(session);

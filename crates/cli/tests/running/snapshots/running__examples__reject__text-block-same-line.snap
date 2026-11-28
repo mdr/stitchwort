@@ -7,5 +7,5 @@ expression: output
    │
  3 │ def example: Text := """L68
    │                      ──┬─  
-   │                        ╰─── a `"""` text starts on the next line: nothing may follow the opening `"""` (use `"…"` for one line)
+   │                        ╰─── here
 ───╯

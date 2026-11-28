@@ -7,7 +7,7 @@ expression: output
    │
  3 │ def f (A: Nat): Nat := A
    │        ┬  
-   │        ╰── expected a parameter's name, but found `A`
+   │        ╰── here
    │ 
    │ Note: parameter names start with a lowercase letter; an uppercase name such as `A` is a constructor
 ───╯

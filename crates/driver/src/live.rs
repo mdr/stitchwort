@@ -1192,7 +1192,13 @@ impl LiveProject {
             let name = if parsed.errors.is_empty() {
                 parsed.module.namespace.clone()
             } else {
-                parse_namespace_line(parsed.id, &parsed.text).ok().flatten()
+                parse_namespace_line(
+                    parsed.id,
+                    &parsed.text,
+                    self.session.elab.options.limits.stack,
+                )
+                .ok()
+                .flatten()
             };
             if let Some(name) = name {
                 namespace_files

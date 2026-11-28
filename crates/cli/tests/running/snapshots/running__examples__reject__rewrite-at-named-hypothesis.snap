@@ -7,7 +7,7 @@ expression: output
    │
  7 │   rewrite Eq.symm at then byComputing
    │                   ─┬  
-   │                    ╰── `at` after a `rewrite` rule names the hypothesis to rewrite, but no hypothesis follows it
+   │                    ╰── here
    │ 
    │ Note: `at` is reserved after a rule, so a hypothesis called `at` can't be passed to the rule: give the hypothesis another name
 ───╯

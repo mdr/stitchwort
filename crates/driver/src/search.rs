@@ -1048,7 +1048,12 @@ impl Session {
         // none is shown.
         let summary = match item {
             Item::Ctor(..) => None,
-            _ => docs.summary(&self.sources, item.span(g), &item.path(g)),
+            _ => docs.summary(
+                &self.sources,
+                item.span(g),
+                &item.path(g),
+                self.elab.options.limits.stack,
+            ),
         };
         let path = item.path(g);
         Result1 {
@@ -1082,12 +1087,18 @@ struct DocCache(HashMap<FileId, BTreeMap<u32, stitchwort_syntax::docs::Doc>>);
 
 impl DocCache {
     /// The summary of the doc of the declaration whose name starts at `span`.
-    fn summary(&mut self, sources: &SourceMap, span: Span, path: &str) -> Option<String> {
+    fn summary(
+        &mut self,
+        sources: &SourceMap,
+        span: Span,
+        path: &str,
+        stack: usize,
+    ) -> Option<String> {
         let text = &sources.get(span.file).text;
         let docs = self
             .0
             .entry(span.file)
-            .or_insert_with(|| stitchwort_syntax::docs::docs(span.file, text));
+            .or_insert_with(|| stitchwort_syntax::docs::docs(span.file, text, stack));
         // A definition's span is its header, from its keyword: the doc is
         // keyed by its name, which is inside. A generated definition's span
         // is its type's, whose name isn't the definition's: no doc.

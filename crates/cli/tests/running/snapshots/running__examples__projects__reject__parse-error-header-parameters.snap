@@ -7,5 +7,5 @@ expression: output
    │
  5 │ def broken: Nat := )
    │                    ┬  
-   │                    ╰── expected an expression, but found `)`
+   │                    ╰── here
 ───╯

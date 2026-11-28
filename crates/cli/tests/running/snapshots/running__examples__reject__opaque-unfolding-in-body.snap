@@ -7,7 +7,7 @@ expression: output
    │
  9 │   unfolding double
    │   ────┬────  
-   │       ╰────── expected an expression, but found `unfolding`
+   │       ╰────── here
    │ 
    │ Note: `unfolding f` goes in a declaration's header, after its result type and before `:=` or the arms: `theorem t: … unfolding f := …`; it can't be written in a body
 ───╯

@@ -9,7 +9,7 @@ use std::collections::{BTreeMap, BTreeSet};
 
 use crate::ast::{Decl, Import, Module};
 use crate::lexer::{Comment, Tok, Trivia, lex_recovering_with_trivia};
-use crate::parser::{DEFAULT_STACK, decl_ranges, parse_module_recovering, parse_namespace_line};
+use crate::parser::{decl_ranges, parse_module_recovering, parse_namespace_line};
 use crate::{FileId, Span};
 
 /// The marker of a doc line (D2134). Only `--|` lines make a doc; since
@@ -162,8 +162,8 @@ pub fn link_candidates_with_imports(
 
 /// The `import` lines of a file, parsed without elaborating (a file that
 /// doesn't parse gives those before the error).
-pub fn file_imports(file: FileId, text: &str) -> Vec<Import> {
-    parse_module_recovering(file, text, DEFAULT_STACK).0.imports
+pub fn file_imports(file: FileId, text: &str, stack: usize) -> Vec<Import> {
+    parse_module_recovering(file, text, stack).0.imports
 }
 
 /// The docs of a file's declarations, by the byte offset of the declaration's
@@ -171,13 +171,13 @@ pub fn file_imports(file: FileId, text: &str) -> Vec<Import> {
 /// declarations, and the constructors, fields and operations that have a line
 /// to themselves. A declaration that doesn't lex or doesn't parse is left
 /// out; the rest of the file is still read.
-pub fn docs(file: FileId, text: &str) -> BTreeMap<u32, Doc> {
+pub fn docs(file: FileId, text: &str, stack: usize) -> BTreeMap<u32, Doc> {
     let mut found = BTreeMap::new();
     let (lexed, _) = lex_recovering_with_trivia(file, text);
     let Ok(groups) = decl_ranges(&lexed.tokens) else {
         return found;
     };
-    let (module, _) = parse_module_recovering(file, text, DEFAULT_STACK);
+    let (module, _) = parse_module_recovering(file, text, stack);
     let tokens = &lexed.tokens;
     let (tops, members) = names(&module);
 
@@ -274,14 +274,19 @@ pub fn file_doc(file: FileId, text: &str) -> Option<Doc> {
 /// of the core (`core/…`) to none, since its names are in many; a
 /// program's file's belongs to its `namespace` line's namespace, if it has
 /// one. `std_path` is a library file's path under `std/`.
-pub fn file_doc_namespace(file: FileId, text: &str, std_path: Option<&str>) -> Option<String> {
+pub fn file_doc_namespace(
+    file: FileId,
+    text: &str,
+    std_path: Option<&str>,
+    stack: usize,
+) -> Option<String> {
     match std_path {
         Some(path) => {
             let (folder, _) = path.split_once('/')?;
             (folder != "core").then(|| format!("Std.{folder}"))
         }
         None => {
-            let line = parse_namespace_line(file, text).ok()??;
+            let line = parse_namespace_line(file, text, stack).ok()??;
             Some(line.path.text)
         }
     }
@@ -441,7 +446,9 @@ mod tests {
     /// name's start).
     fn doc_at(text: &str, needle: &str, skip: usize) -> Option<String> {
         let offset = text.find(needle).expect("the needle is in the text") + skip;
-        docs(file(), text).remove(&(offset as u32)).map(|d| d.text)
+        docs(file(), text, crate::DEFAULT_STACK)
+            .remove(&(offset as u32))
+            .map(|d| d.text)
     }
 
     fn bar(text: &str) -> Option<String> {
@@ -458,11 +465,11 @@ mod tests {
     fn a_plain_run_above_a_declaration_is_not_a_doc() {
         let text = "-- Adds one.\n--   indented\ndef inc (n: Nat): Nat := n + 1\n";
         assert_eq!(doc_at(text, "inc", 0), None);
-        assert!(docs(file(), text).is_empty());
+        assert!(docs(file(), text, crate::DEFAULT_STACK).is_empty());
         // Nor above an attribute, a type or a member.
         let more =
             "-- Note.\n@[noReceiver]\ndef h: Nat := 1\n\n-- Note.\ntype T =\n  -- Note.\n  | A\n";
-        assert!(docs(file(), more).is_empty());
+        assert!(docs(file(), more, crate::DEFAULT_STACK).is_empty());
     }
 
     #[test]
@@ -608,7 +615,10 @@ type Own = | One
     #[test]
     fn the_span_covers_the_doc_lines() {
         let text = "-- note\n--| Doc.\ndef a: Nat := 1\n";
-        let doc = docs(file(), text).into_values().next().expect("a doc");
+        let doc = docs(file(), text, crate::DEFAULT_STACK)
+            .into_values()
+            .next()
+            .expect("a doc");
         assert_eq!(&text[doc.span.range()], "--| Doc.");
     }
 
@@ -664,16 +674,19 @@ type Own = | One
     #[test]
     fn a_file_doc_belongs_to_a_namespace() {
         let f = file();
-        let std = |path| file_doc_namespace(f, "", Some(path));
+        let std = |path| file_doc_namespace(f, "", Some(path), crate::DEFAULT_STACK);
         assert_eq!(std("List/Toolkit.sw").as_deref(), Some("Std.List"));
         assert_eq!(std("Text/Text.sw").as_deref(), Some("Std.Text"));
         assert_eq!(std("core/Data.sw"), None);
         let project = "-- Doc.\nnamespace Aoc.Common\n";
         assert_eq!(
-            file_doc_namespace(f, project, None).as_deref(),
+            file_doc_namespace(f, project, None, crate::DEFAULT_STACK).as_deref(),
             Some("Aoc.Common")
         );
-        assert_eq!(file_doc_namespace(f, "def a: Nat := 1\n", None), None);
+        assert_eq!(
+            file_doc_namespace(f, "def a: Nat := 1\n", None, crate::DEFAULT_STACK),
+            None
+        );
     }
 
     #[test]
@@ -752,7 +765,10 @@ type Own = | One
     #[test]
     fn a_link_has_its_span_in_the_source() {
         let text = "def a: Nat := 1\n--| Uses [`a`] and\n--| [`b`].\ndef b: Nat := 2\n";
-        let (_, doc) = docs(file(), text).into_iter().next_back().unwrap();
+        let (_, doc) = docs(file(), text, crate::DEFAULT_STACK)
+            .into_iter()
+            .next_back()
+            .unwrap();
         let shown: Vec<(&str, &str)> = doc
             .links
             .iter()
@@ -769,7 +785,7 @@ type Own = | One
     #[test]
     fn plain_notes_and_trailing_comments_have_no_links() {
         let text = "-- [`a`]\ndef a: Nat := 1 --| [`a`]\n--| [`a`]\n-- [`b`]\ndef b: Nat := 2\n";
-        let docs = docs(file(), text);
+        let docs = docs(file(), text, crate::DEFAULT_STACK);
         // `a`'s own-line `--` note is no doc; `b` has one `--|` line.
         assert_eq!(docs.len(), 1);
         let only = docs.values().next().unwrap();

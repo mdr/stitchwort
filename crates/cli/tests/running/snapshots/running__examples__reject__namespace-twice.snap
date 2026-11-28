@@ -7,7 +7,7 @@ expression: output
    │
  4 │ namespace Two
    │ ────┬────  
-   │     ╰────── a file has only one namespace line
+   │     ╰────── here
    │ 
    │ Note: everything in a file goes in the namespace on its first line; to use another namespace, import from it or write its name in full
 ───╯
