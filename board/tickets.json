@@ -22219,7 +22219,7 @@
     {
       "id": 4973,
       "title": "search: () → Bool (7) and () → Nat (3) list premise matches made only through variables (symbol: a → t with a := ()); try rejecting a premise matched only through variables",
-      "status": "backlog",
+      "status": "doing",
       "agent": "",
       "where": "",
       "labels": [],
