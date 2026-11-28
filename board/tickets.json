@@ -5295,17 +5295,20 @@
     {
       "id": 1947,
       "title": "[DeepSeek] Split js/lib.rs (now about 7,000 lines), pure move",
-      "status": "doing",
+      "status": "done",
       "agent": "",
       "where": "",
       "labels": [
         "backends"
       ],
       "epic": "effects-native",
-      "body": "From docs/reviews/code-review-js-native.md. 45 min. The 1 Nov finding.\n\nAudit note (22 Nov): crates/js/src/lib.rs is still 6,993 lines. Audit 22 Nov: still true: crates/js/src/lib.rs is 6,993 lines (the title's 6,566 is stale); no commit mentions SW-1947.\n",
+      "body": "From docs/reviews/code-review-js-native.md. 45 min. The 1 Nov finding.\n\nAudit note (22 Nov): crates/js/src/lib.rs is still 6,993 lines. Audit 22 Nov: still true: crates/js/src/lib.rs is 6,993 lines (the title's 6,566 is stale); no commit mentions SW-1947.\n\nDone (DeepSeek): lib.rs 7021 -> 242 lines; codegen 2138, expr 1962, exports 983, prelude 879, names 558, emit 316. Orchestrator checks: sorted-line comparison of old lib.rs vs the new files differs only by fmt reflows and mod/use lines; extraction binary, running build::, stitchwort-js lib: 108 pass; wasm check clean. Model result: deepseek, worked, ~25 min (est. 30).",
       "created": "2026-11-07",
       "updated": "2026-11-28",
-      "commits": []
+      "commits": [
+        "f0f580b63",
+        "617ace6df"
+      ]
     },
     {
       "id": 1950,
