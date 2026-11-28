@@ -155,6 +155,41 @@ pub struct Capture {
     back: Vec<(usize, Value)>,
 }
 
+#[cfg(feature = "test-bypass")]
+impl Capture {
+    /// Every value the capture holds, pushed onto `out`: the test-only
+    /// level check walks a resumption through them.
+    pub(crate) fn values(&self, out: &mut Vec<Value>) {
+        fn cont(c: &Cont, out: &mut Vec<Value>) {
+            if let Cont::Fn(v) = c {
+                out.push(v.clone());
+            }
+        }
+        fn walk(frames: &[Frame], out: &mut Vec<Value>) {
+            for frame in frames {
+                match frame {
+                    Frame::Bind(v) | Frame::Tie(v) => out.push(v.clone()),
+                    Frame::Map(a, b) => out.extend([a.clone(), b.clone()]),
+                    Frame::Await {
+                        cont: c,
+                        upper,
+                        back,
+                    } => {
+                        cont(c, out);
+                        walk(upper, out);
+                        out.extend(back.iter().map(|(_, v)| v.clone()));
+                    }
+                    Frame::Handle { done, call } => out.extend([done.clone(), call.clone()]),
+                }
+            }
+        }
+        out.extend([self.done.clone(), self.call.clone()]);
+        walk(&self.frames, out);
+        cont(&self.cont, out);
+        out.extend(self.back.iter().map(|(_, v)| v.clone()));
+    }
+}
+
 impl std::fmt::Debug for Capture {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         write!(f, "<resumption of {} frames>", self.frames.len())

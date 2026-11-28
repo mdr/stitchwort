@@ -10,7 +10,7 @@ use stitchwort_core::Value;
 use stitchwort_core::value::{
     Ends, LEVEL_CAP, RESERVED_LEVELS, check_levels, conv, ends_meet, eval,
 };
-use stitchwort_core::{ProofMark, Term};
+use stitchwort_core::{DefId, ProofMark, Term, check};
 
 /// With six variables in scope, `z => z` and `z => v5` differ. Compared at
 /// level 5, the fresh variable for `z` would be `v5` itself and the two
@@ -156,4 +156,183 @@ fn many_nested_tests_fit_a_32_bit_space() {
     let zero = eval(&g, &[], &p.num(0)).unwrap();
     assert!(conv(&g, base, &value, &zero).unwrap());
     assert_eq!(g.machine.reached.get(), base);
+}
+
+// The invariant's points 2 and 3, and each site that makes a fresh variable
+// (docs/core.md, "The comparisons inside evaluation"). Each test builds a
+// cast `J (z q => Nat) 0 (ax: (z => z) = (z => w))` whose `w` is the very
+// variable the site makes (or, for points 2 and 3, one the comparison was
+// promised may be free), and compares it with `0`. The cast must stay
+// stuck: if the site's variable weren't counted in `Machine::reached`
+// before the cast was evaluated, the cast's test would start at `w` itself,
+// its `z` would be `w`, and the cast would fire on unequal ends (or
+// `check_levels` panics).
+
+/// The cast above; `w` is written under the binder `z`.
+fn cast_ending_at(p: &Prelude, ax: DefId, w: Term) -> Term {
+    let nat = p.nat_ty();
+    let ends = eq(
+        Some(arrow(nat.clone(), nat.clone())),
+        lam("z", v(0)),
+        lam("z", w),
+    );
+    Term::J(
+        Rc::new(lam("z", lam("q", nat))),
+        Rc::new(p.num(0)),
+        Rc::new(Term::Ann(Rc::new(Term::Def(ax)), Rc::new(ends))),
+        ProofMark::Unknown,
+    )
+}
+
+/// A prelude and an axiom to cast with (its body is `0`: the cast names its
+/// own ends and never reads its proof).
+fn with_axiom() -> (Prelude, DefId) {
+    let mut p = Prelude::new();
+    let claim = eq(Some(p.nat_ty()), p.num(0), p.num(1));
+    let ax = declare(&mut p.g, "ax", claim);
+    let body = p.num(0);
+    admit(&mut p, vec![(ax, body)]);
+    (p, ax)
+}
+
+/// Admits each of `members` as a group of its own (a group of several is
+/// recursive, which the case-tree comparison skips), trusted, since the
+/// casts' terms aren't elaborated.
+fn admit(p: &mut Prelude, members: Vec<(DefId, Term)>) {
+    for member in members {
+        check::admit_trusted_group(&mut p.g, &[member]).expect("admitted");
+    }
+}
+
+/// Rule K's test is where the comparison's variables are, whatever the
+/// outer level: `conv` at `RESERVED_LEVELS` of a value with `w` at the
+/// reserved level and a lazily evaluated cast on it.
+#[test]
+fn point_3_conv_raises_the_maximum_to_its_own_level() {
+    let (mut p, ax) = with_axiom();
+    let nat = p.nat_ty();
+    let cast = lam("w", cast_ending_at(&p, ax, v(1)));
+    let castw = declare(&mut p.g, "castw", arrow(nat.clone(), nat));
+    admit(&mut p, vec![(castw, cast)]);
+    let g = p.g.ev();
+    check_levels::set(true);
+    // `castw w`, kept as a call, with `w` free at the reserved level; the
+    // cast is evaluated only when conv looks inside, with nothing yet
+    // recording `w`.
+    g.machine.glue.set(true);
+    let w = Value::var(RESERVED_LEVELS);
+    let call = eval(&g, &[w], &app(Term::Def(castw), [v(0)])).unwrap();
+    g.machine.glue.set(false);
+    assert!(matches!(call, Value::Call(..)));
+    let zero = eval(&g, &[], &p.num(0)).unwrap();
+    assert_eq!(g.machine.reached.get(), 0);
+    assert!(!conv(&g, RESERVED_LEVELS + 1, &call, &zero).unwrap());
+    assert_eq!(g.machine.reached.get(), 0, "given back on return");
+}
+
+/// While a comparison is running, a site's fresh variable raises the maximum
+/// but never lowers it: here the outer comparison has reached
+/// `RESERVED_LEVELS + 1000`, a variable of it is live at `RESERVED_LEVELS +
+/// 2`, and a comparison at level `RESERVED_LEVELS + 1` under it makes its own
+/// variable `RESERVED_LEVELS + 1`, `+ 2` being past that.
+#[test]
+fn point_2_a_fresh_variable_never_lowers_the_maximum() {
+    let (p, ax) = with_axiom();
+    let g = p.g.ev();
+    check_levels::set(true);
+    let live = Value::var(RESERVED_LEVELS + 2);
+    // `u => cast with ends z => z, z => live`, against `u => 0`.
+    let casting = eval(&g, &[live], &lam("u", cast_ending_at(&p, ax, v(2)))).unwrap();
+    let zero = eval(&g, &[], &lam("u", p.num(0))).unwrap();
+    g.machine.reached.set(RESERVED_LEVELS + 1000);
+    assert!(!conv(&g, RESERVED_LEVELS + 1, &casting, &zero).unwrap());
+    assert_eq!(g.machine.reached.get(), RESERVED_LEVELS + 1000);
+}
+
+/// The site's variable is `w`: `lam w. cast` against `lam w. 0`.
+#[test]
+fn site_lambdas_count_their_variable_before_applying() {
+    let (p, ax) = with_axiom();
+    let g = p.g.ev();
+    check_levels::set(true);
+    let casting = eval(&g, &[], &lam("w", cast_ending_at(&p, ax, v(1)))).unwrap();
+    let zero = eval(&g, &[], &lam("w", p.num(0))).unwrap();
+    assert!(!conv(&g, RESERVED_LEVELS, &casting, &zero).unwrap());
+}
+
+/// A function type's codomains: `(w: Nat) -> cast` against `(w: Nat) -> 0`.
+#[test]
+fn site_codomains_count_their_variable_before_applying() {
+    let (p, ax) = with_axiom();
+    let g = p.g.ev();
+    check_levels::set(true);
+    let casting = eval(&g, &[], &pi("w", p.nat_ty(), cast_ending_at(&p, ax, v(1)))).unwrap();
+    let zero = eval(&g, &[], &pi("w", p.nat_ty(), p.num(0))).unwrap();
+    assert!(!conv(&g, RESERVED_LEVELS, &casting, &zero).unwrap());
+}
+
+/// `k0 = w => 0` and `kcast = w => cast on w`, as definitions: a bare name
+/// is a partly applied definition, not a lambda.
+fn constants(p: &mut Prelude, ax: DefId) -> (DefId, DefId) {
+    let nat = p.nat_ty();
+    let k0 = declare(&mut p.g, "k0", arrow(nat.clone(), nat.clone()));
+    let kcast = declare(&mut p.g, "kcast", arrow(nat.clone(), nat));
+    let cast = cast_ending_at(p, ax, v(1));
+    let zero = lam("w", p.num(0));
+    admit(p, vec![(k0, zero), (kcast, lam("w", cast))]);
+    (k0, kcast)
+}
+
+/// Eta, a lambda against a partly applied definition (`k0`).
+#[test]
+fn site_lambda_eta_counts_its_variable_before_applying() {
+    let (mut p, ax) = with_axiom();
+    let (k0, _) = constants(&mut p, ax);
+    let g = p.g.ev();
+    check_levels::set(true);
+    let casting = eval(&g, &[], &lam("w", cast_ending_at(&p, ax, v(1)))).unwrap();
+    let constant = eval(&g, &[], &Term::Def(k0)).unwrap();
+    assert!(!matches!(constant, Value::Lam(..)), "{constant:?}");
+    assert!(!conv(&g, RESERVED_LEVELS, &casting, &constant).unwrap());
+    assert!(!conv(&g, RESERVED_LEVELS, &constant, &casting).unwrap());
+}
+
+/// Eta for definitions, two partly applied definitions (`push_eta`).
+#[test]
+fn site_definition_eta_counts_its_variable_before_applying() {
+    let (mut p, ax) = with_axiom();
+    let (k0, kcast) = constants(&mut p, ax);
+    let g = p.g.ev();
+    check_levels::set(true);
+    let constant = eval(&g, &[], &Term::Def(k0)).unwrap();
+    let casting = eval(&g, &[], &Term::Def(kcast)).unwrap();
+    assert!(!conv(&g, RESERVED_LEVELS, &casting, &constant).unwrap());
+}
+
+/// A `case` branch's fields, shared by the two definitions' trees: `f n =
+/// case n of 0 => 0; m + 1 => cast on m` against `g n = case n of 0 => 0; m
+/// + 1 => 0`, stuck on a variable.
+#[test]
+fn site_case_fields_count_their_variables_before_the_leaves() {
+    let (mut p, ax) = with_axiom();
+    let nat = p.nat;
+    let nat_ty = p.nat_ty();
+    let tree = |p: &Prelude, succ: Term| {
+        lam(
+            "n",
+            case(0, nat, vec![(vec![], p.num(0)), (vec!["m"], succ)]),
+        )
+    };
+    let f = declare(&mut p.g, "f", arrow(nat_ty.clone(), nat_ty.clone()));
+    let h = declare(&mut p.g, "h", arrow(nat_ty.clone(), nat_ty));
+    let cast = cast_ending_at(&p, ax, v(1));
+    let (tf, th) = (tree(&p, cast), tree(&p, p.num(0)));
+    admit(&mut p, vec![(f, tf), (h, th)]);
+    let g = p.g.ev();
+    check_levels::set(true);
+    let n = Value::var(0);
+    let call = |id: DefId| eval(&g, std::slice::from_ref(&n), &app(Term::Def(id), [v(0)])).unwrap();
+    let (a, b) = (call(f), call(h));
+    assert!(matches!(a, Value::Neutral(..)), "{a:?}");
+    assert!(!conv(&g, RESERVED_LEVELS, &a, &b).unwrap());
 }
