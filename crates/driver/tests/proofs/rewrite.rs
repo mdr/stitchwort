@@ -163,3 +163,39 @@ fn a_rewrite_whose_check_runs_out_of_the_budget_is_used_as_written() {
         (vec![], vec!["W-REWRITE-UNCONFIRMED"])
     );
 }
+
+/// A goal holding a step computed on a variable, whose unfolding is large
+/// (two hundred stuck rounds of `settle` per cell): `b.step.step` is a
+/// `Board` like the left side `b.after`, so the completeness check and the
+/// usual search take its type. The shape of AoC 2021 day 11's `programRun`
+/// over `Cavern.step` (SW-5010).
+const BESIDE_A_LARGE_STEP: &str = "\
+import Std (Bool, Eq, List, Nat)
+
+type Board = { cells: List Nat }
+
+def settle (x k: Nat): (rounds: Nat) → Nat
+  | Zero => x
+  | Succ more =>
+    let next := x * k + 1
+    if next == x then x else settle next k more
+
+def Board.step (b: Board): Board := { cells = b.cells.map (x => settle x 3 200) }
+
+def Board.after (b: Board): Board := { cells = b.cells.reverse.reverse }
+
+theorem t (b: Board) (same: b.step = b.after) (p: Board → Board → Prop)
+    (h: p b.step b.step.step): p b.after b.step.step :=
+  rewrite <- same then h
+";
+
+#[test]
+fn a_large_part_of_the_goal_is_typed_by_its_head() {
+    // Checking `b.step.step` as a whole term took most of the search budget
+    // for each copy, so the rewrite was only used as written, with
+    // `W-REWRITE-UNCONFIRMED`; its type read off its head costs a few steps.
+    assert_eq!(
+        codes_and_warnings(None, BESIDE_A_LARGE_STEP),
+        (vec![], vec![])
+    );
+}
