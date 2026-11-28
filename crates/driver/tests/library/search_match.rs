@@ -374,6 +374,61 @@ fn the_library_namespace_import_line_imports_cleanly() {
     });
 }
 
+/// A file may define a name the library also has (`Pair`): the library's
+/// import line skips that namespace, so the search still runs and finds the
+/// library's theorems (SW-4901, SW-4904).
+#[test]
+fn a_file_defining_its_own_pair_still_searches_the_library() {
+    const PAIR: &str = "\
+type Pair = | MkPair (n: Nat)
+
+def pairN (p: Pair): Nat := match p with
+  | MkPair n => n
+";
+    let report = with_session(STACK, Session::for_stack, |session| {
+        session.load("pair.sw", PAIR).expect("the file checks");
+        session
+            .search("List.length (_ ++ _)", &Options::default(), &Scope::File)
+            .unwrap_or_else(|d| panic!("{}: {}", d.code, d.message))
+    });
+    let from_std: Vec<&str> = (report.results.iter())
+        .map(|r| r.name.as_str())
+        .filter(|n| n.starts_with("Std."))
+        .collect();
+    assert!(!from_std.is_empty(), "{from_std:?}");
+}
+
+/// The same for a file defining its own `List`: the library's `List`
+/// namespace clashes, so its import is skipped, but a text query still finds
+/// the library's declarations (SW-4901, SW-4904).
+#[test]
+fn a_file_defining_its_own_list_still_searches_the_library() {
+    const LIST: &str = "\
+type List = | MkList (n: Nat)
+
+def listN (xs: List): Nat := match xs with
+  | MkList n => n
+";
+    let report = with_session(STACK, Session::for_stack, |session| {
+        session.load("list.sw", LIST).expect("the file checks");
+        let options = Options {
+            limit: usize::MAX,
+            ..Options::default()
+        };
+        session
+            .search("\"length\"", &options, &Scope::File)
+            .unwrap_or_else(|d| panic!("{}: {}", d.code, d.message))
+    });
+    let from_std: Vec<&str> = (report.results.iter())
+        .map(|r| r.name.as_str())
+        .filter(|n| n.starts_with("Std."))
+        .collect();
+    assert!(
+        from_std.iter().any(|n| n.starts_with("Std.List.")),
+        "{from_std:?}"
+    );
+}
+
 /// A search from a file (the editor's `stitchwort/search`) stops part way
 /// once its cancel flag is set, rather than running to its end: a query
 /// typed over in the editor costs little more than what it had compared
