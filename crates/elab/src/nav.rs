@@ -888,6 +888,19 @@ impl Elaborator {
     /// The index of what was recorded, for the references `wanted` says to include
     /// (the others' definitions are still there as targets).
     pub fn navigation_index(&self, wanted: &dyn Fn(Span, Option<&str>) -> bool) -> NavIndex {
+        self.navigation_index_for(wanted, &|_| true)
+    }
+
+    /// [`Self::navigation_index`], with the local variables, binders and
+    /// expressions' types only of the files `files_in` says: a caller that
+    /// wants none of the library's (some 170,000 locals and binders and
+    /// 270,000 expressions in a project that uses it) needn't copy and sort
+    /// them on every call.
+    pub fn navigation_index_for(
+        &self,
+        wanted: &dyn Fn(Span, Option<&str>) -> bool,
+        files_in: &dyn Fn(FileId) -> bool,
+    ) -> NavIndex {
         self.flush_navigation();
         let Some(nav) = &self.present.nav else {
             return NavIndex {
@@ -1124,7 +1137,8 @@ impl Elaborator {
             });
         }
         for local in &nav.locals {
-            if guesses.contains(&local.span)
+            if !files_in(local.span.file)
+                || guesses.contains(&local.span)
                 || guesses.contains(&local.binder)
                 || linked.contains(&local.span)
             {
@@ -1258,7 +1272,7 @@ impl Elaborator {
             .map(|r| r.span)
             .collect();
         for binder in &nav.binders {
-            if guesses.contains(&binder.span) {
+            if !files_in(binder.span.file) || guesses.contains(&binder.span) {
                 continue;
             }
             if !taken.insert((binder.span.file, binder.span.start))
@@ -1316,6 +1330,7 @@ impl Elaborator {
         let mut exprs: Vec<(Span, String, Option<String>)> = nav
             .expr_types
             .iter()
+            .filter(|(at, _)| files_in(at.file))
             .map(|(at, ty)| (*at, ty.clone(), nav.expr_unfolded.get(at).cloned()))
             .collect();
         exprs.sort_by_key(|(at, _, _)| (at.file.index(), at.start, at.end));

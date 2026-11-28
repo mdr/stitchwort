@@ -436,7 +436,9 @@ pub fn index_data_of(
     let std_files = session.elab.std_file_count();
     let user = |file: FileId| file.index() >= std_files;
     let sources = &session.sources;
-    let index = index_of_files(session, &|file| library || user(file));
+    let index = index_of_files(session, &|file| library || user(file), &|file| {
+        library || user(file)
+    });
     let mut lines = Lines::default();
     // A file of the index: a source file, or for the core, one of the files
     // it is made of (the second member; 0 for any other file).
@@ -574,7 +576,6 @@ pub fn index_data_of(
             equations: equations_text(&symbol.name),
         });
     }
-
     // Sorted by the file's place in `files` (which is not the order of the
     // source map: the project's files are first), then by position.
     let mut ordered: Vec<(usize, &stitchwort_elab::NavRef)> = index
@@ -650,7 +651,6 @@ pub fn index_data_of(
     if linked {
         refs.sort_by_key(|r| (r.file, r.range));
     }
-
     let mut exprs = Vec::new();
     for (span, ty, unfolded) in &index.exprs {
         if user(span.file) {
@@ -696,7 +696,6 @@ pub fn index_data_of(
             exprs.push((file, range(&mut lines, sources, span, None), ty, None));
         }
     }
-
     let mut diags = Vec::with_capacity(diagnostics.len());
     for d in diagnostics {
         let at = d.labels.first().map(|first| {
@@ -1013,7 +1012,7 @@ fn core_part(sources: &SourceMap, span: Span) -> Option<(usize, usize)> {
 /// What the index holds for the files of `session` that are the program's
 /// (not the core's or the library's).
 pub fn index_of(session: &Session) -> NavIndex {
-    index_of_files(session, &|_| true)
+    index_of_files(session, &|_| true, &|_| true)
 }
 
 /// The operators whose span is a reference to the declaration they stand
@@ -1021,7 +1020,11 @@ pub fn index_of(session: &Session) -> NavIndex {
 const LOGIC_OPERATORS: &[&str] = &["∈", "∉", "<->", "↔", "∃"];
 
 /// [`index_of`], with only the references in the files `wanted` says.
-fn index_of_files(session: &Session, wanted: &dyn Fn(FileId) -> bool) -> NavIndex {
+fn index_of_files(
+    session: &Session,
+    wanted: &dyn Fn(FileId) -> bool,
+    files_in: &dyn Fn(FileId) -> bool,
+) -> NavIndex {
     let sources = &session.sources;
     // Derived code is elaborated with the spans of the declaration it comes
     // from: only what's written as a name is a reference, or an operator
@@ -1042,7 +1045,7 @@ fn index_of_files(session: &Session, wanted: &dyn Fn(FileId) -> bool) -> NavInde
                             }))
                 })
     };
-    session.elab.navigation_index(&written)
+    session.elab.navigation_index_for(&written, files_in)
 }
 
 /// `text` as a JSON string.

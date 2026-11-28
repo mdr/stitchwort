@@ -234,4 +234,44 @@ fn typing() {
         checks.load(std::sync::atomic::Ordering::SeqCst) - before,
         began.elapsed()
     );
+    // What the editor would be told, hashed: a change that is only about
+    // speed must leave it as it was (SW-4975).
+    let mut answered = std::collections::hash_map::DefaultHasher::new();
+    let mut id = 100;
+    let lines = own.lines().count();
+    let mut ask = |server: &mut Inline, method: &str, params: Value| {
+        id += 1;
+        let m = json!({"jsonrpc": "2.0", "id": id, "method": method, "params": params});
+        let mut out = server.receive(&m.to_string());
+        loop {
+            let (more_out, more) = server.tick();
+            out.extend(more_out);
+            if !more {
+                break;
+            }
+        }
+        for m in out {
+            if m.contains(&format!("\"id\":{id}")) || m.contains("publishDiagnostics") {
+                std::hash::Hash::hash(&m, &mut answered);
+            }
+        }
+    };
+    ask(
+        &mut server,
+        "textDocument/documentSymbol",
+        json!({"textDocument": {"uri": uri}}),
+    );
+    for line in (0..lines + 1).step_by(7) {
+        for character in [4, 12] {
+            ask(
+                &mut server,
+                "textDocument/hover",
+                json!({"textDocument": {"uri": uri}, "position": {"line": line, "character": character}}),
+            );
+        }
+    }
+    eprintln!(
+        "SW4975 ANSWERS {:016x}",
+        std::hash::Hasher::finish(&answered)
+    );
 }

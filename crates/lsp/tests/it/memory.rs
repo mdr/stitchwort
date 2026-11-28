@@ -1033,12 +1033,13 @@ fn restored_body() {
 /// Types `keys` edits into `src/First.sw` of a project of six namespaces,
 /// each key's check done before the next is sent, as a page's worker does
 /// between keys; then lets the rest of the project settle. The number of
-/// namespaces checked during the typing, and the diagnostics last published
-/// for each file.
+/// namespaces checked during the typing, how many files' syntax the project
+/// analysis read during it, and the diagnostics last published for each
+/// file.
 fn type_into_project(
     sweep_quiet: std::time::Duration,
     keys: usize,
-) -> (usize, std::collections::BTreeMap<String, Value>) {
+) -> (usize, usize, std::collections::BTreeMap<String, Value>) {
     let mut files: Vec<(String, String)> = vec![(
         "src/First.sw".into(),
         "namespace First\n\ndef one: Nat := 1\n".into(),
@@ -1110,6 +1111,7 @@ fn type_into_project(
         std::thread::sleep(std::time::Duration::from_millis(2));
     }
     let before = checks.load(std::sync::atomic::Ordering::SeqCst);
+    let sketched = stitchwort_driver::project::sketches_made();
     for version in 2..2 + keys {
         send(&mut server, message(version));
         // Ticks until the edit is answered, and the sweep, if it isn't
@@ -1122,6 +1124,7 @@ fn type_into_project(
         }
     }
     let typing = checks.load(std::sync::atomic::Ordering::SeqCst) - before;
+    let sketched = stitchwort_driver::project::sketches_made() - sketched;
     loop {
         let (out, more) = server.tick();
         take(out);
@@ -1130,7 +1133,26 @@ fn type_into_project(
         }
         std::thread::sleep(std::time::Duration::from_millis(2));
     }
-    (typing, last)
+    (typing, sketched, last)
+}
+
+/// SW-4975: a key reads the syntax of the file it changed and no other:
+/// the project's analysis keeps what it read of the rest.
+#[test]
+fn a_key_reads_only_the_changed_file_for_the_project_analysis() {
+    let keys = 4;
+    std::thread::Builder::new()
+        .stack_size(STACK)
+        .spawn(move || {
+            let (_, sketched, answers) =
+                type_into_project(std::time::Duration::from_millis(150), keys);
+            assert_eq!(sketched, keys, "{sketched} sketches for {keys} keys");
+            let other = "file:///memory/proj/src/Other3.sw";
+            assert_eq!(answers[other].as_array().unwrap().len(), 1);
+        })
+        .unwrap()
+        .join()
+        .unwrap();
 }
 
 #[test]
@@ -1141,8 +1163,8 @@ fn a_burst_of_edits_checks_fewer_namespaces_than_edits_would_sweep() {
     std::thread::Builder::new()
         .stack_size(STACK)
         .spawn(move || {
-            let (eager, eager_answers) = type_into_project(std::time::Duration::ZERO, keys);
-            let (held, held_answers) =
+            let (eager, _, eager_answers) = type_into_project(std::time::Duration::ZERO, keys);
+            let (held, _, held_answers) =
                 type_into_project(std::time::Duration::from_millis(150), keys);
             assert!(
                 eager > keys * 2,
