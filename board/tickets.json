@@ -22232,7 +22232,7 @@
     {
       "id": 4974,
       "title": "Goal-search ladder rungs have a 500 ms wall-clock budget, so under load byComputing can miss and the code action lists every closer: features::a_code_action_on_a_goal_offers_a_search_that_runs_when_asked failed once on Overmind (left 3, right 1); make the rung budget robust (work steps, or a generous budget for rungs that are cheap by construction) or the test independent of wall time",
-      "status": "backlog",
+      "status": "doing",
       "agent": "",
       "where": "",
       "labels": [
