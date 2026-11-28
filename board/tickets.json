@@ -11471,14 +11471,14 @@
     {
       "id": 2928,
       "title": "[Sonnet] Proof search offers theorems declared after the goal in the same file (otherSideSwaps is offered otherSideSwapsAgain, the book's own later answer; it would offer an exercise's solution once filled in); search only what precedes the goal (book SW-2918)",
-      "status": "backlog",
+      "status": "doing",
       "agent": "Sonnet",
       "where": "",
       "labels": [],
       "epic": "proof-search",
       "body": "\n\nAudit note (22 Nov): Audit 22 Nov: the book still has otherSideSwaps (book/src/02-cases.sw:117) and its later answer; search still offers later declarations as far as the ticket says; not re-run.\n",
       "created": "2026-11-11",
-      "updated": "2026-11-22",
+      "updated": "2026-11-28",
       "commits": []
     },
     {
