@@ -4324,7 +4324,16 @@ pub(crate) type Around = (usize, usize, Rc<Term>);
 /// as-written form costs no computing, so it comes first; the other two
 /// each run within [`cheap_limits`] of their own, and one that doesn't fit
 /// is left out, so a value too large to unfold still folds back as written.
+///
+/// A function has none: every read-back of one is a lambda, which is never
+/// [`worth_folding`], and reading back its body can be expensive for
+/// nothing (`%sameIff`'s `%k`, whose unfolding ran into the limits after
+/// 26 K steps, SW-4905). An annotated lambda folds as elaborated, which the
+/// callers look for themselves.
 pub(crate) fn value_forms(g: &Ev, level: usize, value: &Value) -> Result<Vec<Term>> {
+    if matches!(value, Value::Lam(..)) {
+        return Ok(Vec::new());
+    }
     if !g.machine.glue.get() {
         // No calls: the forms are the same.
         return Ok(vec![quote_internal(g, level, value)?]);

@@ -46,6 +46,35 @@ in [../proposals/README.md](../proposals/README.md).
 
 ## 28 Nov 2026
 
+### SW-4905: zonking doesn't read back a function-valued `let`
+
+- **Problem.** SW-4900 found that after rule F (SW-4674) the
+  `derive_cost` test of 16 constructors of 3 fields went from 2.28 M to
+  3.11 M steps, in `unify::value_forms`: zonking a `let` reads its value
+  back as written, folded and unfolded, so a solution's occurrences can be
+  folded back to the variable. For `%sameIff`'s `%k` (a lambda), the
+  unfolding now writes out the arguments of the proof calls rule F keeps,
+  runs into `cheap_limits`' size cap after about 26 K steps and is thrown
+  away.
+- **Tried first: skip the unfolded form of a proof-valued `let`** (the
+  ticket's idea; proof-ness from the `let`'s type, `value::mark_of_type`).
+  Measured 2.60 M, but it changed terms: derived `Ord`'s `%equal` grew
+  (28 K to 42 K characters of term in `derive-ord-data.sw`), and three
+  examples' hashes moved. `%e : T.%tag %s = c` is a proof `let`, and a later
+  data `let`, `%b0 := T.%C%0%at %s %e`, reads back with `%e`'s value in its
+  unfolded form; without that form `%b0` no longer folded, so its value was
+  spelled out wherever a solution held it. Dropped.
+- **Change.** Every read-back of a function is a lambda, which
+  `worth_folding` never keeps (`type_fixed` is false for a lambda; an
+  annotated one is looked for separately by both callers), so
+  `value_forms` of a `Value::Lam` returns no forms without reading anything
+  back. Terms unchanged by construction; `task snap:hashes` moved no hash.
+- **Measured** (steps, `derive_cost::`): 16 constructors of 3 fields
+  3,109,360 → 2,581,024 (bound back to 3 M); 47 and 94 constructors of
+  three fields 10,313,221 → 8,690,013 and 23,169,460 → 19,938,899; of one
+  field 953,334 → 923,261 and 1,868,377 → 1,809,869; records of 8 and 16
+  fields unchanged (349,068 and 1,347,803).
+
 ### SW-4978: the warm search session keeps std's put-off equations
 
 Every search in the native server replayed std's 895 equation segments from
