@@ -1,5 +1,5 @@
 {
-  "next": 4988,
+  "next": 4989,
   "tickets": [
     {
       "id": 47,
@@ -22589,6 +22589,19 @@
         "ec7cb491b",
         "24aaec340"
       ]
+    },
+    {
+      "id": 4988,
+      "title": "Streams: one fast Stream type with no performance trap (D3774): compare a memoising native, a fast-path field with a proof, and anything the literature offers; probe the best and time it against the n² case; propose one design, revising D3772",
+      "status": "doing",
+      "agent": "Fable",
+      "where": "",
+      "labels": [],
+      "epic": "syntax-language",
+      "body": "D3774 (Matt, 28 Nov): yes, have Fable look at this again; free to review the literature and other implementations again. Matt on D3772(a): 'having two types, one with a performance trap waiting to bite you, feels wrong to me'. Builds on docs/proposals/streams.md (SW-4962). Expected: 30 min.",
+      "created": "2026-11-28",
+      "updated": "2026-11-28",
+      "commits": []
     }
   ]
 }
