@@ -89,6 +89,7 @@ for path in $files $examples; do
 done
 
 tmp="$(mktemp -d "$dest.XXXXXX")"
+chmod 755 "$tmp" # mktemp -d makes it 700; the bundle is served
 for path in $files $examples; do
   mkdir -p "$tmp/$(dirname "$path")"
   cp "$path" "$tmp/$path"
@@ -170,6 +171,7 @@ for path in $rogue_files; do
   esac
 done
 tmp="$(mktemp -d "$rogue_dest.XXXXXX")"
+chmod 755 "$tmp" # mktemp -d makes it 700; the bundle is served
 for path in $rogue_files; do
   mkdir -p "$tmp/$(dirname "$path")"
   cp "$path" "$tmp/$path"
@@ -257,6 +259,7 @@ bundle_chapters() {
     esac
   done
   tmp="$(mktemp -d "$out.XXXXXX")"
+  chmod 755 "$tmp" # mktemp -d makes it 700; the bundle is served
   for path in $chapter_files; do
     mkdir -p "$tmp/$(dirname "$path")"
     cp "$path" "$tmp/$path"
