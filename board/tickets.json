@@ -22382,17 +22382,19 @@
     {
       "id": 4980,
       "title": "features::a_code_action_on_a_goal_offers_a_search_that_runs_when_asked went from ~7 s to ~13 s in Overmind's loop between 49b02cfe0 and 4cdc0e87e: a fresh server's first goal search now spends ~2.4 s cold (more under load) generating std's put-off equations; find which merge moved it (SW-4954? SW-4960?) and whether a real editor's first search pays it",
-      "status": "doing",
+      "status": "done",
       "agent": "",
       "where": "",
       "labels": [
         "perf"
       ],
       "epic": "proof-search",
-      "body": "[Sonnet] From SW-4974 and Overmind (28 Nov, 4ca5b79a3 green with the test at 12.7 s). SW-4976/SW-4978 made later searches cheap; this is the first one. Time the phases per commit (build only the suspects).",
+      "body": "[Sonnet] From SW-4974 and Overmind (28 Nov, 4ca5b79a3 green with the test at 12.7 s). SW-4976/SW-4978 made later searches cheap; this is the first one. Time the phases per commit (build only the suspects).\n\nDone (Sonnet), no code: warm first search unchanged at each suspect (2.6-3.1 s; 895 eqs hits, 0 misses). The move is the one-off cold fill of target/test-std-cache (keyed to the build): SW-4954's eqs entries grew it 40 -> 73 MB, ~5-9 s more CPU (57.5 -> 67 s). An editor with the bundle pays ~0.4 s decoding equations (keep_equations 423/882 samples) vs 0.64-0.77 s generating before. Overmind's first test per commit absorbs the fill. Testing doc line added (920e16447). Model result: sonnet, worked, 21 min (est. 40).",
       "created": "2026-11-28",
       "updated": "2026-11-28",
-      "commits": []
+      "commits": [
+        "920e16447"
+      ]
     },
     {
       "id": 4981,
