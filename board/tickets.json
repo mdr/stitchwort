@@ -21413,17 +21413,20 @@
     {
       "id": 4921,
       "title": "[DeepSeek] docs/core.md wording after SW-4914: is_type_former stops at RESERVED_LEVELS (2^31 on 32-bit), not 2^40, and for a different reason than the cap; point (2) says every variable still live (same_trees_of gives its levels back early); 'alike on every target' is the rule, not the room. Also the E-RESOURCE text 'the program is nested too deeply for the comparison' reads oddly for a computed-deep type: reword",
-      "status": "doing",
+      "status": "done",
       "agent": "",
       "where": "",
       "labels": [
         "docs"
       ],
       "epic": "elaborator-kernel",
-      "body": "From docs/reviews/SW-4914-fable-review.md suggestion 4 and the lane's finding. Suggestion 5 (measure is_type_former's steps per binder on 32-bit) can go with it if cheap.",
+      "body": "From docs/reviews/SW-4914-fable-review.md suggestion 4 and the lane's finding. Suggestion 5 (measure is_type_former's steps per binder on 32-bit) can go with it if cheap.\n\nDone (DeepSeek): core.md rule-K paragraph: point (2) now says the maximum covers every live variable and same_trees_of gives a branch's levels back early; 'alike on every target' split into rule vs room; is_type_former's RESERVED_LEVELS limit and its reason (context variables, not counted by Machine::reached; check.rs is_type_former). ResourceError Display: Nesting(\"comparison\") says 'the comparison of the two values went too deep'. Orchestrator checked the doc claims against check.rs:5463 and value.rs:583; no snapshot quotes the text. Model result: deepseek, worked, ~10 min (est. 15).",
       "created": "2026-11-27",
       "updated": "2026-11-28",
-      "commits": []
+      "commits": [
+        "108c57d8e",
+        "07eea50be"
+      ]
     },
     {
       "id": 4922,
