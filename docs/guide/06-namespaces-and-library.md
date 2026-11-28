@@ -191,7 +191,7 @@ test "with an index" := ["a", "b"].withIndex == [(0, "a"), (1, "b")]
 test "maximum of an empty list" := ([]: List Nat).maximum == None
 ```
 
-Others worth knowing: `count`, `all`, `any`, `flatMap`, `concatMap`, `scanLeft`, `partition`, `span`, `takeWhile`, `dropWhile`, `chunksOf`, `windows` (sliding windows), `transpose`, `reverse`, `sortOn`, `sortBy`, `maxBy`, `minBy`, `occurrences`, `getOr`, `replicate`, `maximumOf` and `minimumOf` (the largest and smallest value of a function over the list), `findMap` (the first `Some` a function gives) and `somes` (the values inside the `Some`s). `Option.flatten` joins two layers of `Option`, and `uncurry` turns a function of two arguments into one of a pair. `map`'s function may also perform abilities ([chapter 8](08-abilities.md)).
+Others worth knowing: `count`, `all`, `any`, `flatMap`, `concatMap`, `scanLeft` (the running results, start first, as a `NonEmptyList`: `.tail` leaves the start out, `.last` is the final result), `partition`, `span`, `takeWhile`, `dropWhile`, `chunksOf`, `windows` (sliding windows), `transpose`, `reverse`, `sortOn`, `sortBy`, `maxBy`, `minBy`, `occurrences`, `getOr`, `replicate`, `maximumOf` and `minimumOf` (the largest and smallest value of a function over the list), `findMap` (the first `Some` a function gives) and `somes` (the values inside the `Some`s). `Option.flatten` joins two layers of `Option`, and `uncurry` turns a function of two arguments into one of a pair. `map`'s function may also perform abilities ([chapter 8](08-abilities.md)).
 
 ### Ranges
 

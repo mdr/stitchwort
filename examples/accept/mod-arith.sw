@@ -7,7 +7,7 @@ import Std (IO, Int, List, Mod, Fin)
 def turns: List Int := [-68, -30, 48, -5, 60, -55, -1, -99, 14, -82]
 
 def zeros (turns: List Int): Nat :=
-  turns |> .scanLeft (Mod.ofNat 50: Mod 100) (p t => p + Mod.ofInt t) |> .drop 1 |> .count (p => p == Mod.ofNat 0)
+  turns |> .scanLeft (Mod.ofNat 50: Mod 100) (p t => p + Mod.ofInt t) |> .tail |> .count (p => p == Mod.ofNat 0)
 
 test "the dial" := zeros turns == 3
 

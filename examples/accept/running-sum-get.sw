@@ -4,7 +4,8 @@
 -- fold over the pairs of the first k spans.
 import Std (Eq, List, Nat)
 
-def starts (start: Nat) (durations: List Nat): List Nat := durations.scanLeft start (total duration => total + duration)
+def starts (start: Nat) (durations: List Nat): List Nat :=
+  (durations.scanLeft start (total duration => total + duration)).toList
 
 def slots (start: Nat) (durations: List Nat): List (Nat, Nat) :=
   durations.zipWith (starts start durations) (duration begin => (begin, begin + duration))

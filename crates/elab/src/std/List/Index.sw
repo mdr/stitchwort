@@ -305,25 +305,6 @@ theorem List.getOrMapWithIndex ∀ (xs: List a) (i: Nat) (d: a) (e: b)
 
 test "List.getOrMapWithIndex" := List.getOr ([5, 6, 7].mapWithIndex (index x => index * x)) 2 0 == 14
 
---| Entry k of the running accumulations is the fold of the first k elements.
-theorem List.getOrScanLeft ∀ (f: b → a → b) (d: b) (xs: List a) (z: b) (k: Nat)
-    (h: k ≤ List.length xs):
-    List.getOr (List.scanLeft xs z f) k d = List.foldLeft (List.take xs k) z f :=
-  match xs, k with
-    | [] | [_, .._], Zero => byComputing
-    | [x, ..xs], Succ k => List.getOrScanLeft f d xs (f z x) k h
-
---| Element k of `zipWith xs (scanLeft xs z f) g` is `g` of element k and the
---| fold of the elements before it. Laying items end to end from `z`, item k
---| is placed after the first k.
-theorem List.getOrZipWithScanLeft ∀ (f: b → a → b) (g: a → b → c) (dx: a) (dc: c) (xs: List a) (z: b) (k: Nat)
-    (h: k < List.length xs):
-    List.getOr (List.zipWith xs (List.scanLeft xs z f) g) k dc
-      = g (List.getOr xs k dx) (List.foldLeft (List.take xs k) z f) :=
-  match xs, k with
-    | [x, ..xs], Zero => byComputing
-    | [x, ..xs], Succ k => List.getOrZipWithScanLeft f g dx dc xs (f z x) k h
-
 --| The fold of the first k + 1 elements is one step after the fold of the
 --| first k: neighbouring entries of a scan differ by one step.
 theorem List.foldLeftTakeSucc ∀ (f: b → a → b) (d: a) (xs: List a) (z: b) (k: Nat)
@@ -332,22 +313,6 @@ theorem List.foldLeftTakeSucc ∀ (f: b → a → b) (d: a) (xs: List a) (z: b) 
   match xs, k with
     | [x, ..xs], Zero => byComputing
     | [x, ..xs], Succ k => List.foldLeftTakeSucc f d xs (f z x) k h
-
-theorem List.getOrZipWithScanLeftExample: List.getOr
-      (List.zipWith [2, 3, 4] (List.scanLeft [2, 3, 4] 10 (offset width => offset + width)) (width offset =>
-        (offset, width)))
-      2
-      (0, 0)
-      = (List.foldLeft [2, 3] 10 (offset width => offset + width), 4) :=
-  List.getOrZipWithScanLeft
-    (offset width => offset + width)
-    (width offset => (offset, width))
-    0
-    (0, 0)
-    [2, 3, 4]
-    10
-    2
-    byComputing
 
 -- sums over indices ------------------------------------------------------------
 

@@ -47,7 +47,10 @@ test "example, part 1's last move" :=
 
 test "example, part 2's moves" :=
   onDisk example (diskMap =>
-    [9, 8, 7, 6, 5, 4, 3, 2, 1, 0].scanLeft diskMap.blocks (disk id => disk.moveWholeFile id) |> .map picture |> .dedup)
+    [9, 8, 7, 6, 5, 4, 3, 2, 1, 0].scanLeft diskMap.blocks (disk id => disk.moveWholeFile id)
+      |> .map picture
+      |> .toList
+      |> .dedup)
     == Ok ["00...111...2...333.44.5555.6666.777.888899", "0099.111...2...333.44.5555.6666.777.8888..",
       "0099.1117772...333.44.5555.6666.....8888..", "0099.111777244.333....5555.6666.....8888..",
       "00992111777.44.333....5555.6666.....8888.."]

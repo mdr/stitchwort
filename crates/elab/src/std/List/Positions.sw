@@ -77,16 +77,6 @@ theorem List.countRangeFromEq ∀ (k c s: Nat): List.count (List.rangeFrom c s) 
 theorem List.countRangeEq ∀ (n k: Nat): List.count (List.range 0 n) (== k) = Bool.toNat (k < n) :=
   rewrite List.countRangeFromEq k n 0 then cases
 
---| Running sums from `start`: entry c is `start` plus the first c elements.
-theorem List.getOrScanAdd ∀ (row: List Nat) (start c: Nat)
-    (h: c ≤ List.length row):
-    List.getOr (List.scanLeft row start Nat.add) c 0 = start + List.sumBy (List.range 0 c) (i => List.getOr row i 0) :=
-  match row, c with
-    | [] | [_, .._], Zero => (Nat.addZero start).flipped
-    | [x, ..xs], Succ c =>
-      rewrite List.getOrScanAdd xs (Nat.add start x) c h, List.sumByRangeSucc (i => List.getOr [x, ..xs] i 0) c then
-        arithmetic
-
 --| In a sorted list of numbers, an element is at most every later one.
 theorem List.sortedGetOrLe: ∀ (xs: List Nat) (d: Nat) => List.Sorted Nat.leq xs
       → ∀ (i j: Nat) => i ≤ j → j < List.length xs → List.getOr xs i d ≤ List.getOr xs j d

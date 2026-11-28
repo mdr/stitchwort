@@ -46,10 +46,10 @@ theorem PrefixSums.atOf ∀ (rows: List (List Nat)) (r c: Nat)
   let sumsLength: ∀ (i: Nat) => i < List.length sums → c < List.length (List.getOr sums i []) := i hi =>
     let inRows: i < List.length rows :=
       rewrite List.lengthMap rows (row => PrefixSums.runningSums (List.padRight row width 0)) at hi
-    rewrite sumsAt i inRows,
-        List.lengthScanLeft (List.padRight (List.getOr rows i []) width 0) 0 Nat.add,
-        paddedLength i then
-      hc
+    let tailLength: List.length (List.scanLeft (List.padRight (List.getOr rows i []) width 0) 0 Nat.add).tail
+      = List.length (List.padRight (List.getOr rows i []) width 0) :=
+      Nat.succInjective (List.lengthScanLeft (List.padRight (List.getOr rows i []) width 0) 0 Nat.add)
+    rewrite sumsAt i inRows, tailLength, paddedLength i then hc
   let topLength: c < List.length top := rewrite List.lengthReplicate 0 width then hc
   let rowSum: ∀ (i: Nat) => 0 ≤ i
     → i < 0 + r

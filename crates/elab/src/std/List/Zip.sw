@@ -2,30 +2,6 @@
 --| `get`, `mapAccumLeft`, `All2`, and `zipWith`/`append` facts, with the
 --| examples and tests that use them.
 
---| The first step, for induction, of running accumulations beside the elements, by computation.
---| `List.zipWith xs (List.scanLeft xs z f) g` is `g` of each element and the fold of the
---| elements before it ([`List.getOrZipWithScanLeft`], std/List/Index.sw). It
---| lays items end to end from `z`, say, with `f` adding an item's size and
---| `g` placing it.
-theorem List.zipWithScanLeftCons ∀ (x: a) (xs: List a) (z: b) (f: b → a → b) (g: a → b → c):
-    List.zipWith [x, ..xs] (List.scanLeft [x, ..xs] z f) g
-      = [g x z, ..List.zipWith xs (List.scanLeft xs (f z x) f) g] :=
-  byComputing
-
-theorem List.zipWithScanLeftExample: List.zipWith
-      [2, 3, 4]
-      (List.scanLeft [2, 3, 4] 10 (offset width => offset + width))
-      (width offset => (offset, width))
-      = [(10, 2), (12, 3), (15, 4)] :=
-  byComputing
-
---| Running accumulations beside the elements have one for each element.
-theorem List.lengthZipWithScanLeft ∀ (f: b → a → b) (g: a → b → c) (xs: List a) (z: b):
-    List.length (List.zipWith xs (List.scanLeft xs z f) g) = List.length xs :=
-  match xs with
-    | [] => byComputing
-    | [x, ..xs] => Eq.cong Succ (List.lengthZipWithScanLeft f g xs (f z x))
-
 --| What `g` keeps of an element (`h`, an id say) doesn't depend on the other
 --| list, so mapping it over the zip is mapping over the first list.
 theorem List.mapZipWithLeft ∀ (h: c → d) (k: a → d) (g: a → b → c)
@@ -36,43 +12,6 @@ theorem List.mapZipWithLeft ∀ (h: c → d) (k: a → d) (g: a → b → c)
   match xs, ys with
     | [], ys => byComputing
     | [x, ..xs], [y, ..ys] => rewrite same x y, List.mapZipWithLeft h k g same xs ys le
-
-theorem List.mapZipWithScanLeft ∀ (h: c → d) (k: a → d) (g: a → b → c)
-    (same: ∀ (x: a) (y: b) => h (g x y) = k x)
-    (xs: List a) (z: b) (f: b → a → b):
-    List.map (List.zipWith xs (List.scanLeft xs z f) g) h = List.map xs k :=
-  List.mapZipWithLeft h k g same xs
-    (List.scanLeft xs z f)
-    (rewrite List.lengthScanLeft xs z f then Nat.leSucc (List.length xs))
-
---| `mapAccumLeft` is a fold for its final state, and for its list the zip of
---| the elements with the running states.
-theorem List.mapAccumLeftGoSpec ∀ (f: s → a → Pair s b) (xs: List a) (state: s) (done: List b):
-    List.mapAccumLeftGo f state done xs
-      = MkPair
-        (List.foldLeft xs state (st x => Pair.fst (f st x)))
-        (List.reverseOnto done
-          (List.zipWith xs (List.scanLeft xs state (st x => Pair.fst (f st x))) (x st => Pair.snd (f st x)))) :=
-  match xs with
-    | [] => byComputing
-    | [x, ..xs] => List.mapAccumLeftGoSpec f xs (Pair.fst (f state x)) [Pair.snd (f state x), ..done]
-
-theorem List.mapAccumLeftState ∀ (xs: List a) (initial: s) (f: s → a → Pair s b):
-    Pair.fst (List.mapAccumLeft xs initial f) = List.foldLeft xs initial (st x => Pair.fst (f st x)) :=
-  Eq.cong Pair.fst (List.mapAccumLeftGoSpec f xs initial [])
-
-theorem List.mapAccumLeftList ∀ (xs: List a) (initial: s) (f: s → a → Pair s b):
-    Pair.snd (List.mapAccumLeft xs initial f)
-      = List.zipWith xs (List.scanLeft xs initial (st x => Pair.fst (f st x))) (x st => Pair.snd (f st x)) :=
-  Eq.cong Pair.snd (List.mapAccumLeftGoSpec f xs initial [])
-
-theorem List.lengthMapAccumLeft ∀ (xs: List a) (initial: s) (f: s → a → Pair s b):
-    List.length (Pair.snd (List.mapAccumLeft xs initial f)) = List.length xs :=
-  rewrite List.mapAccumLeftList xs initial f then
-    List.lengthZipWithScanLeft (st x => Pair.fst (f st x)) (x st => Pair.snd (f st x)) xs initial
-
-theorem List.mapAccumLeftExample: List.mapAccumLeft [1, 2, 3] 0 (sum x => MkPair (sum + x) sum) = MkPair 6 [0, 1, 3] :=
-  byComputing
 
 -- `List.get`, the element at an index if there is one: it is `Some` exactly
 -- within the list, what it finds is an element, and it goes through `map`,
@@ -289,25 +228,6 @@ theorem List.transposeColumns ∀ (rows: List (List a)):
       = List.map (List.range 0 (List.length (List.headOr rows []))) (i =>
         List.filterMap rows (row => List.get row i)) :=
   List.transposeNColumns rows (List.length (List.headOr rows []))
-
---| Entry k of the running accumulations is the fold of the first k
---| elements ([`List.getOrScanLeft`], std/List/Index.sw, with a fallback).
-theorem List.getScanLeft ∀ (f: b → a → b) (xs: List a) (z: b) (k: Nat)
-    (h: k ≤ List.length xs):
-    List.get (List.scanLeft xs z f) k = Some (List.foldLeft (List.take xs k) z f) :=
-  match xs, k with
-    | [] | [_, .._], Zero => byComputing
-    | [x, ..xs], Succ k => List.getScanLeft f xs (f z x) k h
-
---| Element k of each element beside the running accumulations is `g` of
---| element k and the fold of the elements before it, and nothing past the end.
-theorem List.getZipWithScanLeft ∀ (f: b → a → b) (g: a → b → c) (xs: List a) (z: b) (k: Nat):
-    List.get (List.zipWith xs (List.scanLeft xs z f) g) k
-      = Option.map (List.get xs k) (x => g x (List.foldLeft (List.take xs k) z f)) :=
-  match xs, k with
-    | [], k => byComputing
-    | [x, ..xs], Zero => byComputing
-    | [x, ..xs], Succ k => List.getZipWithScanLeft f g xs (f z x) k
 
 theorem List.getExample: List.get (List.append [1, 2] (List.map [3, 4] Succ)) 3 = Some 5 := byComputing
 

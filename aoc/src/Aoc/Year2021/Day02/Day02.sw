@@ -70,5 +70,6 @@ def solvePart2 (commands: List Command): Int := (horizontal commands).toInt * ai
 def aimedDepth (aim: Int) (commands: List Command): Int :=
   commands
     |> .scanLeft aim (aimSoFar command => aimSoFar + command.down)
+    |> .toList
     |> .zipWith commands (aimThen command => aimThen * command.ahead.toInt)
     |> .sum
