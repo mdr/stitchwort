@@ -774,7 +774,7 @@ impl Session {
         let mut holes = Vec::new();
         let mut readings: Vec<(String, String, Found)> = Vec::new();
         if let Some(text) = &query.pattern {
-            let expr = self.parse_expression("<pattern>", text)?;
+            let expr = self.parse_pattern("<pattern>", text)?;
             let mut first_error = None;
             for reading in resolutions(&expr, text) {
                 match self.search_patterns(&reading, &query.holes) {
@@ -958,7 +958,7 @@ impl Session {
         keep: &dyn Fn(&Candidate) -> bool,
         warnings: &mut Vec<String>,
     ) -> Result<Found, Diagnostic> {
-        let expr = self.parse_expression("<pattern>", reading)?;
+        let expr = self.parse_pattern("<pattern>", reading)?;
         let open = match open_results(&expr) {
             Some(open) if !has_row(&expr) && !patterns.iter().any(Pattern::opens_rows) => open,
             _ => return Ok(self.elab.search(&patterns, candidates, opts, keep)),
@@ -1002,7 +1002,7 @@ impl Session {
     ) -> Result<(Vec<Pattern>, Vec<String>), Diagnostic> {
         let mut holes = holes.to_vec();
         loop {
-            let expr = self.parse_expression("<pattern>", text)?;
+            let expr = self.parse_pattern("<pattern>", text)?;
             match self.elab.search_pattern(&expr, &holes) {
                 Ok(patterns) => return Ok((patterns, holes)),
                 Err(d) if d.code == "E-UNKNOWN-NAME" => {

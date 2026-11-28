@@ -21951,7 +21951,7 @@
     {
       "id": 4958,
       "title": "search: a pattern starting with a brace ({Parse _ | _} Nat) parses as a record update (E-PARSE), so a computation type can't be searched on its own",
-      "status": "doing",
+      "status": "review",
       "agent": "",
       "where": "",
       "labels": [
