@@ -22150,9 +22150,9 @@
       "where": "",
       "labels": [],
       "epic": "syntax-language",
-      "body": "[Fable, paper] Matt asked, 27 Nov 2026: how might we best implement infinite streams, how might we prove things about them, how can we augment our capabilities in this area. Note in docs/proposals/.",
+      "body": "[Fable, paper] Matt asked, 27 Nov 2026: how might we best implement infinite streams, how might we prove things about them, how can we augment our capabilities in this area. Note in docs/proposals/.\n\nMatt, 28 Nov (on D3772): 'having two types, one with a performance trap waiting to bite you, feels wrong to me'. So not (a) as proposed: Stream plus a separate Stream.Gen.",
       "created": "2026-11-27",
-      "updated": "2026-11-27",
+      "updated": "2026-11-28",
       "commits": [
         "656d2ee42"
       ]
