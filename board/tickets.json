@@ -23216,12 +23216,12 @@
     {
       "id": 5030,
       "title": "Parse.oneOf and Parse.pick take a NonEmptyList of alternatives; Parse.span1 returns a NonEmptyList (D3779)",
-      "status": "doing",
+      "status": "review",
       "agent": "Sonnet",
       "where": "",
       "labels": [],
       "epic": "std-library",
-      "body": "D3779, Matt 28 Nov: 'D3779 yes'. docs/reviews/SW-5022-nonempty-results.md recs 1 and 3. Runs with SW-5026 in one lane.",
+      "body": "D3779, Matt 28 Nov: 'D3779 yes'. docs/reviews/SW-5022-nonempty-results.md recs 1 and 3. Runs with SW-5026 in one lane.\n\nLane: oneOf now takes a NonEmptyList and span1 gives one (commit on lane/SW-5026); no-alternatives arm, its test and proof case removed; givesOneOf/readsOneOf/declinesOneOf take NonEmptyList (List.All/DeclinesAll over .toList), runsSpan1 takes item/others instead of a non-empty proof, readsSpan1 states items.toList = read. No caller changed. Parse.pick NOT done: it needs runsPick/declinesPick/readsPick/readsPickBy restated and about ten AoC days' proofs (2020 days 04/08/11/12/14/17/18/20, 2021 day 10) reworked; left for a follow-up.",
       "created": "2026-11-28",
       "updated": "2026-11-28",
       "commits": []
