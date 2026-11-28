@@ -11374,15 +11374,18 @@
     {
       "id": 2905,
       "title": "[DeepSeek] Bundler checks run only through web/test.sh after a full build; add a test that bundles into a temp dir and checks the manifests without Chrome (SW-2892)",
-      "status": "doing",
+      "status": "done",
       "agent": "DeepSeek",
       "where": "",
       "labels": [],
       "epic": "editor-playground",
-      "body": "\n\nAudit note (22 Nov): Audit 22 Nov: still open; no commit besides board edits mentions it and no later ticket covers it.\n",
+      "body": "\n\nAudit note (22 Nov): Audit 22 Nov: still open; no commit besides board edits mentions it and no later ticket covers it.\n\nDone (DeepSeek): dev/bundle-projects_test.py (6 tests, ~12.5 s warm) runs web/bundle-projects.sh into a temp dir and checks each manifest against the files written (files = every .sw, data = every .txt, entries' files exist, chapter flags); shown failing on a broken manifest. task test:bundles. Not in a tier yet. Model result: deepseek, worked, ~12 min (est. 20).",
       "created": "2026-11-11",
       "updated": "2026-11-28",
-      "commits": []
+      "commits": [
+        "1daf4f61d",
+        "331e32264"
+      ]
     },
     {
       "id": 2906,
