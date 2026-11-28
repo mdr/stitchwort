@@ -22834,12 +22834,12 @@
     {
       "id": 5005,
       "title": "Streams S4: which AoC days genuinely benefit from Std.Stream (survey all of aoc/, with reasons), then rewrite the best one or two on streams with friction notes; judge the proof style and whether the re-walk shows",
-      "status": "doing",
+      "status": "review",
       "agent": "Opus",
       "where": "",
       "labels": [],
       "epic": "std-library",
-      "body": "Matt, 28 Nov: 'Proceed with S2-S4 - I'm interested in which AoC days might genuinely benefit from streams'. Plan: docs/proposals/streams-head-tail.md §6.\n\nPhase 1 done (f138a63da): docs/reviews/SW-5005-aoc-streams-survey.md. Two days benefit a little: 2021 day 11 (clearer, shorter; proofs may shrink), 2024 day 22 (one stream for both parts). Most neutral, four worse; none faster, no new proofs. findRepeat fits no day. Phase 2 waits for SW-5003 (findIndex, walk-based fold/find added there, orchestrator's call).",
+      "body": "Matt, 28 Nov: 'Proceed with S2-S4 - I'm interested in which AoC days might genuinely benefit from streams'. Plan: docs/proposals/streams-head-tail.md §6.\n\nPhase 1 done (f138a63da): docs/reviews/SW-5005-aoc-streams-survey.md. Two days benefit a little: 2021 day 11 (clearer, shorter; proofs may shrink), 2024 day 22 (one stream for both parts). Most neutral, four worse; none faster, no new proofs. findRepeat fits no day. Phase 2 waits for SW-5003 (findIndex, walk-based fold/find added there, orchestrator's call).\n\nPhase 2 (Opus, 28 Nov, 10:48-11:03): 2021 day 11 and 2024 day 22 rewritten on Std.Stream; top theorems unchanged; timings unchanged; Stream.iterateTakeSucc added (prelude snapshot +1 line). Notes in docs/reviews/SW-5005-aoc-streams-survey.md, Phase 2.",
       "created": "2026-11-28",
       "updated": "2026-11-28",
       "commits": []
