@@ -277,6 +277,19 @@ test "take and find" :=
     ∧ powers.fold 4 0 (+) == 15
 ```
 
+Puzzles often ask when a sequence of states first repeats. `findRepeat n` reads the first `n` values once, remembering what it has seen in a `Map` (so the values need an `Ord`), and gives the position a value was first at and the position it came again, or `None`. `findIndex n p` is the position of the first value satisfying `p`, and `foldUntil n init f stop` folds values until the accumulator satisfies `stop`, giving the accumulator and how many values it folded. Each reads the stream once, so a slow step is run once per value:
+
+<!-- snippet: streams.sw#find-repeat -->
+```stitchwort
+def squares: Stream Nat := Stream.iterate (n => (n * n + 1) % 7) 0
+
+test "find a repeat" :=
+  squares.take 6 == [0, 1, 2, 5, 5, 5]
+    ∧ squares.findRepeat 100 == Some (3, 4)
+    ∧ (Stream.iterate (+ 1) 0).findRepeat 100 == None
+    ∧ (Stream.iterate (+ 1) 1).foldUntil 100 0 (+) (total => total > 20) == (21, 6)
+```
+
 Two streams with the same value at every position are equal, `Stream.ext`; that is how laws about streams are proved. Chapter 10 teaches proofs; this one says that mapping twice is mapping once with both steps, by comparing the value at each position, which computes:
 
 <!-- snippet: streams.sw#proof -->

@@ -21,7 +21,7 @@
 --| information. The only axiom is `Quot.sound`.
 
 import Std (Eq)
-import Stream.Cells (Done)
+import Stream.Cells (Done, Cell)
 
 --| An infinite sequence of values (see this file's header): what the values
 --| are (`base`), and where a reader has got to (`front`), which only makes
@@ -71,7 +71,7 @@ theorem Stream.ext ∀ (s t: Stream a) (h: ∀ (n: Nat) => s.at n = t.at n): s =
 --| any number of `tail`s.
 def Stream.head (s: Stream a): a :=
   Quot.lift
-    (fr => fr.head)
+    (fr => Stream.Front.head fr)
     (x y same => (Stream.Front.headIs s.base.at x).trans (Stream.Front.headIs s.base.at y).flipped)
     s.front
 
@@ -147,7 +147,7 @@ theorem Stream.bisim ∀ (r: Stream a → Stream a → Prop)
 
 --| The first `n` values, in `n` steps: `(Stream.iterate (+ 1) 0).take 3` is
 --| `[0, 1, 2]`.
-def Stream.take (s: Stream a) (n: Nat): List a := (s.base.walk n).toList
+def Stream.take (s: Stream a) (n: Nat): List a := Stream.Cells.toList (s.base.walk n)
 
 --| `x`, `f x`, `f (f x)`, …: `Stream.iterate (* 2) 1` is 1, 2, 4, 8, ….
 @[noReceiver]
@@ -174,7 +174,7 @@ theorem Stream.unfoldTail ∀ (s: Type) (step: s → Pair a s) (start: s):
   Stream.ext (Stream.unfold step start).tail (Stream.unfold step (step start).snd) (n => byComputing)
 
 --| `f` of each value: `(Stream.iterate (+ 1) 0).map (* 3)` is 0, 3, 6, ….
-def Stream.map (s: Stream a) (f: a → b): Stream b := Stream.ofBase (s.base.map f)
+def Stream.map (s: Stream a) (f: a → b): Stream b := Stream.ofBase (Stream.Base.map s.base f)
 
 --| Mapping, then taking the tail, is taking the tail, then mapping.
 theorem Stream.mapTail ∀ (s: Stream a) (f: a → b): (s.map f).tail = s.tail.map f :=
@@ -183,7 +183,7 @@ theorem Stream.mapTail ∀ (s: Stream a) (f: a → b): (s.map f).tail = s.tail.m
 --| `x`, then the values of `s`: `Stream.cons 0 (Stream.iterate (* 2) 1)` is
 --| 0, 1, 2, 4, ….
 @[noReceiver]
-def Stream.cons (x: a) (s: Stream a): Stream a := Stream.ofBase (s.base.cons x)
+def Stream.cons (x: a) (s: Stream a): Stream a := Stream.ofBase (Stream.Base.cons s.base x)
 
 --| The first value of `Stream.cons x s` is `x`.
 theorem Stream.consHead ∀ (x: a) (s: Stream a): (Stream.cons x s).head = x := byComputing
@@ -256,39 +256,71 @@ theorem Stream.dropAt ∀ (s: Stream a) (n k: Nat): (s.drop n).at k = s.at (n + 
 theorem Stream.dropHead ∀ (s: Stream a) (n: Nat): (s.drop n).head = s.at n :=
   (Stream.headIs (s.drop n)).trans (Stream.dropAt s n 0)
 
---| The left fold of the first `n` values: `(Stream.iterate (+ 1) 1).fold 4 0 (+)` is 10. It reads by `head` and
---| `tail`, so it takes `n` steps.
+--| The left fold of the cells' values.
 @[tailrec]
-def Stream.fold (s: Stream a) (n: Nat) (init: b) (f: b → a → b): b := match n with
-  | Zero => init
-  | Succ k => Stream.fold s.tail k (f init s.head) f
+def Stream.Cells.foldLeft (c: Stream.Cells a) (init: b) (f: b → a → b): b := match c with
+  | Done => init
+  | Cell x rest => Stream.Cells.foldLeft (rest ()) (f init x) f
+
+--| Folding the cells is folding their values as a list.
+theorem Stream.Cells.foldLeftToList ∀ (c: Stream.Cells a) (init: b) (f: b → a → b):
+    Stream.Cells.foldLeft c init f = (Stream.Cells.toList c).foldLeft init f :=
+  match c with
+    | Done => byComputing
+    | Cell x rest => Stream.Cells.foldLeftToList (rest ()) (f init x) f
+
+--| The first value among the cells that satisfies `p`.
+@[tailrec]
+def Stream.Cells.find (c: Stream.Cells a) (p: a → Bool): Option a := match c with
+  | Done => None
+  | Cell x rest => if p x then Some x else Stream.Cells.find (rest ()) p
+
+--| Finding in the cells is finding in their values as a list.
+theorem Stream.Cells.findToList ∀ (c: Stream.Cells a) (p: a → Bool):
+    Stream.Cells.find c p = (Stream.Cells.toList c).find p :=
+  match c with
+    | Done => byComputing
+    | Cell x rest =>
+      calc Stream.Cells.find (Cell x rest) p
+        _ = (if p x then Some x else Stream.Cells.find (rest ()) p) := byComputing
+        _ = (if p x then Some x else (Stream.Cells.toList (rest ())).find p) :=
+          Eq.cong (r => if p x then Some x else r) (Stream.Cells.findToList (rest ()) p)
+        _ = (Stream.Cells.toList (Cell x rest)).find p := byComputing
+
+--| The left fold of the first `n` values: `(Stream.iterate (+ 1) 1).fold 4 0 (+)` is 10. It reads the walk's cells
+--| once, so it takes `n` steps and calls the stream's step `n` times.
+def Stream.fold (s: Stream a) (n: Nat) (init: b) (f: b → a → b): b := Stream.Cells.foldLeft (s.base.walk n) init f
 
 --| `fold` over the first `n` values is a fold of `take n`.
 theorem Stream.foldTake ∀ (s: Stream a) (n: Nat) (init: b) (f: b → a → b):
     s.fold n init f = (s.take n).foldLeft init f :=
-  match n with
-    | Zero => (Eq.cong (xs => xs.foldLeft init f) (Stream.takeZero s)).flipped
-    | Succ k =>
-      (Stream.foldTake s.tail k (f init s.head) f).trans
-        (Eq.cong (xs => xs.foldLeft init f) (Stream.takeSucc s k)).flipped
+  Stream.Cells.foldLeftToList (s.base.walk n) init f
+
+--| `fold` is a fold of the cells at positions 0, 1, ….
+theorem Stream.foldAgrees ∀ (s: Stream a) (n: Nat) (init: b) (f: b → a → b):
+    s.fold n init f = Stream.Cells.foldLeft (Stream.Cells.fromAt s.at 0 n) init f :=
+  Eq.cong (c => Stream.Cells.foldLeft c init f) (s.base.agrees n)
+
+--| Folding no values is the initial value.
+theorem Stream.foldZero ∀ (s: Stream a) (init: b) (f: b → a → b): s.fold 0 init f = init :=
+  (Stream.foldTake s 0 init f).trans (Eq.cong (xs => xs.foldLeft init f) (Stream.takeZero s))
+
+--| One more value folded is the head folded in, then the tail's values.
+theorem Stream.foldSucc ∀ (s: Stream a) (n: Nat) (init: b) (f: b → a → b):
+    s.fold (Succ n) init f = s.tail.fold n (f init s.head) f :=
+  calc s.fold (Succ n) init f
+    _ = (s.take (Succ n)).foldLeft init f := Stream.foldTake s (Succ n) init f
+    _ = [s.head, ..s.tail.take n].foldLeft init f := Eq.cong (xs => xs.foldLeft init f) (Stream.takeSucc s n)
+    _ = (s.tail.take n).foldLeft (f init s.head) f := byComputing
+    _ = s.tail.fold n (f init s.head) f := (Stream.foldTake s.tail n (f init s.head) f).flipped
 
 --| The first of the first `n` values to satisfy `p`, or `None`: `(Stream.iterate (+ 1) 0).find 100 (n => n * n > 50)`
---| is `Some 8`. It reads by `head` and `tail` and stops at the first match.
-@[tailrec]
-def Stream.find (s: Stream a) (n: Nat) (p: a → Bool): Option a := match n with
-  | Zero => None
-  | Succ k => if p s.head then Some s.head else Stream.find s.tail k p
+--| is `Some 8`. It reads the walk's cells once and stops at the first match.
+def Stream.find (s: Stream a) (n: Nat) (p: a → Bool): Option a := Stream.Cells.find (s.base.walk n) p
 
 --| `find` in the first `n` values is a `find` in `take n`.
-theorem Stream.findTake ∀ (s: Stream a) (n: Nat) (p: a → Bool): s.find n p = (s.take n).find p := match n with
-  | Zero => (Eq.cong (xs => xs.find p) (Stream.takeZero s)).flipped
-  | Succ k =>
-    calc s.find (Succ k) p
-      _ = (if p s.head then Some s.head else s.tail.find k p) := byComputing
-      _ = (if p s.head then Some s.head else (s.tail.take k).find p) :=
-        Eq.cong (r => if p s.head then Some s.head else r) (Stream.findTake s.tail k p)
-      _ = [s.head, ..s.tail.take k].find p := byComputing
-      _ = (s.take (Succ k)).find p := Eq.cong (xs => xs.find p) (Stream.takeSucc s k).flipped
+theorem Stream.findTake ∀ (s: Stream a) (n: Nat) (p: a → Bool): s.find n p = (s.take n).find p :=
+  Stream.Cells.findToList (s.base.walk n) p
 
 --| The values of `f` at 0, 1, 2, …: `(Stream.fromFn (n => n * n)).take 4` is `[0, 1, 4, 9]`.
 @[noReceiver]
@@ -321,7 +353,7 @@ theorem Stream.repeatTail ∀ (x: a): (Stream.repeat x).tail = Stream.repeat x :
 --| `f` of the values of `s` and `t` in step: `(Stream.iterate (+ 1) 0).zipWith (Stream.iterate (* 2) 1) (+)` is 1, 3,
 --| 6, 11, ….
 def Stream.zipWith (s: Stream a) (t: Stream b) (f: a → b → c): Stream c :=
-  Stream.unfold (st => (f st.fst.head st.snd.head, (st.fst.tail, st.snd.tail))) (s, t)
+  Stream.unfold (st => (f (Stream.head st.fst) (Stream.head st.snd), (Stream.tail st.fst, Stream.tail st.snd))) (s, t)
 
 --| The first value of `zipWith` is `f` of the first values.
 theorem Stream.zipWithHead ∀ (s: Stream a) (t: Stream b) (f: a → b → c): (s.zipWith t f).head = f s.head t.head :=
@@ -350,7 +382,8 @@ theorem Stream.zipWithAt ∀ (s: Stream a) (t: Stream b) (f: a → b → c) (n: 
 
 --| The values of `s` and `t` alternately: `Stream.interleave (Stream.repeat 0) (Stream.repeat 1)` is 0, 1, 0, 1, ….
 --| Its state is the stream to read next and the other one, so the tail is the interleave the other way round.
-def Stream.interleave (s t: Stream a): Stream a := Stream.unfold (st => (st.fst.head, (st.snd, st.fst.tail))) (s, t)
+def Stream.interleave (s t: Stream a): Stream a :=
+  Stream.unfold (st => (Stream.head st.fst, (st.snd, Stream.tail st.fst))) (s, t)
 
 --| The first value of `interleave s t` is the first of `s`.
 theorem Stream.interleaveHead ∀ (s t: Stream a): (Stream.interleave s t).head = s.head := byComputing
@@ -387,7 +420,7 @@ theorem Stream.interleaveAtOdd ∀ (s t: Stream a) (n: Nat): (Stream.interleave 
 
 --| The running folds of `s`, the initial value first: `(Stream.iterate (+ 1) 1).scan 0 (+)` is 0, 1, 3, 6, 10, ….
 def Stream.scan (s: Stream a) (init: b) (f: b → a → b): Stream b :=
-  Stream.unfold (st => (st.fst, (f st.fst st.snd.head, st.snd.tail))) (init, s)
+  Stream.unfold (st => (st.fst, (f st.fst (Stream.head st.snd), Stream.tail st.snd))) (init, s)
 
 --| The first value of `scan` is the initial value.
 theorem Stream.scanHead ∀ (s: Stream a) (init: b) (f: b → a → b): (s.scan init f).head = init := byComputing
@@ -400,12 +433,13 @@ theorem Stream.scanTail ∀ (s: Stream a) (init: b) (f: b → a → b):
 --| `scan` at position `n` is the fold of the first `n` values.
 theorem Stream.scanAt ∀ (s: Stream a) (init: b) (f: b → a → b) (n: Nat): (s.scan init f).at n = s.fold n init f :=
   match n with
-    | Zero => byComputing
+    | Zero => (Stream.foldZero s init f).flipped
     | Succ m =>
       calc (s.scan init f).at (Succ m)
         _ = (s.scan init f).tail.at m := (Stream.tailAt (s.scan init f) m).flipped
         _ = (s.tail.scan (f init s.head) f).at m := Eq.cong (r => r.at m) (Stream.scanTail s init f)
         _ = s.tail.fold m (f init s.head) f := Stream.scanAt s.tail (f init s.head) f m
+        _ = s.fold (Succ m) init f := (Stream.foldSucc s m init f).flipped
 
 --| Streams that are functions of a shared seed, with equal heads and tails that are again those functions of
 --| some seed, are equal: `u x = v x` for every `x`. The relation `bisim` uses is "are `u z` and `v z` for some `z`".
@@ -440,3 +474,191 @@ theorem Stream.unfoldUnique ∀ (s: Type) (step: s → Pair a s) (h: s → Strea
     (state => (heads state).trans (Stream.unfoldHead s step state).flipped)
     (state => Witness (step state).snd (Both (tails state) (Stream.unfoldTail s step state)))
     start
+
+--| The first position, counting from `i`, of a value satisfying `p`.
+@[tailrec]
+def Stream.Cells.findIndex (c: Stream.Cells a) (i: Nat) (p: a → Bool): Option Nat := match c with
+  | Done => None
+  | Cell x rest => if p x then Some i else Stream.Cells.findIndex (rest ()) (i + 1) p
+
+--| A position found in the cells of `g` from `i` is at least `i`, within the `n` cells, holds a value satisfying `p`,
+--| and no position between `i` and it does.
+theorem Stream.Cells.findIndexSome ∀ (g: Nat → a) (p: a → Bool) (n i k: Nat):
+    Stream.Cells.findIndex (Stream.Cells.fromAt g i n) i p = Some k
+      → i ≤ k ∧ k < i + n ∧ p (g k) ∧ ∀ (j: Nat) => i ≤ j → j < k → p (g j) = False :=
+  match n with
+    | Zero => found => (Option.noneNotSome k found).impossible
+    | Succ m =>
+      match e: p (g i) with
+        | True => found =>
+          (let ik: i = k := Option.someInjective found;
+           rewrite <- ik then
+             Both arithmetic
+               (Both arithmetic (Both e (j h1 h2 => Void.impossible (Nat.lessIrrefl i (arithmetic: i < i))))))
+        | False => found =>
+          (let r := Stream.Cells.findIndexSome g p m (Succ i) k found;
+           Both arithmetic
+             (Both arithmetic
+               (Both r.right.right.left (j h1 h2 =>
+                 if h: j = i then (rewrite h then e) else r.right.right.right j arithmetic h2))))
+
+--| No position among the `n` cells of `g` from `i` has a value satisfying `p` when none is found.
+theorem Stream.Cells.findIndexNone ∀ (g: Nat → a) (p: a → Bool) (n i: Nat):
+    Stream.Cells.findIndex (Stream.Cells.fromAt g i n) i p = None → ∀ (j: Nat) => i ≤ j → j < i + n → p (g j) = False :=
+  match n with
+    | Zero => found => (j h1 h2 => Void.impossible (Nat.lessIrrefl i (arithmetic: i < i)))
+    | Succ m =>
+      match e: p (g i) with
+        | True => found => (Option.noneNotSome i found.flipped).impossible
+        | False => found =>
+          (j h1 h2 =>
+            if h: j = i then (rewrite h then e)
+            else Stream.Cells.findIndexNone g p m (Succ i) found j arithmetic arithmetic)
+
+--| The first position below `n` whose value satisfies `p`, or `None`:
+--| `(Stream.iterate (+ 1) 0).findIndex 100 (x => x * x > 50)` is `Some 8`. It reads the walk's cells once and stops at
+--| the first match.
+def Stream.findIndex (s: Stream a) (n: Nat) (p: a → Bool): Option Nat := Stream.Cells.findIndex (s.base.walk n) 0 p
+
+--| A position found is below the limit, holds a value satisfying `p`, and no earlier position does.
+theorem Stream.findIndexSome ∀ (s: Stream a) (n k: Nat) (p: a → Bool):
+    s.findIndex n p = Some k → k < n ∧ p (s.at k) = True ∧ ∀ (j: Nat) => j < k → p (s.at j) = False :=
+  found =>
+    (let r := Stream.Cells.findIndexSome s.at p n 0 k
+       ((Eq.cong (c => Stream.Cells.findIndex c 0 p) (s.base.agrees n)).flipped.trans found);
+     Both (arithmetic: k < n) (Both r.right.right.left (j h => r.right.right.right j arithmetic h)))
+
+--| When none is found, no position below the limit holds a value satisfying `p`.
+theorem Stream.findIndexNone ∀ (s: Stream a) (n: Nat) (p: a → Bool):
+    s.findIndex n p = None → ∀ (j: Nat) => j < n → p (s.at j) = False :=
+  found =>
+    (j h =>
+      Stream.Cells.findIndexNone s.at p n 0
+        ((Eq.cong (c => Stream.Cells.findIndex c 0 p) (s.base.agrees n)).flipped.trans found)
+        j
+        arithmetic
+        arithmetic)
+
+--| The cells' fold until the accumulator satisfies `stop`, from position `i`: the accumulator and the position
+--| it stopped at.
+@[tailrec]
+def Stream.Cells.foldUntil (c: Stream.Cells a) (i: Nat) (acc: b) (f: b → a → b) (stop: b → Bool): (b, Nat) :=
+  match c with
+    | Done => (acc, i)
+    | Cell x rest => if stop acc then (acc, i) else Stream.Cells.foldUntil (rest ()) (i + 1) (f acc x) f stop
+
+--| `foldUntil` over `n` cells of `g` from `j` is a fold of some `m ≤ n` of them, which stopped there: it read all
+--| `n` or `stop` held.
+theorem Stream.Cells.foldUntilFromAt ∀ (g: Nat → a) (n j i: Nat) (acc: b) (f: b → a → b) (stop: b → Bool):
+    ∃ (m: Nat) => m ≤ n
+      ∧ Stream.Cells.foldUntil (Stream.Cells.fromAt g j n) i acc f stop
+        = (Stream.Cells.foldLeft (Stream.Cells.fromAt g j m) acc f, i + m)
+      ∧ (m < n → stop (Stream.Cells.foldLeft (Stream.Cells.fromAt g j m) acc f)) :=
+  match n with
+    | Zero => Witness 0 (Both arithmetic (Both byComputing (h => (Nat.lessIrrefl 0 h).impossible)))
+    | Succ k =>
+      match e: stop acc with
+        | True => Witness 0 (Both arithmetic (Both byComputing (h => e)))
+        | False => Exists.elim (Stream.Cells.foldUntilFromAt g k (Succ j) (i + 1) (f acc (g j)) f stop) (m h =>
+          Witness
+            (Succ m)
+            (Both arithmetic
+              (Both
+                (rewrite h.right.left then
+                  Eq.cong
+                    (x => (Stream.Cells.foldLeft (Stream.Cells.fromAt g j (Succ m)) acc f, x))
+                    (arithmetic: i + 1 + m = i + Succ m))
+                (d => h.right.right arithmetic))))
+
+--| Fold the first values with `f` until the accumulator satisfies `stop` or `n` values are read, and give the
+--| accumulator and how many values were folded: `(Stream.iterate (+ 1) 1).foldUntil 100 0 (+) (total => total > 20)` is
+--| `(21, 6)`. It reads the walk's cells once.
+def Stream.foldUntil (s: Stream a) (n: Nat) (init: b) (f: b → a → b) (stop: b → Bool): (b, Nat) :=
+  Stream.Cells.foldUntil (s.base.walk n) 0 init f stop
+
+--| `foldUntil` is a `fold` over some number of the first values, at most `n`, and it stopped there: it read all `n` or
+--| `stop` held.
+theorem Stream.foldUntilFold ∀ (s: Stream a) (n: Nat) (init: b) (f: b → a → b) (stop: b → Bool):
+    ∃ (m: Nat) => m ≤ n ∧ s.foldUntil n init f stop = (s.fold m init f, m) ∧ (m < n → stop (s.fold m init f)) :=
+  Exists.elim (Stream.Cells.foldUntilFromAt s.at n 0 0 init f stop) (m h =>
+    Witness m
+      (Both h.left
+        (Both
+          (calc s.foldUntil n init f stop
+            _ = Stream.Cells.foldUntil (Stream.Cells.fromAt s.at 0 n) 0 init f stop :=
+              Eq.cong (c => Stream.Cells.foldUntil c 0 init f stop) (s.base.agrees n)
+            _ = (Stream.Cells.foldLeft (Stream.Cells.fromAt s.at 0 m) init f, 0 + m) := h.right.left
+            _ = (s.fold m init f, m) :=
+              Eq.cong2 (x y => (x, y)) (Stream.foldAgrees s m init f).flipped (arithmetic: 0 + m = m))
+          (d => rewrite Stream.foldAgrees s m init f then h.right.right d))))
+
+--| The first value among the cells that is one seen before, as the position it was first at and the position of the
+--| repeat. `i` is the position of the first cell, and `seen` maps each value met so far to the position it was first at.
+@[tailrec]
+def Stream.Cells.findRepeat [auto ord: Ord a] (c: Stream.Cells a) (i: Nat) (seen: Map a Nat): Option (Nat, Nat) :=
+  match c with
+    | Done => None
+    | Cell x rest =>
+      match Map.get seen x with
+        | Some j => Some (j, i)
+        | None => Stream.Cells.findRepeat (rest ()) (i + 1) (Map.insert seen x i)
+
+--| What a seen-map keeps true when `x`, the value at position `i`, is added at `i`: every value in it is at its position.
+theorem Stream.seenInsert ∀ [auto ord: Ord a] (g: Nat → a) (i: Nat) (x: a) (seen: Map a Nat)
+    (here: g i = x)
+    (inv: ∀ (y: a) (j: Nat) => Map.get seen y = Some j → j < i ∧ g j = y)
+    (y: a) (j: Nat)
+    (got: Map.get (Map.insert seen x i) y = Some j):
+    j < i + 1 ∧ g j = y :=
+  if h: y = x then
+    (rewrite h at got then
+      (rewrite h then
+        (rewrite Map.getInsert x i seen at got then (rewrite <- Option.someInjective got then Both arithmetic here))))
+  else (rewrite Map.getInsertOther x i y h seen at got then (let r := inv y j got; Both arithmetic r.right))
+
+--| A repeat found among the `n` cells of `g` from position `i` is a first position before the second, which is within the
+--| `n` cells, holding the same value. `seen` has each earlier value at the position it holds. By induction on `n`: a hit
+--| in the map is `seenInsert`'s invariant at the head; a miss adds the head and goes on.
+theorem Stream.Cells.findRepeatSome ∀ [auto ord: Ord a] (g: Nat → a) (n i: Nat) (seen: Map a Nat)
+    (inv: ∀ (y: a) (j: Nat) => Map.get seen y = Some j → j < i ∧ g j = y) (p q: Nat):
+    Stream.Cells.findRepeat (Stream.Cells.fromAt g i n) i seen = Some (p, q) → p < q ∧ q < i + n ∧ g p = g q :=
+  match n with
+    | Zero => found => (Option.noneNotSome (p, q) found).impossible
+    | Succ k =>
+      match e: Map.get seen (g i) with
+        | Some j => found =>
+          (let r := inv (g i) j e;
+           let jp: j = p := Eq.cong (x => x.fst) (Option.someInjective found);
+           let iq: i = q := Eq.cong (x => x.snd) (Option.someInjective found);
+           rewrite <- jp, <- iq then Both r.left (Both arithmetic r.right))
+        | None => found =>
+          (let r := Stream.Cells.findRepeatSome g k
+             (i + 1)
+             (Map.insert seen (g i) i)
+             (Stream.seenInsert g i (g i) seen byComputing inv)
+             p
+             q
+             found;
+           Both r.left (Both arithmetic r.right.right))
+
+--| The first repeated value among the first `n` values, as the position it was first at and the position it
+--| repeats at, or `None`: `(Stream.iterate (n => (n * n + 1) % 7) 0).findRepeat 100` is `Some (3, 4)`. It reads the
+--| walk's cells once and remembers the values seen in a `Map`, so it takes about `n` steps, each a map lookup.
+def Stream.findRepeat [auto ord: Ord a] (s: Stream a) (n: Nat): Option (Nat, Nat) :=
+  Stream.Cells.findRepeat (s.base.walk n) 0 Map.empty
+
+--| A repeat found in the first `n` values: the first position is before the second, which is within the `n`, and the
+--| two positions hold the same value.
+theorem Stream.findRepeatSome ∀ [auto ord: Ord a] (s: Stream a) (n p q: Nat):
+    s.findRepeat n = Some (p, q) → p < q ∧ q < n ∧ s.at p = s.at q :=
+  found =>
+    (let r := Stream.Cells.findRepeatSome s.at n 0 Map.empty
+       (y j got => (Option.noneNotSome j ((Map.getEmpty y).flipped.trans got)).impossible)
+       p
+       q
+       ((Eq.cong (c => Stream.Cells.findRepeat c 0 Map.empty) (s.base.agrees n)).flipped.trans found);
+     Both r.left (Both (arithmetic: q < n) r.right.right))
+
+--| Steps that agree everywhere give the same stream.
+theorem Stream.iterateCongr ∀ (f g: a → a) (h: ∀ (x: a) => f x = g x) (x: a): Stream.iterate f x = Stream.iterate g x :=
+  Eq.cong (r => Stream.iterate r x) (Quot.funext a (y => a) f g h)
