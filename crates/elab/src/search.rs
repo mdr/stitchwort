@@ -1210,12 +1210,26 @@ pub fn passes(pattern: &Pattern, index: &Index) -> bool {
 /// Whether a candidate whose type names `index` names a definition
 /// `pattern` names; for a pattern that names none, a data type it names
 /// (always, for a pattern that names neither).
-pub fn overlaps(pattern: &Pattern, index: &Index) -> bool {
+pub fn overlaps(pattern: &Pattern, index: &Index, unit: Option<usize>) -> bool {
     if !pattern.constants.is_empty() {
         // A data type in common (`List`, `Nat`) says little.
         return !pattern.constants.is_disjoint(&index.ty);
     }
-    pattern.data.is_empty() || !pattern.data.is_disjoint(&index.data)
+    // `()` says nothing at all: a thunk's argument, so `() → Float` would
+    // otherwise meet every theorem about a parser `() → {Parse t} a`. A
+    // pattern that names only `()` keeps it.
+    let data: BTreeSet<usize> = pattern
+        .data
+        .iter()
+        .copied()
+        .filter(|d| Some(*d) != unit)
+        .collect();
+    let data = if data.is_empty() {
+        &pattern.data
+    } else {
+        &data
+    };
+    data.is_empty() || !data.is_disjoint(&index.data)
 }
 
 /// Puts things back as they were before a comparison, also when it panics
@@ -1813,6 +1827,11 @@ impl Elaborator {
         } else {
             SearchTier::Unfiltered
         };
+        let unit = g
+            .env
+            .registry()
+            .loaded_data(stitchwort_core::registry::Builtin::UnitType)
+            .map(|d| d.0);
         let mut stats = Stats::default();
         loop {
             let mut best: Vec<Option<Hit>> = vec![None; candidates.len()];
@@ -1844,7 +1863,7 @@ impl Elaborator {
                     // loses 7 points of recall@10 with the rule).
                     if tier == SearchTier::Relaxed
                         && pattern.head == HeadKey::Pi
-                        && !overlaps(pattern, &candidate.index)
+                        && !overlaps(pattern, &candidate.index, unit)
                     {
                         continue;
                     }
