@@ -7,7 +7,7 @@ expression: output
    │
  7 │   let a := n +
    │               │ 
-   │               ╰─ 
+   │               ╰─ here
  8 │   let bad: Nat := "text"
    │   ─┬─  
    │    ╰─── this line starts a new statement

@@ -7,7 +7,7 @@ expression: output
    │
  8 │   | 0 => 1
    │   ┬  
-   │   ╰── 
+   │   ╰── here
    │ 
    │ Note: the alternatives of a `match` that ends a block (after `let` or another statement) go further right than the block's column: indent them
 ───╯

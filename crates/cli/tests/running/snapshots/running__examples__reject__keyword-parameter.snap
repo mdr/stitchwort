@@ -7,7 +7,7 @@ expression: output
    │
  3 │ def pick (condition: Bool) (then: Nat): Nat := then
    │                             ──┬─  
-   │                               ╰─── 
+   │                               ╰─── here
    │ 
    │ Note: `then` is a keyword, so it can't be used as a name
 ───╯

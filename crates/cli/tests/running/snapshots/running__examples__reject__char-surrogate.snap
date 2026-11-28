@@ -7,5 +7,5 @@ expression: output
    │
  3 │ def bad: Char := '\u{D800}'
    │                   ────┬───  
-   │                       ╰───── 
+   │                       ╰───── here
 ───╯

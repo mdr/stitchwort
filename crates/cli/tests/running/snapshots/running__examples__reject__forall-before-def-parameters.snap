@@ -7,7 +7,7 @@ expression: output
    │
  4 │ def double ∀ (n: Nat): Nat := n + n
    │            ┬  
-   │            ╰── 
+   │            ╰── here
    │ 
    │ Note: a `def` or an instance lists its parameters directly after its name
 ───╯

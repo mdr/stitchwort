@@ -7,7 +7,7 @@ expression: output
    │
  6 │ def f (a: Nat) (b: Nat) (xs: List Nat): List Nat := xs.map (a + b *)
    │                                                               ┬  
-   │                                                               ╰── 
+   │                                                               ╰── here
    │ 
    │ Note: a section's operand must bind tighter than its operator: bracket the operand, as in `((a + b) *)`
 ───╯

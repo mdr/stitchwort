@@ -341,6 +341,26 @@ fn an_error_keeps_what_finished_before_it() {
     );
 }
 
+/// A declaration in a file stops at the end of the declaration, since more
+/// may follow; a lone expression stops at the end of its input.
+#[test]
+fn a_declaration_and_an_expression_name_their_end_differently() {
+    let file = SourceMap::new().next_id();
+    let expression = parse_expression(file, "1 +").unwrap_err();
+    assert!(
+        expression.message.contains("the end of the input"),
+        "{}",
+        expression.message
+    );
+    let (_, errors) = parse_module_recovering(file, "def f: Nat := 1 +\n", DEFAULT_STACK);
+    assert_eq!(errors.len(), 1, "{errors:#?}");
+    assert!(
+        errors[0].message.contains("the end of the declaration"),
+        "{}",
+        errors[0].message
+    );
+}
+
 /// A file whose first token is a column-0 `:=` is an error, and the
 /// declarations after it still parse (SW-1918, review F11).
 #[test]

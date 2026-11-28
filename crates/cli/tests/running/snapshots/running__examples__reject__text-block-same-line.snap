@@ -7,5 +7,5 @@ expression: output
    │
  3 │ def example: Text := """L68
    │                      ──┬─  
-   │                        ╰─── 
+   │                        ╰─── here
 ───╯

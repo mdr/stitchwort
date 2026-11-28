@@ -7,7 +7,7 @@ expression: output
    │
  3 │ type T = A | B
    │          ┬  
-   │          ╰── 
+   │          ╰── here
    │ 
    │ Note: a sum type's constructors each start with `|`: `type T = | A | B`, and `type T = | Foo (x: Nat)` for one constructor; a record is `type T = { … }`
 ───╯

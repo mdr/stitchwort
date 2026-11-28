@@ -7,7 +7,7 @@ expression: output
    │
  5 │ def numbers (n: Nat): List Nat := 1 .. n
    │                                     ─┬  
-   │                                      ╰── 
+   │                                      ╰── here
    │                                      │  
    │                                      ╰── write `..<` or `..=` here
 ───╯

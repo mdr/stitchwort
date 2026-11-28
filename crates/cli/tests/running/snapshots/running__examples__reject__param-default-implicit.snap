@@ -7,7 +7,7 @@ expression: output
    │
  5 │ def repeat [count: Nat := 2] (x: Nat): List Nat := List.replicate count x
    │                        ─┬  
-   │                         ╰── 
+   │                         ╰── here
    │ 
    │ Note: an implicit or `auto` parameter is found by unification or by search; give one at a call with `[x := …]`
 ───╯

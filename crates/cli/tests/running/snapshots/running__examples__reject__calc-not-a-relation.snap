@@ -7,5 +7,5 @@ expression: output
    │
  5 │     _ ≠ b := h
    │       ┬  
-   │       ╰── 
+   │       ╰── here
 ───╯

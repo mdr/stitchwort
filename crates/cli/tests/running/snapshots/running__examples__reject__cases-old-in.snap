@@ -7,7 +7,7 @@ expression: output
    │
  7 │   cases in h
    │         ─┬  
-   │          ╰── 
+   │          ╰── here
    │ 
    │ Note: the proof that follows a `cases` comes after `then`: `cases … then t`; `in` is only a membership test
 ───╯

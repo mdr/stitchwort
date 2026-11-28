@@ -7,7 +7,7 @@ expression: output
    │
  4 │   | Succ return => return
    │          ───┬──  
-   │             ╰──── 
+   │             ╰──── here
    │ 
    │ Note: `return` is a keyword, so it can't be used as a name
 ───╯

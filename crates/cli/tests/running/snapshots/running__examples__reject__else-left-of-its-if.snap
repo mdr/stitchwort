@@ -7,5 +7,5 @@ expression: output
    │
  7 │   else 2
    │   ──┬─  
-   │     ╰─── 
+   │     ╰─── here
 ───╯

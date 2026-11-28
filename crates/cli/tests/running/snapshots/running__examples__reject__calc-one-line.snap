@@ -7,7 +7,7 @@ expression: output
    │
  4 │   calc a = b := h
    │          ┬  
-   │          ╰── 
+   │          ╰── here
    │ 
    │ Note: write `calc a` and then, indented below it, `_ = b := proof`
 ───╯

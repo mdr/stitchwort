@@ -7,7 +7,7 @@ expression: output
    │
  6 │ import Std (List.map)
    │             ────┬───  
-   │                 ╰───── 
+   │                 ╰───── here
    │ 
    │ Note: an item of a namespace is imported with the namespace in the path before the brackets: `import Std.List (map)`
 ───╯

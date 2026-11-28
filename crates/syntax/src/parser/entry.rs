@@ -484,6 +484,7 @@ fn parse_expression_tree_as(
         }
     };
     let mut parser = Parser::new(&lexed.tokens, file, text.len(), limit);
+    parser.expression = true;
     let parsed = if result_type {
         parser.result_type()
     } else {

@@ -3,12 +3,12 @@ source: crates/cli/tests/running/examples.rs
 assertion_line: 700
 expression: output
 ---
-[E-PARSE] Error: expected the end of the input, but found `deriving`
+[E-PARSE] Error: expected the end of the declaration, but found `deriving`
    ╭─[ reject/foreign-deriving.sw:5:3 ]
    │
  5 │   deriving DecEq
    │   ────┬───  
-   │       ╰───── 
+   │       ╰───── here
    │ 
    │ Note: there's no `deriving`: a declared type gets `==`, `<` and `${…}` derived when its fields have them (and `Finite` when they're all finite), so delete this line
 ───╯

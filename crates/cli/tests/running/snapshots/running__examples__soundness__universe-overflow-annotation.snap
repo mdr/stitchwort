@@ -7,7 +7,7 @@ expression: output
    │
  3 │ def wrap2: Type 4294967295 := Type 4294967294
    │                 ─────┬────  
-   │                      ╰────── 
+   │                      ╰────── here
    │ 
    │ Note: the largest universe is `Type 65535`
 ───╯

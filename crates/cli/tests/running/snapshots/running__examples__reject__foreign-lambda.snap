@@ -7,7 +7,7 @@ expression: output
    │
  3 │ def inc: Nat -> Nat := λ x => x + 1
    │                        ┬  
-   │                        ╰── 
+   │                        ╰── here
    │ 
    │ Note: `λ` isn't supported: a lambda is written `x => body`
 ───╯

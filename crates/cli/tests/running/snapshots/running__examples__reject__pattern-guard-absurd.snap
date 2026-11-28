@@ -7,7 +7,7 @@ expression: output
    │
  7 │   | () if True
    │        ───┬───  
-   │           ╰───── 
+   │           ╰───── here
    │ 
    │ Note: the condition would test nothing: the pattern can't match
 ───╯

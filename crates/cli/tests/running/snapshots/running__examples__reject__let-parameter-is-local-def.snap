@@ -7,7 +7,7 @@ expression: output
    │
  7 │   let add (y: Nat): Nat := y + n
    │           ┬  
-   │           ╰── 
+   │           ╰── here
    │ 
    │ Note: a `let` binds a value; for a function write a local `def add (y: Nat) …: T := …`, or `let add := (y: Nat) => …`
 ───╯

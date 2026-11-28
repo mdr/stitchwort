@@ -7,7 +7,7 @@ expression: output
    │
  4 │   let with := n + n
    │       ──┬─  
-   │         ╰─── 
+   │         ╰─── here
    │ 
    │ Note: `with` is a keyword, so it can't be used as a name
 ───╯

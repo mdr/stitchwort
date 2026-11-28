@@ -7,7 +7,7 @@ expression: output
    │
  3 │ def f (xs: List Nat): Nat := xs.
    │                                ┬  
-   │                                ╰── 
+   │                                ╰── here
    │ 
    │ Note: `.` is for field access, as in `p.name`
 ───╯

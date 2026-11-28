@@ -7,7 +7,7 @@ expression: output
    │
  7 │     => 1
    │     ─┬  
-   │      ╰── 
+   │      ╰── here
    │ 
    │ Note: a guard's condition runs up to its arm's `=>`, even inside brackets: was a bracket in the guard left open?
 ───╯

@@ -7,5 +7,5 @@ expression: output
    │
  4 │ type Shape = | Circle (id: Text) { radius: Nat }
    │                                  ┬  
-   │                                  ╰── 
+   │                                  ╰── here
 ───╯

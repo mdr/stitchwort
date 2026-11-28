@@ -2,12 +2,12 @@
 source: crates/cli/tests/running/examples.rs
 expression: output
 ---
-[E-PARSE] Error: expected `)`, but reached the end of the input
+[E-PARSE] Error: expected `)`, but reached the end of the declaration
    ╭─[ reject/syntax-error-body-false-statement.sw:4:50 ]
    │
  4 │ theorem wrong (n: Nat): n + 1 = n := (byComputing
    │                                                  │ 
-   │                                                  ╰─ 
+   │                                                  ╰─ here
    │ 
    │ Note: this statement is false; a counterexample:
    │         n = 0

@@ -7,5 +7,5 @@ expression: output
    │
  3 │ def f: List Nat := [1, ..]
    │                          ┬  
-   │                          ╰── 
+   │                          ╰── here
 ───╯

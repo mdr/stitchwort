@@ -7,5 +7,5 @@ expression: output
    │
  3 │   | @[js.name "CIRCLE" "ROUND"] Circle (radius: Nat)
    │                        ───┬───  
-   │                           ╰───── 
+   │                           ╰───── here
 ───╯

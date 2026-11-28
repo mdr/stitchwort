@@ -7,7 +7,7 @@ expression: output
    │
  3 │ def byWalking: Nat := 1
    │     ────┬────  
-   │         ╰────── 
+   │         ╰────── here
    │ 
    │ Note: `byWalking` is a keyword, so it can't be used as a name
 ───╯

@@ -1579,11 +1579,11 @@ fn alias_list() -> String {
         .join(", ")
 }
 
-/// An `E-PARSE` error over `start..end`. The label is empty: the message
-/// already says what went wrong, and repeating it under the caret adds
-/// nothing.
+/// An `E-PARSE` error over `start..end`, labelled `here`: the message already
+/// says what went wrong, and repeating it under the caret adds nothing.
 fn error(file: FileId, start: usize, end: usize, message: impl Into<String>) -> Diagnostic {
-    Diagnostic::error("E-PARSE", message).with_label(Span::new(file, start as u32, end as u32), "")
+    Diagnostic::error("E-PARSE", message)
+        .with_label(Span::new(file, start as u32, end as u32), "here")
 }
 
 #[cfg(test)]
@@ -2425,7 +2425,7 @@ mod tests {
         let span = d.primary_span().expect("a label");
         assert_eq!((span.start, span.end), (10, 14));
         assert_eq!(&text[span.start as usize..span.end as usize], "-- }");
-        assert!(d.labels[0].message.is_empty());
+        assert_eq!(d.labels[0].message, "here");
 
         // A `${…}` that really does reach the newline spans from `${` to it.
         let text = "\"\"\"\n  ${f\n  x}\n  \"\"\"";

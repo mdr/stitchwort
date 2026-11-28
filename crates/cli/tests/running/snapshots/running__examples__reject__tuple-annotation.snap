@@ -7,7 +7,7 @@ expression: output
    │
  3 │ def bad: (Nat, Nat) := (1, 2: Nat)
    │                             ┬  
-   │                             ╰── 
+   │                             ╰── here
    │ 
    │ Note: to annotate one component, write `(a, (b: T))`; to annotate the pair, write `((a, b): T)`
 ───╯
