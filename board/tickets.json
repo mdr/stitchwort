@@ -1,5 +1,5 @@
 {
-  "next": 4983,
+  "next": 4985,
   "tickets": [
     {
       "id": 47,
@@ -22439,6 +22439,34 @@
         "958daedc9",
         "678d237a6"
       ]
+    },
+    {
+      "id": 4983,
+      "title": "refold folds proofs only by shape, so a data let mentioning a proof let depends on the proof's exact read-back; folding a proof by its type (rule I) might shrink derived terms such as derived Ord's %equal (its %e spelled out). Design note first",
+      "status": "backlog",
+      "agent": "Opus",
+      "where": "",
+      "labels": [
+        "perf"
+      ],
+      "epic": "elaborator-kernel",
+      "body": "From SW-4905 (28 Nov): skipping proof lets' unfolded forms grew derive-ord-data's %equal from ~28 K to ~42 K chars because %b0 := T.%C%0%at %s %e stopped folding. A note in docs/proposals/ on refolding proofs by type; then measure on derive-ord-data, eqeq-proof-fields, update-identity.",
+      "created": "2026-11-28",
+      "updated": "2026-11-28",
+      "commits": []
+    },
+    {
+      "id": 4984,
+      "title": "A documented way to dump a declaration's full kernel term (no case-tree elision, no Loc wrappers), for comparing two elaborations: STITCHWORT_DUMP_KERNEL prints case trees as 'case r of …'",
+      "status": "backlog",
+      "agent": "DeepSeek",
+      "where": "",
+      "labels": [],
+      "epic": "dev-loop-speed",
+      "body": "From SW-4905 (28 Nov): the lane patched in a Debug dump and wrote a Loc-stripping script (~8 min).",
+      "created": "2026-11-28",
+      "updated": "2026-11-28",
+      "commits": []
     }
   ]
 }
