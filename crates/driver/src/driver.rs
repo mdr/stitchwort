@@ -1658,6 +1658,11 @@ pub struct TestResult {
     /// Set by [`Session::list_tests_fast`] for a test it didn't run for want
     /// of a cached result; `outcome` means nothing then.
     pub not_run: bool,
+    /// For a test that ran and stopped at an open goal standing for data,
+    /// which it can't compute with (D3777): "reached `?` at a.sw:3:10
+    /// (`half` isn't written yet)". The test fails (`outcome` is
+    /// [`Outcome::Failed`]). Never cached.
+    pub stopped: Option<String>,
 }
 
 /// Why a test failed, as far as it can be told: the part of the test that is
@@ -2243,6 +2248,7 @@ impl Session {
                 unfinished: Some(why),
                 assuming: Vec::new(),
                 not_run: false,
+                stopped: None,
             };
             let span_of = |r: &TestResult| self.test_span(&r.namespace, &r.name).map(order);
             let same_namespace = |r: &TestResult| r.namespace == test.namespace;

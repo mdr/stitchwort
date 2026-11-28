@@ -1,8 +1,9 @@
 //! `check: open-goals:` in `stitchwort.yaml` (SW-2762, D3489, D3494), end to
 //! end: `check` reports open goals as warnings under `warn`, `audit` doesn't
-//! change, `test` fails tests that reach an unfinished declaration (SW-2909), and
-//! a bad value is a project-file error. What uses an open goal is checked
-//! assuming it holds, and stays unfinished (SW-2805).
+//! change, `test` runs tests until they reach a `?` and fails those that do
+//! (D3777), and a bad value is a project-file error. What uses an open goal is
+//! checked assuming it holds, and stays unfinished (SW-2805). `run` runs a
+//! program until it reaches a `?` (D3777).
 
 use std::path::{Path, PathBuf};
 use std::process::{Command, Output, Stdio};
@@ -103,8 +104,8 @@ fn a_test_that_reaches_an_open_goal_fails_under_warn() {
     assert_eq!(out.status.code(), Some(1), "{stdout}{stderr}");
     assert!(stdout.contains("✓ one is one"), "{stdout}");
     assert!(
-        stdout.contains("✗ two is two  not run  (`two` isn't written yet: its body is `?` (")
-            && stdout.contains("src/a.sw:7:17))"),
+        stdout.contains("✗ two is two  ran  (reached `?` at ")
+            && stdout.contains("src/a.sw:7:17 (`two` isn't written yet))"),
         "{stdout}"
     );
     assert!(stdout.contains("2 test(s): 1 passed, 1 failed"), "{stdout}");
@@ -116,13 +117,13 @@ fn a_test_that_reaches_an_open_goal_fails_under_warn() {
     assert_eq!(json_status(&json), Some(1), "{json}");
     assert!(json.contains(r#""outcome":"failed""#), "{json}");
     assert!(
-        json.contains("`two` isn't written yet: its body is `?` ("),
+        json.contains("reached `?` at ") && json.contains("(`two` isn't written yet)"),
         "{json}"
     );
 }
 
 /// When the `?` is only part of a declaration's body, the test says where
-/// the unfinished `?` is instead of claiming the body is `?` (SW-2922).
+/// that `?` is (SW-2922).
 #[test]
 fn a_test_that_reaches_a_hole_inside_a_body_names_it() {
     let dir = project("test-part", "check:\n  open-goals: warn\n");
@@ -140,16 +141,178 @@ fn a_test_that_reaches_a_hole_inside_a_body_names_it() {
     let stderr = text(&out.stderr);
     assert_eq!(out.status.code(), Some(1), "{stdout}{stderr}");
     assert!(
-        stdout.contains(
-            "✗ uses part  not run  (`part` isn't written yet: it has an unfinished `?` at "
-        ) && stdout.contains("src/t.sw:3:22)"),
+        stdout.contains("✗ uses part  ran  (reached `?` at ")
+            && stdout.contains("src/t.sw:3:22 (`part` isn't written yet))"),
         "{stdout}"
     );
     let json = text(&json.stdout);
     assert!(
-        json.contains("`part` isn't written yet: it has an unfinished `?` at ")
-            && json.contains("src/t.sw:3:22"),
+        json.contains("reached `?` at ")
+            && json.contains("src/t.sw:3:22 (`part` isn't written yet)"),
         "{json}"
+    );
+}
+
+/// Matt's 2018 day 1 (D3777): a function written for one case and `?` for
+/// the others. The test of the written case runs and passes; those of the
+/// others run, stop at their `?` and fail, each naming it.
+const PASSES: &str = "namespace Book\n\n\
+     import Std (Int)\n\n\
+     type Pass = { net: Int, lowest: Int, highest: Int }\n\n\
+     def Pass.passesToCheck (pass: Pass): Nat := match Int.compare pass.net 0 with\n  \
+       | Greater => ?\n  \
+       | Equal => 1\n  \
+       | Less => ?\n\n\
+     def passesFor (pass: Pass): Nat := pass.passesToCheck\n\n\
+     test \"no net change\" := passesFor { net = 0, lowest = 0, highest = 1 } == 1\n\n\
+     test \"rising\" := passesFor { net = 3, lowest = -1, highest = 3 } == 2\n\n\
+     test \"falling\" := passesFor { net = -6, lowest = -6, highest = 0 } == 2\n";
+
+#[test]
+fn a_test_runs_until_it_reaches_a_question_mark() {
+    let dir = project("test-reach", "check:\n  open-goals: warn\n");
+    std::fs::write(dir.join("src/p.sw"), PASSES).unwrap();
+    let out = stitchwort(&dir, &["test", "Book"]);
+    let _ = std::fs::remove_dir_all(&dir);
+    let stdout = text(&out.stdout);
+    let stderr = text(&out.stderr);
+    assert_eq!(out.status.code(), Some(1), "{stdout}{stderr}");
+    assert!(stdout.contains("✓ no net change  ran\n"), "{stdout}");
+    for (name, place) in [("rising", "8:16"), ("falling", "10:13")] {
+        let line = (stdout.lines())
+            .find(|line| line.contains(&format!("✗ {name:13}  ran  (reached `?` at ")))
+            .unwrap_or_else(|| panic!("{name}: {stdout}"));
+        let place = format!("/src/p.sw:{place} (`passesToCheck` isn't written yet))");
+        assert!(line.ends_with(&place), "{place}\n{stdout}");
+    }
+    assert!(!stdout.contains("not run"), "{stdout}");
+    assert!(stdout.contains("3 test(s): 1 passed, 2 failed"), "{stdout}");
+}
+
+/// A test that stops at a `?` is never cached; one that passes is cached
+/// under a key that covers the goals its code mentions, so filling one of
+/// them runs it again (D3777).
+#[test]
+fn a_stopped_test_is_never_cached_and_a_passing_one_reruns_when_a_goal_is_filled() {
+    let dir = project("test-reach-cache", "check:\n  open-goals: warn\n");
+    std::fs::write(dir.join("src/p.sw"), PASSES).unwrap();
+    let cached = |dir: &Path| {
+        let out = Command::new(env!("CARGO_BIN_EXE_stitchwort"))
+            .args(["test", "Book"])
+            .current_dir(dir)
+            .stdin(Stdio::null())
+            .output()
+            .expect("run stitchwort");
+        text(&out.stdout)
+    };
+    let first = cached(&dir);
+    let second = cached(&dir);
+    std::fs::write(
+        dir.join("src/p.sw"),
+        PASSES.replacen("| Greater => ?", "| Greater => 2", 1),
+    )
+    .unwrap();
+    let filled = cached(&dir);
+    let _ = std::fs::remove_dir_all(&dir);
+    assert!(first.contains("✓ no net change  ran\n"), "{first}");
+    assert!(second.contains("✓ no net change  cached\n"), "{second}");
+    assert!(
+        second.contains("✗ rising         ran  (reached `?`"),
+        "{second}"
+    );
+    assert!(filled.contains("✓ no net change  ran\n"), "{filled}");
+    assert!(filled.contains("✓ rising         ran\n"), "{filled}");
+    assert!(
+        filled.contains("✗ falling        ran  (reached `?`"),
+        "{filled}"
+    );
+}
+
+/// `run` runs a program that relies on `?`s standing for data, after a
+/// warning, until it reaches one: then it stops, naming it, with status 1
+/// (D3777). One that never reaches one finishes as usual.
+#[test]
+fn run_stops_at_a_question_mark_it_reaches() {
+    let dir = project("run-reach", "sources: [src]\n");
+    std::fs::write(
+        dir.join("src/m.sw"),
+        "namespace Book\n\n\
+         import Std (Nat)\n\n\
+         def half (n: Nat): Nat := match n with\n  \
+           | 0 => 0\n  \
+           | _ => ?\n\n\
+         def main(): {IO} () :=\n  \
+           IO.print \"start ${half 0}\"\n  \
+           IO.print \"then ${half 1}\"\n\n\
+         def fine(): {IO} () := IO.print \"half 0 = ${half 0}\"\n",
+    )
+    .unwrap();
+    let mut runners: Vec<Vec<&str>> = vec![vec![], vec!["--reference"]];
+    if Command::new("node").arg("--version").output().is_ok() {
+        runners.push(vec!["--js"]);
+    }
+    let mut seen = Vec::new();
+    for runner in runners {
+        let run = |name: &str| {
+            let mut args = vec!["run"];
+            args.extend(&runner);
+            args.push(name);
+            stitchwort(&dir, &args)
+        };
+        let out = run("Book.main");
+        let (stdout, stderr) = (text(&out.stdout), text(&out.stderr));
+        seen.push((
+            runner.clone(),
+            out.status.code(),
+            stdout.clone(),
+            stderr.clone(),
+        ));
+        assert_eq!(out.status.code(), Some(1), "{runner:?}: {stdout}{stderr}");
+        assert_eq!(stdout, "start 0\n", "{runner:?}: {stderr}");
+        assert!(
+            stderr.contains("warning: running with 1 open goal: `half`'s (")
+                && stderr.contains("/src/m.sw:7:10); the run stops if it reaches it"),
+            "{runner:?}: {stderr}"
+        );
+        assert!(
+            stderr.contains("[E-UNREACHABLE] Error: reached a `?`: `half` isn't written yet")
+                && stderr.contains("this `?` was reached"),
+            "{runner:?}: {stderr}"
+        );
+        let out = run("Book.fine");
+        let (stdout, stderr) = (text(&out.stdout), text(&out.stderr));
+        assert_eq!(out.status.code(), Some(0), "{runner:?}: {stdout}{stderr}");
+        assert_eq!(stdout, "half 0 = 0\n", "{runner:?}: {stderr}");
+    }
+    let _ = std::fs::remove_dir_all(&dir);
+    assert!(seen.len() >= 2, "{seen:?}");
+}
+
+/// `eval` the same: a value that needs a `?` stops there.
+#[test]
+fn eval_stops_at_a_question_mark_it_reaches() {
+    let dir = std::env::temp_dir().join(format!("stitchwort-goals-{}-eval", std::process::id()));
+    let _ = std::fs::remove_dir_all(&dir);
+    std::fs::create_dir_all(&dir).unwrap();
+    std::fs::write(
+        dir.join("half.sw"),
+        "def half (n: Nat): Nat := match n with\n  | 0 => 0\n  | _ => ?\n",
+    )
+    .unwrap();
+    let written = stitchwort(&dir, &["eval", "half.sw", "half 0"]);
+    let reached = stitchwort(&dir, &["eval", "half.sw", "half 1 + 1"]);
+    let _ = std::fs::remove_dir_all(&dir);
+    assert_eq!(
+        text(&written.stdout).trim(),
+        "0: Nat",
+        "{}",
+        text(&written.stderr)
+    );
+    let stderr = text(&reached.stderr);
+    assert_eq!(reached.status.code(), Some(1), "{stderr}");
+    assert!(
+        stderr.contains("[E-UNREACHABLE] Error: reached a `?`: `half` isn't written yet"),
+        "{stderr}"
     );
 }
 

@@ -22,12 +22,14 @@
 //! its users are checked against the statement and rely on it.
 //!
 //! Nothing that relies on an assumption counts as finished.
-//! `Elaborator::is_unfinished` reads which declarations do off their
-//! checked terms (`assumption::relies_on`, remembered per final
-//! declaration), so every command treats them as it treated a declaration
-//! with a `?` until the reporting stage names the goals, however they were
-//! made. The component's items are also marked unfinished (`module.rs`),
-//! for their status and the check cache.
+//! `Elaborator::is_unfinished` reads which declarations do off their checked
+//! terms (`assumption::relies_on`, remembered per final declaration), so
+//! `check`, `audit`, `axioms` and `build` treat them as they treated a
+//! declaration with a `?` until the reporting stage names the goals, however
+//! they were made. `test` (under `check: open-goals: warn`) runs them, and
+//! `run` and `eval` run what relies only on goals standing for data: a run
+//! stops at a `?` it reaches (D3777). The component's items are also marked
+//! unfinished (`module.rs`), for their status and the check cache.
 
 use std::cell::Cell;
 use stitchwort_core::ProofMark;
@@ -113,13 +115,70 @@ impl Elaborator {
     /// finished (`Elaborator::is_unfinished`): for an expression typed in,
     /// which has no status of its own.
     pub(crate) fn mentions_unfinished(&self, term: &Term) -> bool {
+        self.mentions_unfinished_beyond_goals(term, false)
+    }
+
+    /// [`Self::mentions_unfinished`], but with `to_goals` a definition that
+    /// runs until it reaches a `?` ([`Self::runs_to_its_goals`]) doesn't
+    /// count: for an expression to run (`eval`, `main`), which stops there.
+    pub(crate) fn mentions_unfinished_beyond_goals(&self, term: &Term, to_goals: bool) -> bool {
         term.subterms().any(|(t, _)| match t {
-            Term::Def(id) => self.is_unfinished(*id),
+            Term::Def(id) => self.is_unfinished(*id) && !(to_goals && self.runs_to_its_goals(*id)),
             Term::Data(d, _) | Term::Ctor(d, _, _) | Term::Case(_, d, _) | Term::Proj(d, ..) => {
                 self.tables.is_unfinished(HashKey::Data(*d)) || self.goal_relied_on(*d).is_some()
             }
             _ => false,
         })
+    }
+
+    /// Whether assumption `id` is an open goal standing for data, not a
+    /// proof or a type: a `?` a run computes with, which stops the run
+    /// where it's reached (D3777), rather than being erased.
+    pub fn is_data_goal(&self, id: DefId) -> bool {
+        let g = self.ev();
+        g.def(id).is_open_goal()
+            && !stitchwort_core::erase::of_def(&g, id).is_some_and(|e| e.result)
+    }
+
+    /// Whether definition `id` is checked and runs until it reaches a `?`
+    /// (D3777): every gap it relies on is an open goal standing for data
+    /// ([`Self::is_data_goal`]), so a run stops at whichever one it
+    /// reaches. One that relies on a proof or a type gap, or on an error's
+    /// stand-in, is erased or assumed instead, and `run` and `eval` don't
+    /// run it.
+    pub fn runs_to_its_goals(&self, id: DefId) -> bool {
+        if self.kernel.def(id).state() != stitchwort_core::globals::State::Final {
+            return false;
+        }
+        let goals = self.goals_relied_on(id);
+        !goals.is_empty() && goals.iter().all(|g| self.is_data_goal(*g))
+    }
+
+    /// The declaration whose `?` assumption `id` stands for, by the name
+    /// its goal's message gives it, without its namespace (`inRange`, not
+    /// `Book.inRange`), and a helper the compiler made for one
+    /// (`spin.%step`) as that one.
+    pub fn goal_owner_name(&self, id: DefId) -> Option<String> {
+        let a = self.kernel.env.defs().get(id.0)?.assumption()?;
+        let mut owner: &str = &a.owner;
+        while let Some((outer, last)) = owner.rsplit_once('.')
+            && last.starts_with('%')
+        {
+            owner = outer;
+        }
+        let Some(at) = (self.kernel.env.defs().iter()).position(|d| **d.path() == *owner) else {
+            return Some(owner.to_string());
+        };
+        let name = self.kernel.env.defs()[at].name().to_string();
+        let namespace = (self.tables.namespace_defs.iter())
+            .find(|(_, range)| range.contains(&at))
+            .map(|(namespace, _)| namespace);
+        Some(
+            match namespace.and_then(|n| name.strip_prefix(&format!("{n}."))) {
+                Some(short) => short.to_string(),
+                None => name,
+            },
+        )
     }
 
     /// The declaration whose `?` assumption `id` stands for, by its full

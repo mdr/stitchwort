@@ -139,7 +139,7 @@ fn open_goals_allowed_by_the_project_print_one_line() {
 }
 
 /// `:t` on a declaration whose body is still `?` prints its type (the
-/// header is checked); evaluating it is refused.
+/// header is checked); evaluating it stops at the `?` (D3777).
 #[test]
 fn type_only_works_on_a_declaration_with_an_open_goal() {
     let dir = std::env::temp_dir().join(format!("sw-repl-type-open-{}", std::process::id()));
@@ -177,7 +177,10 @@ fn type_only_works_on_a_declaration_with_an_open_goal() {
         printed.lines().any(|l| l == "a: Nat → Nat"),
         "expected `a: Nat → Nat` in:\n{printed}\n{errors}"
     );
-    assert!(errors.contains("E-UNFINISHED"), "{errors}");
+    assert!(
+        errors.contains("E-UNREACHABLE") && errors.contains("`a` isn't written yet"),
+        "{errors}"
+    );
 }
 
 /// What the REPL printed on stdout and stderr, as text.

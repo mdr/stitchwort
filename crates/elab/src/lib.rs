@@ -1669,10 +1669,19 @@ impl Elaborator {
             let (term, ty) = inferred?;
             let value = eval(&self.ev(), &[], &term)?;
             let g = &self.ev();
+            let quoted = crate::check::quote_internal(g, 0, &value)?;
+            // A value stuck on an open goal standing for data stops, as a
+            // run does there (D3777).
+            if let Some(id) = quoted.subterms().find_map(|(t, _)| match t {
+                Term::Def(id) if self.is_data_goal(*id) => Some(*id),
+                _ => None,
+            }) {
+                return Err(goals::reached(self, id));
+            }
             let show = |v: &Value| -> std::result::Result<String, stitchwort_core::ResourceError> {
                 pretty::term_in_full(g, &[], &crate::check::quote_internal(g, 0, v)?)
             };
-            Ok((show(&value)?, show(&ty)?))
+            Ok((pretty::term_in_full(g, &[], &quoted)?, show(&ty)?))
         };
         let result = run();
         self.kernel.machine.budget.restore(saved);
@@ -1886,9 +1895,10 @@ impl Elaborator {
         self.finish(&ty, 0)?;
         self.clear_metas();
         // A `?` typed in is never shown as a goal; and nothing unfinished
-        // runs: it has no body.
+        // runs, except what relies only on goals standing for data, which
+        // runs until it reaches one (D3777).
         self.clear_goals();
-        if !type_only && self.mentions_unfinished(&term) {
+        if !type_only && self.mentions_unfinished_beyond_goals(&term, true) {
             return Err(goals::uses_unfinished(Some(expr.span())));
         }
         kernel::without_glue(&self.ev(), || {

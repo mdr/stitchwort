@@ -63,6 +63,14 @@ pub enum ResourceError {
     /// Not a result: the session layer discards the check and rewinds, so
     /// this never reaches a user or a cache.
     Cancelled,
+    /// Not a resource: a running program reached code it has no way to run.
+    /// That is an open goal's assumption that isn't a proof (a `?` standing
+    /// for data), or a branch the kernel found impossible, which a run
+    /// reaches only through a false goal's erased proof
+    /// (docs/core.md, "Assumptions (open goals)"). Where it was reached is
+    /// kept by the runner that reached it: [`crate::erase::Erasure::reached`]
+    /// for the evaluator, and the runtime's own for compiled code.
+    Unreachable,
 }
 
 /// The start of [`ResourceError::Size`]'s message, which callers that
@@ -98,6 +106,7 @@ impl ResourceError {
             ResourceError::Size(_) => "size".to_owned(),
             ResourceError::Deadline => "deadline".to_owned(),
             ResourceError::Cancelled => "cancelled".to_owned(),
+            ResourceError::Unreachable => "unreachable".to_owned(),
         }
     }
 }
@@ -313,6 +322,7 @@ impl fmt::Display for ResourceError {
             }
             ResourceError::Deadline => "it took longer than the time allowed",
             ResourceError::Cancelled => "the check was cancelled",
+            ResourceError::Unreachable => "it reached code with nothing to run",
         })
     }
 }
@@ -327,6 +337,13 @@ impl From<ResourceError> for Diagnostic {
     #[cold]
     #[inline(never)]
     fn from(e: ResourceError) -> Diagnostic {
+        if e == ResourceError::Unreachable {
+            return Diagnostic::error(
+                "E-UNREACHABLE",
+                "the program reached code with nothing to run: an open goal (`?`), or a branch \
+                 only a false goal can reach",
+            );
+        }
         trace_resource_error(&e);
         Diagnostic::error("E-RESOURCE", format!("ran out of resources: {e}")).with_note(NO_ANSWER)
     }

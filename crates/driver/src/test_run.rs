@@ -226,14 +226,23 @@ impl TestMachine {
     }
 }
 
+/// Why a test that relies on gaps has no outcome ([`Session::run_relying`]).
+enum NoOutcome {
+    /// It gives no result, for this reason: it isn't counted as run.
+    NotRun(String),
+    /// It ran and stopped at a `?` standing for data, which this names.
+    Stopped(String),
+}
+
 impl Session {
     /// Why `test` can't run, as the message of its failure, or `None` if
-    /// it can. It can't if it relies on, or waits for, gaps in code (open
-    /// goals, or declarations with an error standing in for their
-    /// statements), which the message names with where each is, or uses an
-    /// unfinished declaration. A gap that is a proof (or a type) is erased
-    /// when the test runs, so a test that only mentions a theorem with a
-    /// `?` or an error still runs (D3525).
+    /// it can. It can't if it waits for gaps, relies on a declaration with
+    /// an error standing in for its statement in code, which the message
+    /// names with where each is, or uses an unfinished declaration. A gap
+    /// that is a proof (or a type) is erased when the test runs, so a test
+    /// that only mentions a theorem with a `?` or an error still runs
+    /// (D3525); and an open goal in code is a `?` the run stops at if it
+    /// reaches it, so a test that relies on one runs too (D3777).
     fn unfinished_message(&self, test: &stitchwort_elab::TestDecl) -> Option<String> {
         let relies = self.elab.relies_on_goal(test.def);
         let ids: std::collections::BTreeSet<_> = if relies {
@@ -244,7 +253,7 @@ impl Session {
                 .copied()
                 .filter(|id| !stitchwort_core::erase::of_def(g, *id).is_some_and(|e| e.result))
                 .collect();
-            if code.is_empty() && !relied.is_empty() {
+            if !relied.is_empty() && code.iter().all(|id| self.elab.is_data_goal(*id)) {
                 return None;
             }
             code
@@ -323,7 +332,9 @@ impl Session {
     /// declarations with an error, which are erased when it runs. Empty for
     /// a test that relies on none.
     fn test_assuming(&self, test: &stitchwort_elab::TestDecl) -> Vec<crate::reliance::GoalPlace> {
-        let goals = self.elab.goals_relied_on(test.def);
+        let mut goals = self.elab.goals_relied_on(test.def);
+        // A `?` in code isn't assumed: a run that reaches it stops (D3777).
+        goals.retain(|id| !self.elab.is_data_goal(*id));
         self.goal_places(&goals)
     }
 
@@ -536,6 +547,7 @@ impl Session {
                         unfinished: Some(why),
                         assuming: Vec::new(),
                         not_run: false,
+                        stopped: None,
                     };
                 }
                 let hash = match def_hash(g, test.def) {
@@ -551,6 +563,7 @@ impl Session {
                             unfinished: None,
                             assuming: Vec::new(),
                             not_run: false,
+                            stopped: None,
                         };
                     }
                 };
@@ -567,6 +580,7 @@ impl Session {
                         unfinished: None,
                         assuming: self.test_assuming(test),
                         not_run: false,
+                        stopped: None,
                     };
                 }
                 if matches!(runner, Runner::CacheOnly) {
@@ -580,6 +594,7 @@ impl Session {
                         unfinished: None,
                         assuming: Vec::new(),
                         not_run: true,
+                        stopped: None,
                     };
                 }
                 // A test that runs partial code is a `Delay` (D1183).
@@ -598,6 +613,7 @@ impl Session {
                             unfinished: None,
                             assuming: Vec::new(),
                             not_run: false,
+                            stopped: None,
                         };
                     }
                 };
@@ -605,6 +621,10 @@ impl Session {
                     let outcome = match self.run_relying(test, partial) {
                         Ok(outcome) => outcome,
                         Err(why) => {
+                            let (unfinished, stopped) = match why {
+                                NoOutcome::NotRun(why) => (Some(why), None),
+                                NoOutcome::Stopped(why) => (None, Some(why)),
+                            };
                             return TestResult {
                                 name: test.name.clone(),
                                 namespace: test.namespace.clone(),
@@ -612,9 +632,10 @@ impl Session {
                                 cached: false,
                                 hash: None,
                                 detail: None,
-                                unfinished: Some(why),
+                                unfinished,
                                 assuming: Vec::new(),
                                 not_run: false,
+                                stopped,
                             };
                         }
                     };
@@ -630,6 +651,7 @@ impl Session {
                         unfinished: None,
                         assuming: self.test_assuming(test),
                         not_run: false,
+                        stopped: None,
                     };
                 }
                 let on_native = match (&lowered, &mut native) {
@@ -674,6 +696,7 @@ impl Session {
                     unfinished: None,
                     assuming: Vec::new(),
                     not_run: false,
+                    stopped: None,
                 }
             })
             .collect();
@@ -722,11 +745,13 @@ impl Session {
     /// result, as does a crash, or a result that isn't a `Bool` (stuck on a
     /// `case` of an erased proof of an empty type). The note can't say which proof it was, so a
     /// test that also transports along a true proof isn't run either.
+    /// A run that reaches an open goal standing for data stops there and
+    /// fails, naming it (D3777).
     fn run_relying(
         &self,
         test: &stitchwort_elab::TestDecl,
         partial: bool,
-    ) -> Result<Outcome, String> {
+    ) -> Result<Outcome, NoOutcome> {
         let g = &self.elab.ev();
         g.machine.erasure.take_transported();
         let run = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
@@ -734,23 +759,48 @@ impl Session {
         }));
         let transported = g.machine.erasure.take_transported();
         let gaps = crate::reliance::describe_goals(&self.test_assuming(test), true);
+        let not_run = |why: String| Err(NoOutcome::NotRun(why));
         match run {
             Ok(Ok(Value::Ctor(_, tag @ (0 | 1), _))) if !transported => Ok(if tag == 1 {
                 Outcome::Passed
             } else {
                 Outcome::Failed
             }),
+            Ok(Err(ResourceError::Unreachable)) if !transported => {
+                match g.machine.erasure.reached() {
+                    Some(id) if self.elab.is_data_goal(id) => {
+                        Err(NoOutcome::Stopped(self.reached_goal(id)))
+                    }
+                    // An impossible branch, or a `case` on an erased proof
+                    // of an empty type: only a false proof gets there.
+                    _ => not_run(format!(
+                        "no result: it reached a branch that can't be reached, as if on a proof \
+                         that can't exist, and it relies on {gaps}"
+                    )),
+                }
+            }
             Ok(Err(e)) if !transported => Ok(Outcome::OutOfResources(e)),
             // Not a `Bool`: a `case` on an erased proof of an empty type
             // has no branch to take, so the run is stuck there.
-            Ok(Ok(_)) if !transported => Err(format!(
+            Ok(Ok(_)) if !transported => not_run(format!(
                 "no result: it got stuck, as if on a proof that can't exist, and it relies on {gaps}"
             )),
-            _ if transported => Err(format!("it computes with a proof, and relies on {gaps}")),
-            _ => Err(format!(
+            _ if transported => not_run(format!("it computes with a proof, and relies on {gaps}")),
+            _ => not_run(format!(
                 "no result: the evaluator stopped with an internal error, and it relies on {gaps}"
             )),
         }
+    }
+
+    /// What a run that stopped at open goal `id`, a `?` standing for data,
+    /// reached: "reached `?` at a.sw:3:10 (`half` isn't written yet)".
+    pub fn reached_goal(&self, id: stitchwort_core::DefId) -> String {
+        let place = self.goal_place(id);
+        format!(
+            "reached `?` at {} (`{}` isn't written yet)",
+            place.place(),
+            place.short()
+        )
     }
 
     /// Steps `term`, a partial computation that performs nothing (a test

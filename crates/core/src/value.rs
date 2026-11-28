@@ -2275,6 +2275,7 @@ fn quick(g: &Ev, term: &Rc<Term>, env: &Env) -> Option<Value> {
                 _ if erases_proof(g, *id) => Some(erased()),
                 Some(_) if def.arity == 0 && !folds(g, *id) => None,
                 None if def.assumption.is_some() && erases_result(g, *id) => Some(erased()),
+                None if def.assumption.is_some() && g.machine.erasure.program_running() => None,
                 _ => Some(Value::Neutral(Head::Def(*id), Spine::new())),
             }
         }
@@ -2297,6 +2298,11 @@ fn eval_step(g: &Ev, term: Rc<Term>, env: Env, stack: &mut Stack) -> Result<Cont
                 // erased like a theorem; one that is data stays neutral.
                 None if def.assumption.is_some() && erases_result(g, *id) => {
                     Control::Return(erased())
+                }
+                // A running program can't compute with data it doesn't have.
+                None if def.assumption.is_some() && g.machine.erasure.program_running() => {
+                    g.machine.erasure.note_reached(Some(*id));
+                    return Err(ResourceError::Unreachable);
                 }
                 // While gluing, a constant written in the source, or a
                 // parameter default's helper, is kept as a call with no
@@ -3306,6 +3312,13 @@ fn branch_asked(
         v if erase::is_erased(&v) && g.data(*d).sort == Sort::Prop && !branches.is_empty() => {
             (0, vec![erased(); g.data(*d).ctors[0].fields.len()])
         }
+        // A proof of a proposition with no constructors (`Void`, `False =
+        // True`): a running program has one only through a false goal's
+        // erased proof, and stops, as at an impossible branch.
+        v if erase::is_erased(&v) && branches.is_empty() && g.machine.erasure.program_running() => {
+            g.machine.erasure.note_reached(None);
+            return Err(ResourceError::Unreachable);
+        }
         // Record eta, rule 2 (docs/proposals/record-eta.md §6.4): a `case`
         // on an unknown value of a type with eta takes its only branch, its
         // fields bound to the value's projections. Sound because every value
@@ -3354,10 +3367,13 @@ fn branch_asked(
     };
     let Some(body) = branches[c].body.clone() else {
         // An impossible branch is never reached by a well-typed value
-        // (docs/proposals/indexed-families.md §6.8). A run that reaches one
-        // anyway fails loudly; checking leaves the definition folded.
+        // (docs/proposals/indexed-families.md §6.8) whose proofs are all
+        // checked. A run reaches one only through an open goal's erased
+        // proof whose goal is false, and stops; checking leaves the
+        // definition folded.
         if g.machine.erasure.program_running() {
-            panic!("internal error: unreachable: an impossible branch was reached");
+            g.machine.erasure.note_reached(None);
+            return Err(ResourceError::Unreachable);
         }
         return stuck_tree(g, stack, stuck);
     };

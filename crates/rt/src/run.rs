@@ -198,6 +198,9 @@ pub trait Executor {
     /// After the run stopped for recursing too deeply: which functions had
     /// the most pending calls, if known.
     fn depth_report(&self) -> Option<String>;
+    /// After the run stopped with [`ResourceError::Unreachable`]: the full
+    /// name of the global whose body it stopped in, if known.
+    fn unreachable_at(&self) -> Option<Rc<str>>;
 }
 
 impl<E: Executor + ?Sized> Executor for &mut E {
@@ -227,6 +230,10 @@ impl<E: Executor + ?Sized> Executor for &mut E {
 
     fn depth_report(&self) -> Option<String> {
         (**self).depth_report()
+    }
+
+    fn unreachable_at(&self) -> Option<Rc<str>> {
+        (**self).unreachable_at()
     }
 }
 
@@ -348,6 +355,9 @@ fn run_on<E: Executor>(
 fn entry_error(executor: &impl Executor, e: ResourceError) -> RunError {
     match (e, executor.depth_report()) {
         (ResourceError::Depth, Some(report)) => RunError::Deep(report),
+        (ResourceError::Unreachable, _) => RunError::Unreachable {
+            at: executor.unreachable_at(),
+        },
         (e, _) => e.into(),
     }
 }
@@ -601,6 +611,11 @@ impl<'t, E: Executor> Runner<'t, E> {
     /// `e`, with which functions or frames were pending if it is the
     /// recursion limit.
     fn explain(&self, e: RunError) -> RunError {
+        if matches!(e, RunError::Resource(ResourceError::Unreachable)) {
+            return RunError::Unreachable {
+                at: self.m.unreachable_at(),
+            };
+        }
         if !matches!(e, RunError::Resource(ResourceError::Depth)) {
             return e;
         }

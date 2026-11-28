@@ -481,6 +481,9 @@ pub const OUT_OF_STEPS: u64 = 1;
 /// More frames than the limit, or the native stack's safety margin reached:
 /// [`ResourceError::Depth`].
 pub const OUT_OF_FRAMES: u64 = 2;
+/// Reached code with nothing to run, in the body [`Context::reached`]
+/// names: [`ResourceError::Unreachable`].
+pub const UNREACHABLE: u64 = 3;
 
 /// What native code shares with the runtime, by pointer, as every
 /// function's first argument. `repr(C)`: compiled code reads and writes the
@@ -529,6 +532,9 @@ pub struct Context {
     pub deferred: u64,
     /// The run's freed cells, lent for the call ([`crate::cell_cache`]).
     pub cells: CellCache,
+    /// With [`UNREACHABLE`]: the body (as the image numbers them) that
+    /// stopped.
+    pub reached: u64,
 }
 
 impl Context {
@@ -541,12 +547,14 @@ impl Context {
     pub const TABLES_AT: i32 = std::mem::offset_of!(Context, tables) as i32;
     pub const DEFERRED_AT: i32 = std::mem::offset_of!(Context, deferred) as i32;
     pub const CELLS_AT: i32 = std::mem::offset_of!(Context, cells) as i32;
+    pub const REACHED_AT: i32 = std::mem::offset_of!(Context, reached) as i32;
 
     /// The error native code stopped with, if any.
     pub fn result(&self) -> Result<(), ResourceError> {
         match self.error {
             OK => Ok(()),
             OUT_OF_STEPS => Err(ResourceError::Work),
+            UNREACHABLE => Err(ResourceError::Unreachable),
             _ => Err(ResourceError::Depth),
         }
     }
@@ -774,6 +782,8 @@ pub(crate) struct NativeRun<'a> {
     pub stack_floor: u64,
     /// The run's freed cells, lent to each call's context.
     pub cells: &'a mut CellCache,
+    /// The body that stopped with [`UNREACHABLE`], if one did.
+    pub reached: Option<u32>,
 }
 
 impl NativeRun<'_> {
@@ -1070,6 +1080,7 @@ impl Crossing {
             resumes: u64::from(self.resumes),
             deferred: 0,
             cells: run.cells.lend(),
+            reached: 0,
         }
     }
 
@@ -1088,6 +1099,9 @@ impl Crossing {
         let result = unsafe { out.assume_init() };
         run.steps = context.steps;
         *run.cells = std::mem::take(&mut context.cells);
+        if context.error == UNREACHABLE {
+            run.reached = u32::try_from(context.reached).ok();
+        }
         context.result().map(|()| result)
     }
 
@@ -1237,6 +1251,8 @@ pub struct NativeExecutor {
     /// The bodies with the most frames pending when the frame limit was
     /// last hit, as the machine's `deepest`.
     deepest: Vec<(u32, usize)>,
+    /// The body that last stopped with [`UNREACHABLE`].
+    reached: Option<u32>,
     /// The run's freed cells, freed when it ends.
     cells: CellCache,
 }
@@ -1265,6 +1281,7 @@ impl NativeExecutor {
             stack_size,
             stack_floor: None,
             deepest: Vec::new(),
+            reached: None,
             cells: CellCache::default(),
         }
     }
@@ -1392,6 +1409,7 @@ impl NativeExecutor {
             bodies: Vec::new(),
             stack_floor,
             cells: &mut self.cells,
+            reached: None,
         };
         let out = call(crossing, &mut run);
         self.steps = run.steps;
@@ -1400,6 +1418,9 @@ impl NativeExecutor {
             // behind them): the frames that left, by body, as the machine
             // counts its own.
             self.deepest = crate::shared::deepest(run.bodies.iter().copied());
+        }
+        if run.reached.is_some() {
+            self.reached = run.reached;
         }
         if out.is_err() {
             run.release_failed();
@@ -1458,6 +1479,12 @@ impl crate::run::Executor for NativeExecutor {
 
     fn depth_report(&self) -> Option<String> {
         self.code.crossing().outline().depth_report(&self.deepest)
+    }
+
+    fn unreachable_at(&self) -> Option<Rc<str>> {
+        let outline = self.code.crossing().outline();
+        let g = crate::shared::global_of_code(&outline.global_code, &outline.folds, self.reached?)?;
+        Some(outline.globals[g].name.clone())
     }
 }
 

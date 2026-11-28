@@ -23022,12 +23022,12 @@
     {
       "id": 5017,
       "title": "Tests (and run/eval) run until they reach a data ?, instead of being skipped because their code contains one (D3777, Matt: yes)",
-      "status": "doing",
+      "status": "review",
       "agent": "Opus",
       "where": "",
       "labels": [],
       "epic": "syntax-language",
-      "body": "D3777, Matt 28 Nov: 'D3777 yes, build this please.' Reverses SW-2909's 'needs is decided before running' (docs/proposals/tests-with-errors.md §4.4). A data ? compiles to a stop in every runtime; reaching it fails the test naming the ?; proof/type gaps unchanged; static hash unchanged (covers every gap the code mentions); run/eval same rule. Repro: Matt's 2018 day 1 in /Users/matt/stitchwort-aoc (Pass.passesToCheck).\n\nStarted 11:39 on Opus, est. 60 min.",
+      "body": "D3777, Matt 28 Nov: 'D3777 yes, build this please.' Reverses SW-2909's 'needs is decided before running' (docs/proposals/tests-with-errors.md §4.4). A data ? compiles to a stop in every runtime; reaching it fails the test naming the ?; proof/type gaps unchanged; static hash unchanged (covers every gap the code mentions); run/eval same rule. Repro: Matt's 2018 day 1 in /Users/matt/stitchwort-aoc (Pass.passesToCheck).\n\nStarted 11:39 on Opus, est. 60 min.\n\nDone 12:05 (about 25 min): bb8e59a31 on lane/SW-5017. Repro (Matt's 2018 day 1, passesToCheck with Greater/Less as ?): before, all 7 'passes to check' tests 'not run'; after, 'no net change' passes and the others 'ran (reached `?` at …Day01.sw:37:16 (`passesToCheck` isn't written yet))'. Runtime parts taken from lane/SW-2809 (ab1b7dcb8), restricted to open goals. run/eval run only what relies solely on data ?s (proof ? or error still refused; D3516 open); build still refuses goals. Tests: open_goals (26 incl. 4 new, 2 updated), repl type_only test, core assumptions/indexed running tests, hash_stability (no hash moved). No snapshots mentioned the old line.",
       "created": "2026-11-28",
       "updated": "2026-11-28",
       "commits": []

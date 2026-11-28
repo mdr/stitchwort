@@ -3476,8 +3476,11 @@ fn print_tests_json(
             let (outcome, message) = match r.outcome {
                 Outcome::Passed => ("passed", None),
                 Outcome::Failed => {
-                    let message = match (&r.unfinished, r.detail.as_ref()) {
-                        (Some(why), _) => why.clone(),
+                    let message = match (
+                        r.unfinished.as_ref().or(r.stopped.as_ref()),
+                        r.detail.as_ref(),
+                    ) {
+                        (Some(why), _) => (*why).clone(),
                         (None, Some(d)) => match d.comparison.as_ref() {
                             Some(c) => format!("`{}` is False", c.op),
                             None => "evaluated to False".to_string(),
@@ -3576,7 +3579,10 @@ fn print_tests(results: &[TestResult], grouped: bool) -> ExitCode {
                 } else {
                     "ran"
                 },
-                match (&result.unfinished, result.detail.as_ref()) {
+                match (
+                    result.unfinished.as_ref().or(result.stopped.as_ref()),
+                    result.detail.as_ref(),
+                ) {
                     (Some(why), _) => format!("  ({why})"),
                     (None, Some(d)) => {
                         let shown = match d.comparison.as_ref() {
@@ -3752,6 +3758,9 @@ fn run_target(
         Ok(loaded) => loaded,
         Err(code) => return code,
     };
+    if let Some(line) = session.running_with_goals(&main) {
+        eprintln!("warning: {line}");
+    }
     if js {
         run_main_js(&mut session, main)
     } else {
@@ -5818,10 +5827,27 @@ fn run_main(session: &mut Session, main: &Main, runner: Runner) -> ExitCode {
             eprintln!("error: {msg}");
             ExitCode::FAILURE
         }
+        Err(stitchwort_cli::run::RunError::Unreachable { at }) => {
+            report_unreachable(session, at.as_deref(), main)
+        }
         Err(err) => {
             report(&session.sources, &[err.diagnostic(main)]);
             ExitCode::from(2)
         }
+    }
+}
+
+/// Reports a run of `main` that stopped at code with nothing to run, in the
+/// body of global `at`: a `?` standing for data, which fails the run with
+/// status 1 (D3777), or else an internal error.
+fn report_unreachable(session: &Session, at: Option<&str>, main: &Main) -> ExitCode {
+    let diagnostic = session.unreachable_diagnostic(at, main.span);
+    let internal = diagnostic.code == "E-INTERNAL";
+    report(&session.sources, &[diagnostic]);
+    if internal {
+        ExitCode::from(2)
+    } else {
+        ExitCode::FAILURE
     }
 }
 
@@ -5959,7 +5985,7 @@ fn run_main_native(
 /// directory and runs it with Node, which inherits standard input, output
 /// and error.
 fn run_main_js(session: &mut Session, main: Main) -> ExitCode {
-    use stitchwort_js::run::{EXIT_FAIL, EXIT_IO, EXIT_RESOURCE, EXIT_STATUS};
+    use stitchwort_js::run::{EXIT_FAIL, EXIT_IO, EXIT_RESOURCE, EXIT_STATUS, EXIT_UNREACHABLE};
     let program = match session.extract_program(&main) {
         Ok(program) => program,
         Err(diagnostic) => {
@@ -6029,6 +6055,10 @@ fn run_main_js(session: &mut Session, main: Main) -> ExitCode {
         Some(EXIT_IO) => {
             report(&session.sources, &[Diagnostic::error("E-IO", message())]);
             ExitCode::from(2)
+        }
+        Some(EXIT_UNREACHABLE) => {
+            let at = message();
+            report_unreachable(session, (!at.is_empty()).then_some(at.as_str()), &main)
         }
         // Node has reported what went wrong.
         Some(_) => ExitCode::from(2),

@@ -54,13 +54,19 @@
 //!
 //! An open goal's assumption that is a proof is erased too, and the
 //! argument above holds for it only if its goal is true: it is the one proof
-//! that isn't checked. Under a false goal the run can treat a value as the
-//! wrong type (`J` on `h : 2 = 3` takes its base), reach a branch that has
-//! no body, or not terminate (an assumed `decreasing` goal). So every `J`
-//! that takes its base on the placeholder is noted
-//! ([`Erasure::take_transported`]), and a test that relies on an
-//! assumption gives no result if its run noted one (docs/core.md
-//! "Assumptions (open goals)", Running).
+//! that isn't checked. Under a false goal the run can reach a branch that
+//! has no body, or a `case` on the placeholder for a proposition with no
+//! constructors: it stops there with [`ResourceError::Unreachable`]. It can
+//! also treat a value as the wrong type (`J` on `h : 2 = 3` takes its base),
+//! or not terminate (an assumed `decreasing` goal). So every `J` that takes
+//! its base on the placeholder is noted ([`Erasure::take_transported`]),
+//! and a test that relies on an assumption gives no result if its run
+//! noted one. An assumption that is data has no value: reaching it stops
+//! the run with [`ResourceError::Unreachable`] too, and
+//! [`Erasure::reached`] says which it was (docs/core.md "Assumptions (open
+//! goals)", Running).
+//!
+//! [`ResourceError::Unreachable`]: crate::ResourceError::Unreachable
 //!
 //! Like JS, a proof in a position that isn't erased (passed through
 //! a polymorphic function, say) is still the placeholder if it was made by
@@ -122,6 +128,11 @@ pub struct Erasure {
     /// is right only if the erased proof is true, which a run that relies
     /// on an assumption can't promise.
     transported: Cell<bool>,
+    /// Where the last [`ResourceError::Unreachable`] was reached: the open
+    /// goal's assumption, or `None` for a branch with no body.
+    ///
+    /// [`ResourceError::Unreachable`]: crate::ResourceError::Unreachable
+    reached: Cell<Option<DefId>>,
 }
 
 /// Erasure in effect until dropped.
@@ -186,6 +197,18 @@ impl Erasure {
     /// last asked, clearing it.
     pub fn take_transported(&self) -> bool {
         self.transported.replace(false)
+    }
+
+    /// Where the run that last stopped with
+    /// [`ResourceError::Unreachable`](crate::ResourceError::Unreachable)
+    /// stopped: the open goal's assumption it reached, or `None` for an
+    /// impossible branch.
+    pub fn reached(&self) -> Option<DefId> {
+        self.reached.get()
+    }
+
+    pub(crate) fn note_reached(&self, at: Option<DefId>) {
+        self.reached.set(at);
     }
 
     /// Turns erasure off (or back on) for later runs: for tests comparing
