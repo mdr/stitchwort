@@ -44,6 +44,30 @@ in [../proposals/README.md](../proposals/README.md).
 
 ---
 
+## 28 Nov 2026
+
+### SW-4956: `search` keeps each candidate's folded type index in the check cache
+
+- **Problem.** Stage 3 of [../proposals/search-cache.md](../proposals/search-cache.md)
+  (§3): `type_index` evaluates and reads back folded the type of each of std's 14,000-odd
+  candidates on every search. Profiled first on 28 Nov (timing the calls in place, warm
+  `search --in Std '() → {Parse Char} Int'`, 0.81 s): 0.19 s, 24% of the run (SW-4935's
+  profile had 11% of a run twice as long; the equations entry since removed other work).
+- **Change.** A type index entry per library file (`cache/type_index_entry.rs`, unit `tix.`
+  and the file's unit, under its library key): for each declaration, the names its folded
+  type adds to those it names as written. Names only: nothing is trusted or admitted into
+  the kernel, the search uses it to filter and rank. Stores that keep no entries encode
+  nothing.
+- **Results unchanged** (measured): `search --json --limit 100000 --in Std` for
+  `() → {Parse Char} Int`, `Nat → Nat → Nat`, `_ + _ = _ + _`, `List.length (_ ++ _)`,
+  `"reverse"`, `List.map`, `MkPair`, byte-identical before and after.
+- **Time** (measured, warm, best of 3): repo root `() → {Parse Char} Int` 0.82 s → 0.62 s
+  (−0.20 s); in `aoc/` with `--in Std` 0.85 s → 0.70 s. The first search with a new build
+  writes the entries.
+- **Tests.** `check_cache::type_indexes_replay_from_the_cache_unchanged` (every
+  candidate's index equals one worked out without the cache; the second run hits for
+  every item, writes nothing) and `a_changed_definitions_type_index_entry_is_not_used`.
+
 ## 27 Nov 2026
 
 ### SW-4954: std's deferred equations are kept in the check cache

@@ -275,6 +275,14 @@ A program's on-demand equations (`load_needs`) are always made fresh
 or a unit's capture. No `FORMAT` change: no existing entry's content
 changed.
 
+**Added for SW-4956 (28 Nov 2026).** A library file's type index entry
+(unit `tix.` and the file's unit, search-cache.md §3) is not trusted and
+admits nothing: it holds only paths of declarations that a candidate's
+type names once folded, which `search` uses to filter and rank. It is read
+as an exact hit under the file's key and the same gluing switch, and a name
+that doesn't resolve is a miss. A wrong entry could change what a search
+shows, never what the kernel accepts. No `FORMAT` change.
+
 ### 3.2 Why not `Kernel::rewind`
 
 F1's suggested fix is "`self.kernel.mark()` before `submit` and

@@ -62,6 +62,10 @@ pub struct Session {
     /// For tests: how many times finding an instance has had to wait
     /// (`auto.rs`), in this session.
     pub instance_waits: Cell<usize>,
+    /// What the type index entries have done (`cache::Stats::type_index_*`):
+    /// hits, misses, entries written. Counted by `search_candidates`, which
+    /// only has `&self`.
+    pub(crate) type_index_tally: Cell<[usize; 3]>,
     /// What the check cache has done in this session.
     pub(crate) cache_stats: cache::Stats,
     /// For the check cache: each project namespace's sources, hashed by
@@ -201,6 +205,7 @@ impl Session {
             standalone_inputs: _,
             instance_waits: _,
             cache_stats: _,
+            type_index_tally: _,
             library_interface_digest: _,
             core_digest: _,
             stats: _,
@@ -257,6 +262,7 @@ impl Session {
             standalone_inputs: _,
             instance_waits: _,
             cache_stats: _,
+            type_index_tally: _,
             library_interface_digest: _,
             core_digest: _,
             stats: _,
@@ -346,6 +352,7 @@ impl Session {
             standalone_inputs,
             instance_waits,
             cache_stats,
+            type_index_tally: _,
             assumed,
             blocked,
             waiting_names,
@@ -403,6 +410,7 @@ impl Session {
             standalone_inputs,
             instance_waits,
             cache_stats,
+            type_index_tally: _,
             assumed,
             blocked,
             waiting_names,
