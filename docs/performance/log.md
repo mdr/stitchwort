@@ -46,6 +46,45 @@ in [../proposals/README.md](../proposals/README.md).
 
 ## 28 Nov 2026
 
+### SW-4986: refold compares up to proofs, and a proof `let` gets one form
+
+- **Problem.** SW-4905's skip of a proof-valued `let`'s folded and
+  unfolded read-backs was dropped because `refold` compared forms by
+  shape: derived `Ord`'s `%b0 := T.%C%0%at %s %e` folded only when `%e`'s
+  unfolded form was in the table. Design: docs/proposals/refold-proofs-by-type.md
+  (SW-4983), stage 1.
+- **Change**, three steps, each measured: (1) `refold`'s hook compares with
+  `matching::same_shifted_but_proofs`, so arguments at proof positions are
+  taken as equal (rule I); (2) `ctor_type_fixed` doesn't count a proof
+  field towards fixing a constructor's parameter, since the comparison
+  skips it; (3) `value_forms` of a `let` whose type is a proposition
+  (`value::mark_of_type`) is its as-written form only.
+- **Measured** (release; `derive_cost::` steps; `%equal`'s kernel term in
+  nodes, `Loc` not counted, by a local dump probe; blank: not measured):
+
+  | Case | Before | (1) | (1)+(2) | (1)+(2)+(3) | (3) without (1) |
+  |---|---|---|---|---|---|
+  | 16 constructors of 3 fields | 2,581,024 | | 2,581,024 | 2,549,810 | |
+  | 47 / 94 constructors of 3 | 8,690,013 / 19,938,899 | | same | 8,580,087 / 19,721,437 | |
+  | 47 / 94 constructors of 1 | 923,261 / 1,809,869 | | same | 917,523 / 1,799,102 | |
+  | records of 8 / 16 fields | 349,068 / 1,347,803 | | same | 349,238 / 1,348,389 | |
+  | decide chain 16 / 32 terms | 64,727 / 244,631 | | same | same | |
+  | `derive-ord-data` `Main.Shape.%equal` | 1,395 nodes | same | same | same | 4,065 |
+  | `eqeq-proof-fields` `Main.Small.%equal` | 717 | same | same | same | 2,349 |
+  | `eqeq-proof-fields` `Main.Dial.%equal` | 93 | same | same | same | 93 |
+  | `update-identity` `Main.Shape.%equal` | 1,111 | same | same | same | 6,829 |
+
+  "Same" for a term means byte-identical. Steps (1) and (2) change no
+  measured term and no step count; with them, (3) saves about 1.2% for
+  wide sums and costs 0.05% for records (the `mark_of_type` call). The
+  last column reproduces SW-4905's failure: the skip alone triples
+  `%equal`.
+- **Kept**: all three. The skip's saving is small; it is kept because
+  stage 1 makes it safe and it avoids read-backs that can hit
+  `cheap_limits`. Stage 2 (folding whole proofs by type) isn't needed for
+  these examples: no term grew. `task snap:hashes` (prelude, examples,
+  projects) moved no hash.
+
 ### SW-4905: zonking doesn't read back a function-valued `let`
 
 - **Problem.** SW-4900 found that after rule F (SW-4674) the

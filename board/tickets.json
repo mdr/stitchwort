@@ -22520,14 +22520,14 @@
     {
       "id": 4986,
       "title": "Refold proofs by type, stage 1 (docs/proposals/refold-proofs-by-type.md): refold's hook compares with matching::same_shifted_but_proofs; ctor_type_fixed stops counting proof fields; then retry SW-4905's skip of proof-valued lets' read-backs; measure %equal size and derive_cost steps",
-      "status": "doing",
+      "status": "review",
       "agent": "Opus",
       "where": "",
       "labels": [
         "perf"
       ],
       "epic": "performance",
-      "body": "From SW-4983's note (28 Nov), recommended yes. Hashes of proof declarations change (migration cost: fine; re-record hash_stability prelude/examples/projects). Messages must not change. Orchestrator's call to proceed (term-changing implementation detail; D2303). Kernel terms generated: Opus review of the diff. Update same_shifted_but_proofs' doc (now two users).",
+      "body": "From SW-4983's note (28 Nov), recommended yes. Hashes of proof declarations change (migration cost: fine; re-record hash_stability prelude/examples/projects). Messages must not change. Orchestrator's call to proceed (term-changing implementation detail; D2303). Kernel terms generated: Opus review of the diff. Update same_shifted_but_proofs' doc (now two users).\n\nLane (Opus, 28 Nov): all three steps done on lane/SW-4986 (55766f1f1 steps 1+2, 2000d8534 step 3 + perf log). Measured: steps 1 and 2 change no %equal term (byte-identical) and no derive_cost step count; step 3 saves 1.2% on 16x3 (2,581,024 -> 2,549,810), +0.05% on records; without step 1 the skip triples %equal (1,395 -> 4,065 nodes), reproducing SW-4905. task snap:hashes moved no hash. Example kinds, pinned_hashes::, std_library:: pass. New unit test unify::tests::a_let_folds_back_an_occurrence_with_a_different_proof fails without step 1.",
       "created": "2026-11-28",
       "updated": "2026-11-28",
       "commits": []

@@ -4030,9 +4030,11 @@ pub(crate) fn refold(
             continue;
         };
         // The value, moved under `under` more binders, is compared without
-        // making the moved copy.
+        // making the moved copy, and up to proofs: a solution may hold a
+        // proof argument read back in another form than the value's, and
+        // rule I makes the two the same term to the kernel.
         let hook = |t: &Term, under: usize| {
-            crate::matching::same_shifted(normal, t, by + under, 0)
+            crate::matching::same_shifted_but_proofs(g, normal, t, by + under, 0)
                 .then(|| Term::Var(level + under - 1 - slot))
         };
         match fold_back(g, &term, 0, &hook) {
@@ -4272,7 +4274,9 @@ pub(crate) fn type_fixed(g: &Ev, term: &Term) -> bool {
 /// is `d` at its parameters (the indices follow from them and the fields),
 /// and the term doesn't write the parameters, so each must be fixed by a
 /// field whose own type is fixed and mentions it where conversion can't
-/// lose it (`A` in `head: A` or `tail: List A`).
+/// lose it (`A` in `head: A` or `tail: List A`). A proof field fixes
+/// nothing: [`refold`] compares forms up to proofs, so a form `C p` would
+/// also stand for a `C p'` whose `p'` has another type.
 fn ctor_type_fixed(g: &Ev, d: stitchwort_core::DataId, c: usize, fields: &[Rc<Term>]) -> bool {
     let data = g.data(d);
     let np = data.params().len();
@@ -4284,7 +4288,8 @@ fn ctor_type_fixed(g: &Ev, d: stitchwort_core::DataId, c: usize, fields: &[Rc<Te
     };
     let mut fixed = vec![false; np];
     for (i, ((_, ty), value)) in ctor.fields.iter().zip(fields).enumerate() {
-        if !fixed.iter().all(|f| *f) && type_fixed(g, value) {
+        let proof = stitchwort_core::value::proof_field(g, d, c, i);
+        if !proof && !fixed.iter().all(|f| *f) && type_fixed(g, value) {
             // Field `i`'s type is in the context of the parameters and the
             // `i` fields before it: parameter `k` is `Var(np + i - 1 - k)`.
             for (k, f) in fixed.iter_mut().enumerate() {
@@ -4330,7 +4335,14 @@ pub(crate) type Around = (usize, usize, Rc<Term>);
 /// nothing (`%sameIff`'s `%k`, whose unfolding ran into the limits after
 /// 26 K steps, SW-4905). An annotated lambda folds as elaborated, which the
 /// callers look for themselves.
-pub(crate) fn value_forms(g: &Ev, level: usize, value: &Value) -> Result<Vec<Term>> {
+///
+/// A `proof` (a value whose type is a proposition) has only its as-written
+/// form: its unfolding can be costly, and where a solution holds a proof as
+/// an argument at a proof position, [`refold`] skips it, so a later `let`
+/// whose value takes the proof (`%b0 := T.%C%0%at %s %e` in derived `Ord`)
+/// folds whatever form the solution holds it in. Only a proof held
+/// elsewhere, in another form, is left unfolded (SW-4986).
+pub(crate) fn value_forms(g: &Ev, level: usize, value: &Value, proof: bool) -> Result<Vec<Term>> {
     if matches!(value, Value::Lam(..)) {
         return Ok(Vec::new());
     }
@@ -4339,6 +4351,9 @@ pub(crate) fn value_forms(g: &Ev, level: usize, value: &Value) -> Result<Vec<Ter
         return Ok(vec![quote_internal(g, level, value)?]);
     }
     let mut forms = vec![quote_as_written(g, level, value)?];
+    if proof {
+        return Ok(forms);
+    }
     for folded in [true, false] {
         let read = || match folded {
             // Within `cheap_limits`: a form too large to read is left out, so
@@ -4793,7 +4808,13 @@ fn zonk_let(
     let v2 = go(v, level)?;
     let v_now = v2.clone().unwrap_or_else(|| v.clone());
     let env: Vec<Value> = (0..level).map(Value::var).collect();
-    let normals = cheaply(g, || value_forms(g, level, &eval(g, &env, &v_now)?));
+    let a_now = a2.clone().unwrap_or_else(|| a.clone());
+    let normals = cheaply(g, || {
+        let ty = eval(g, &env, &a_now)?;
+        let proof =
+            stitchwort_core::value::mark_of_type(g, &ty, &|_| None, level + 1_000_000)?.is_proof();
+        value_forms(g, level, &eval(g, &env, &v_now)?, proof)
+    });
     let mut normals: Vec<Term> = normals
         .unwrap_or_default()
         .into_iter()
@@ -5285,6 +5306,48 @@ mod tests {
         ));
         // With only the `let` in scope, nothing is folded.
         assert!(matches!(folded(pair(0, 0), 1), Term::Eq(..)));
+    }
+
+    /// A `let`'s form folds an occurrence that differs from it only in a
+    /// proof argument, which rule I makes the same term: the kernel accepts
+    /// the fold whatever proof the solution was read back with
+    /// (docs/proposals/refold-proofs-by-type.md, stage 1).
+    #[test]
+    fn a_let_folds_back_an_occurrence_with_a_different_proof() {
+        let (fresh, p) = proofs();
+        let g = &fresh.unifier();
+        let zero = || Term::ctor(p.n, 0, vec![]);
+        let one = || Term::ctor(p.n, 1, vec![zero()]);
+        let mk_q = |n: Term| Term::ctor(p.q, 0, vec![n]);
+        let folds = |form: Term, occurrence: Term| {
+            let lets: Vec<Around> = vec![(0, 0, Rc::new(form))];
+            matches!(refold(g, occurrence, 1, &lets).ok().unwrap(), Term::Var(0))
+        };
+        // `ignores Z Z h`, whose `h: Q` is a proof parameter.
+        let ignores = |h: Term| {
+            let f = Term::app(Term::app(Term::Def(p.ignores), zero()), zero());
+            Term::app(f, h)
+        };
+        assert!(folds(ignores(mk_q(zero())), ignores(mk_q(one()))));
+        // `MkT h Z`, whose `h: Q` is a proof field.
+        let mk_t = |h: Term| Term::ctor(p.t, 0, vec![h, zero()]);
+        assert!(folds(mk_t(mk_q(zero())), mk_t(mk_q(one()))));
+        // A data argument still has to match.
+        let other = Term::app(
+            Term::app(Term::app(Term::Def(p.ignores), zero()), one()),
+            mk_q(zero()),
+        );
+        assert!(!folds(ignores(mk_q(zero())), other));
+        // At the root nothing is skipped: a proof folds only itself.
+        assert!(folds(mk_q(zero()), mk_q(zero())));
+        assert!(!folds(mk_q(zero()), mk_q(one())));
+        // `MkBox h: Box Q`, whose parameter only the proof field `h` fixes,
+        // isn't worth folding: the comparison skips `h`, so `MkBox h` could
+        // stand for a `MkBox h'` of another `Box` type.
+        assert!(!worth_folding(
+            g,
+            &Term::ctor(p.boxed, 0, vec![mk_q(zero())])
+        ));
     }
 
     // Proof irrelevance (docs/proposals/proof-irrelevance.md §7.5, §8)

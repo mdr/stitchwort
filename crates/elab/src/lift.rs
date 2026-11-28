@@ -1298,7 +1298,15 @@ impl Elaborator {
                     // uses by a constructor whose fields are bound after the
                     // `let`: then the normal form is in a context that has
                     // them.
-                    let forms = crate::unify::value_forms(g, n, &draft.env[l])?;
+                    let types = |v: usize| draft.types.get(v).cloned();
+                    let proof = stitchwort_core::value::mark_of_type(
+                        g,
+                        &draft.types[l],
+                        &types,
+                        n + 1_000_000,
+                    )?
+                    .is_proof();
+                    let forms = crate::unify::value_forms(g, n, &draft.env[l], proof)?;
                     let mut free = BTreeSet::new();
                     for form in &forms {
                         uses(form, n, &|_| None, &mut free);
