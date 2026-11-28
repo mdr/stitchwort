@@ -181,6 +181,11 @@
   <pre data-src="44-rewrite-repeatedly.sw"></pre>
 </section>
 
+<section data-slug="streams" data-title="Infinite streams">
+  <p>A <code>Stream a</code> is an infinite sequence of values. You build one with a step, <code>Stream.iterate</code> or <code>Stream.unfold</code>, and look at it with <code>take</code>, which gives the first few values as a list. Reading one is recursion on <code>head</code> and <code>tail</code>, with a number that counts down in place of a part to shrink. Streams are equal when every position is, <code>Stream.ext</code>, and a law like mapping twice is proved in a line.</p>
+  <pre data-src="45-streams.sw"></pre>
+</section>
+
 <section data-slug="induct" data-title="Induction that follows a function">
   <p>A recursive function comes with an induction principle shaped like its own equations: one case for each branch, with a hypothesis for each recursive call. <code>match induct (f args)</code> proves a statement about <code>f</code> by those cases, so a proof about a function with an <code>if</code> in it needs no case analysis of its own. The equations are theorems you can name too, such as <code>countAbove.eq2.ifFalse</code>.</p>
   <pre data-src="26-induct.sw"></pre>
