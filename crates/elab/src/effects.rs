@@ -389,7 +389,15 @@ fn decode_row_value(cx: &Ctx, rv: &Value) -> Result<Option<Row>> {
 /// row)` only for a row with at least one ability. So the elaborator never
 /// makes `Ops NoOp NoRes` (docs/proposals/effect-polymorphism.md §5.C.2).
 fn row_value(cx: &Ctx, row: &Row) -> Result<Value> {
-    debug_assert!(!row.partial, "a row with abilities and a tail is total");
+    if row.partial {
+        return Err(cx
+            .error(
+                "E-INTERNAL",
+                "internal error: a row with abilities and a tail was made partial",
+                "here",
+            )
+            .with_note("such a row is total; partiality would be dropped: a bug in the compiler"));
+    }
     if row.labels.is_empty() {
         return Ok(match &row.tail {
             Some(tail) => tail.clone(),
@@ -1169,16 +1177,16 @@ fn lift(cx: &mut Ctx, term: Term, from: Row, to: &Row, t: &Value) -> Result<Term
             Some(dt) => dt.clone(),
             None => div_ctor(cx, Builtin::DivTotal)?,
         };
-        cx.unify(&df, &target)?;
+        cx.unify_settling(&df, &target)?;
         from = settle_div(cx, from)?;
     }
     if let Some(dt) = to.div.clone()
         && div_state(cx, &dt)? == DivState::Unknown
     {
         if from.partial {
-            cx.unify(&dt, &div_ctor(cx, Builtin::DivMay)?)?;
+            cx.unify_settling(&dt, &div_ctor(cx, Builtin::DivMay)?)?;
         } else if let Some(df) = &from.div {
-            cx.unify(&dt, df)?;
+            cx.unify_settling(&dt, df)?;
         }
         to = settle_div(cx, to)?;
     }
@@ -1237,7 +1245,7 @@ fn lift(cx: &mut Ctx, term: Term, from: Row, to: &Row, t: &Value) -> Result<Term
                     && is_unknown(cx, tail)?
                 {
                     let value = row_value(cx, other)?;
-                    cx.unify(tail, &value)?;
+                    cx.unify_settling(tail, &value)?;
                     break;
                 }
             }
@@ -1613,10 +1621,10 @@ fn settle_empty_at(cx: &Ctx, level: usize, ty: &Value) -> Result<()> {
         && unknown_bare(cx, &row)?
     {
         if let Some(d) = &row.div {
-            cx.unify(d, &div_ctor(cx, Builtin::DivTotal)?)?;
+            cx.unify_settling(d, &div_ctor(cx, Builtin::DivTotal)?)?;
         }
         if let Some(tail) = &row.tail {
-            cx.unify(tail, &crate::rows::empty_row_in(cx)?)?;
+            cx.unify_settling(tail, &crate::rows::empty_row_in(cx)?)?;
         }
     }
     Ok(())
@@ -1689,7 +1697,7 @@ pub fn close_inferred_row(cx: &Ctx, row: &Value) -> Result<()> {
         && let Some(tail) = &row.tail
         && is_unknown(cx, tail)?
     {
-        cx.unify(tail, &crate::rows::empty_row_in(cx)?)?;
+        cx.unify_settling(tail, &crate::rows::empty_row_in(cx)?)?;
     }
     Ok(())
 }
@@ -3161,7 +3169,7 @@ fn comp_check_in(
             // proposition can't perform: this is the `Bool` reading.
             if is_unknown(cx, t)? {
                 let bool_ty = Value::Data(data(cx, Builtin::Bool)?, Vec::new().into());
-                cx.unify(t, &bool_ty)?;
+                cx.unify_settling(t, &bool_ty)?;
             }
             if !may_perform(cx, a)? {
                 let and = *op == BinOp::And;
