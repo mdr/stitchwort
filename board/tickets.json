@@ -17986,7 +17986,7 @@
     {
       "id": 4505,
       "title": "[Sonnet] Docs for lanes: how to record new insta snapshots in this repo (docs/testing.md), and how to profile the elaborator on macOS (samply or /usr/bin/sample; docs/performance/) (SW-4498)",
-      "status": "doing",
+      "status": "review",
       "agent": "",
       "where": "",
       "labels": [],
