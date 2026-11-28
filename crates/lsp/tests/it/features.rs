@@ -61,6 +61,15 @@ impl Session {
         Session::open_in(text, capabilities, options, memory)
     }
 
+    /// Like [`Session::open`], with a search that has `time` in all.
+    fn open_searching_for(text: &str, time: std::time::Duration) -> Session {
+        let mut s = Session::open(text);
+        let mut options = Options::new(STACK);
+        options.search_time = time;
+        s.searcher = Arc::new(stitchwort_lsp::Searcher::new(options, s.memory.clone()));
+        s
+    }
+
     /// A program on its own, as the playground opens one: no project.
     fn open_loose(text: &str, options: Options) -> Session {
         Session::open_in(text, json!({}), options, Arc::new(Memory::default()))
@@ -1173,6 +1182,37 @@ fn a_code_action_on_a_goal_offers_a_search_that_runs_when_asked() {
             json!({"line": 2, "character": character})
         );
         assert_eq!(answer["version"], 1);
+    });
+}
+
+/// The search's time is for the search: the one-off work before it (the
+/// library's put-off equations, seconds on a cold start) doesn't use it up,
+/// so the ladder still answers with `byComputing` alone (SW-4974; under load
+/// the setup alone passed the 5 s and the full search ran).
+#[test]
+fn a_searchs_time_does_not_include_its_setup() {
+    big_stack(|| {
+        let text = "namespace Demo\n\ntheorem f (o: Option (Option Nat)): o = o := ?\n";
+        let mut s = Session::open_searching_for(text, std::time::Duration::from_millis(500));
+        let character = text.lines().nth(2).unwrap().find('?').unwrap() as u32;
+        let at = json!({"textDocument": {"uri": URI},
+                        "range": {"start": {"line": 2, "character": character},
+                                  "end": {"line": 2, "character": character}},
+                        "context": {"diagnostics": []}});
+        let actions = s.request_any("textDocument/codeAction", at);
+        let search = actions
+            .as_array()
+            .unwrap()
+            .iter()
+            .find(|a| a["title"] == "Search for a proof")
+            .unwrap();
+        let answer = s.request_searched(
+            "workspace/executeCommand",
+            json!({"command": search["command"]["command"],
+                   "arguments": search["command"]["arguments"]}),
+        );
+        let proofs = answer["proofs"].as_array().unwrap();
+        assert_eq!(proofs.len(), 1, "{proofs:?}");
     });
 }
 

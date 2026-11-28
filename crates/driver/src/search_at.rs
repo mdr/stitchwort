@@ -787,13 +787,16 @@ impl Session {
         scope: &Scope,
         checker: Option<&mut Session>,
     ) -> Result<AtReport, Diagnostic> {
-        let started = Instant::now();
-        // The core's equations, put off until now (`equations.rs`).
+        // The core's equations, put off until now (`equations.rs`). Made
+        // before the clock starts: a cold start takes seconds, and under
+        // load more than the search's whole time, which would leave the
+        // ladder none (SW-4974).
         self.elab.generate_deferred_equations()?;
         let mut checker = checker;
         if let Some(c) = checker.as_deref_mut() {
             c.elab.generate_deferred_equations()?;
         }
+        let started = Instant::now();
         let data = found.data.clone();
         // The goal as the elaborator had it, if it kept it; else its
         // statement, printed and read back.
