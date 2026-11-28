@@ -1,5 +1,5 @@
 {
-  "next": 4975,
+  "next": 4976,
   "tickets": [
     {
       "id": 47,
@@ -22240,6 +22240,21 @@
       ],
       "epic": "proof-search",
       "body": "[Sonnet] Overmind, 28 Nov: red once at 4cdc0e87e in the loop's niced lsp-features step right after the quick tier (test 13.7 s vs 7 s usually); not reproduced alone 3/3 there nor in the full step 50/50, nor 3/3 on Speedwell. Ladder: crates/driver/src/search_at.rs (RUNG_TIME, LADDER_TIME).",
+      "created": "2026-11-28",
+      "updated": "2026-11-28",
+      "commits": []
+    },
+    {
+      "id": 4975,
+      "title": "Live answers per key: index_data_of in LiveProject::answers (crates/driver/src/live.rs) costs ~134 ms a key and make_plan re-analyses all 726 AoC files on every key: most of the ~300 ms left per key after SW-4928",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [
+        "perf"
+      ],
+      "epic": "editor-playground",
+      "body": "[Sonnet] From SW-4928 (28 Nov): native, 2021 day 18, 20 keys 400 ms apart: 6.3 s busy of 8.2 s. Profile first; also measure the wasm worker per key.",
       "created": "2026-11-28",
       "updated": "2026-11-28",
       "commits": []
