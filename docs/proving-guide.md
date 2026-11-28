@@ -1225,7 +1225,9 @@ Each was run on the example named; the output is quoted, shortened.
     hypothesis and `arithmetic` can't prove it; give it in the rule
     (`examples/reject/rewrite-premise-unproved.sw`).
   - `E-REWRITE-NO-GOAL`: no expected type; ascribe it, `(rewrite p then t: a = b)`,
-    or use `rewrite p at h`.
+    or use `rewrite p at h`. A `rewrite p` on a line of its own above a block's
+    result is a statement with no goal; write `rewrite p then result`
+    (`examples/reject/rewrite-no-goal-statement.sw`).
   - `E-REWRITE-BUDGET`: the comparisons were too expensive. That says
     nothing about whether the occurrence is there; use a more specific rule
     or `calc`.

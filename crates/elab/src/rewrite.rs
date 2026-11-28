@@ -174,6 +174,27 @@ fn infer_rewrite_inner(cx: &mut Ctx, expr: &Expr) -> Result<(Term, Value)> {
     .with_note("to rewrite the type of a fact `t` instead of a goal, write `rewrite p at t`"))
 }
 
+/// `rewrite p` on a line of its own above the block's result: the line is a
+/// statement, which has no goal, so a rewrite there is `E-REWRITE-NO-GOAL`.
+/// Says how to write it as the rewrite that proves the result.
+pub(crate) fn note_statement(d: Diagnostic, line: &Expr) -> Diagnostic {
+    let Expr::Rewrite {
+        target: None,
+        body: None,
+        ..
+    } = line
+    else {
+        return d;
+    };
+    if d.code != "E-REWRITE-NO-GOAL" {
+        return d;
+    }
+    d.with_note(
+        "this `rewrite` is a line of its own above the block's result, so it has no goal: \
+         chain the result onto it, `rewrite p then result`",
+    )
+}
+
 /// `rewrite p at h then t` and `rewrite p at h`: the rules rewrite the type
 /// of `h`, and `t` (if any) is checked with `h` rebound to the result.
 fn rewrite_at(cx: &mut Ctx, expr: &Expr, expected: Option<&Value>) -> Result<(Term, Value)> {

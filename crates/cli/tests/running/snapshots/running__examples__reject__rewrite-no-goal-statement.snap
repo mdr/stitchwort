@@ -1,0 +1,19 @@
+---
+source: crates/cli/tests/running/examples.rs
+expression: output
+---
+[E-REWRITE-NO-GOAL] Error: `rewrite` needs to know what it has to prove
+   ╭─[ reject/rewrite-no-goal-statement.sw:4:11 ]
+   │
+ 4 │   rewrite h
+   │           ┬  
+   │           ╰── there is no expected type here to look for this rule's left side in
+   │ 
+   │ Note 1: write the type with an ascription: `(rewrite p then t: a = b)`
+   │ 
+   │ Note 2: the goal is known where a proof is checked against a type: an argument, a definition's body, a `calc` step
+   │ 
+   │ Note 3: to rewrite the type of a fact `t` instead of a goal, write `rewrite p at t`
+   │ 
+   │ Note 4: this `rewrite` is a line of its own above the block's result, so it has no goal: chain the result onto it, `rewrite p then result`
+───╯
