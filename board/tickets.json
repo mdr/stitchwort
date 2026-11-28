@@ -22287,7 +22287,7 @@
     {
       "id": 4977,
       "title": "search: the open-abilities fallback lists generic-parser lemmas (() → {Parse t} a premises, absorbed 1) for thunk patterns: 68 of 76 results for () → Nat, most of 42 for () → Bool, ranked below the real matches",
-      "status": "backlog",
+      "status": "doing",
       "agent": "",
       "where": "",
       "labels": [],
