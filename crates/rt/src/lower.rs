@@ -126,7 +126,7 @@ fn lower_roots(g: &Ev, limits: Limits, roots: Vec<DefId>, entry: &Term) -> Resul
                     op.arity()
                 )));
             }
-        } else if g.def(id).body().is_none() {
+        } else if g.def(id).body().is_none() && !g.def(id).is_open_goal() {
             return Err(Diagnostic::error(
                 "E-RUNTIME",
                 format!("can't run `{}`", g.def(id).name()),
@@ -158,6 +158,15 @@ fn lower_roots(g: &Ev, limits: Limits, roots: Vec<DefId>, entry: &Term) -> Resul
             None if !variant && cx.fin_natives.contains_key(&id) => GlobalKind::Function {
                 params,
                 body: cx.fin_identity(id, cx.fin_natives[&id])?,
+            },
+            // An open goal standing for data: a constant that stops the
+            // run when it's computed, naming the goal (its global's name,
+            // `half.?1`).
+            None if def.is_open_goal() => GlobalKind::Constant {
+                body: Body {
+                    frame: 0,
+                    expr: Expr::Unreachable,
+                },
             },
             None => {
                 let body = if variant {

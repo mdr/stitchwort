@@ -5,6 +5,28 @@ pub(crate) fn slot(level: usize) -> String {
     format!("s{level}")
 }
 
+/// The declaration of an open goal's assumption that stands for data (a
+/// `?` the program computes with): it throws an `Error` named
+/// `Unreachable`, with the goal's assumption's name as `at` (`half.?1`),
+/// when the run reaches it: it's a function whether or not the goal is (one
+/// with no runtime parameters is a [`Convention::Thunk`]), so it throws
+/// when it's called, never when the module loads.
+pub(crate) fn goal_stopper(g: &View<'_>, id: DefId) -> String {
+    let def = g.def(id);
+    let path = def.path();
+    let at = js_string_literal(path);
+    let message = match stitchwort_rt::host::goal_of(path) {
+        Some((owner, hole)) => js_string_literal(&format!(
+            "the program reached open goal {hole} of `{owner}` (a `?`), which has no value to run"
+        )),
+        None => at.clone(),
+    };
+    let throw = format!(
+        "throw Object.assign(new Error({message}), {{ name: \"Unreachable\", at: {at} }});"
+    );
+    format!("const {} = () => {{ {throw} }};\n", def_name(path))
+}
+
 /// A definition's JS name, from its full logical name (`Std.List.length`):
 /// `$` and the name, [`encode`]d. A name starts with a letter or `_`, so a
 /// definition's JS name is never `$$…`, which is an export's wrapper's.

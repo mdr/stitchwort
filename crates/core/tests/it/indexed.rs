@@ -10,8 +10,8 @@ use crate::common::*;
 use stitchwort_core::check::{self, DataDecl, infer_closed};
 use stitchwort_core::hash::{data_hash, def_hash};
 use stitchwort_core::term::Term;
-use stitchwort_core::value::{Value, eval, quote};
-use stitchwort_core::{DataId, DefId, Kernel, Sort, pretty};
+use stitchwort_core::value::{Value, eval, force, quote};
+use stitchwort_core::{DataId, DefId, Kernel, ResourceError, Sort, pretty};
 
 fn code<T>(r: Result<T, stitchwort_syntax::Diagnostic>) -> &'static str {
     r.err().map_or("ok", |d| d.code)
@@ -1494,12 +1494,15 @@ fn an_impossible_branch_is_never_taken() {
     assert!(matches!(value, Value::Neutral(..)));
 }
 
+/// A run reaches one only through a false goal's erased proof: it stops,
+/// saying it reached a branch rather than an open goal.
 #[test]
-#[should_panic(expected = "unreachable")]
-fn running_into_an_impossible_branch_fails_loudly() {
+fn running_into_an_impossible_branch_stops_the_run() {
     let mut f = Fams::new();
     let head = f.head("head", None).unwrap();
     let call = app(Term::Def(head), [f.nat(), f.p.num(0), f.vnil()]);
     let _running = f.p.g.machine.erasure.running();
-    let _ = eval(&f.p.g.ev(), &[], &call);
+    let result = eval(&f.p.g.ev(), &[], &call).and_then(|v| force(&f.p.g.ev(), v));
+    assert_eq!(result.err(), Some(ResourceError::Unreachable));
+    assert_eq!(f.p.g.machine.erasure.reached(), None);
 }

@@ -61,6 +61,12 @@ pub const EXIT_FAIL: i32 = 72;
 /// the status itself is in the error file, as a decimal number. (The
 /// worker can't exit with the status, since 70 to 72 are taken.)
 pub const EXIT_STATUS: i32 = 73;
+/// The runner's exit code when the program reached code with nothing to
+/// run: an open goal (`?`) standing for data, whose assumption's name
+/// (`half.?1`) is in the error file, or a branch the kernel found
+/// impossible (the file is empty), which only a false goal's erased proof
+/// reaches.
+pub const EXIT_UNREACHABLE: i32 = 74;
 
 /// The worker thread's stack, in megabytes. It's reserved, not used: memory
 /// is taken only as deep as the program recurses. 2 GB is about ten million
@@ -149,7 +155,11 @@ pub fn generate_program_with(
                     runtime_arity(prim)
                 )));
             }
-        } else if def.body().is_none() && !info.result_erased && !codegen.is_native(id) {
+        } else if def.body().is_none()
+            && !def.is_open_goal()
+            && !info.result_erased
+            && !codegen.is_native(id)
+        {
             return Err(Diagnostic::error(
                 "E-EXPORT",
                 format!("can't generate JavaScript for `{}`", def.name()),
@@ -202,6 +212,7 @@ pub fn generate_program_with(
             .replace("@EXIT_IO@", &EXIT_IO.to_string())
             .replace("@EXIT_FAIL@", &EXIT_FAIL.to_string())
             .replace("@EXIT_STATUS@", &EXIT_STATUS.to_string())
+            .replace("@EXIT_UNREACHABLE@", &EXIT_UNREACHABLE.to_string())
             .replace("@EXIT_RESOURCE@", &EXIT_RESOURCE.to_string())
             .replace(
                 "@COUNT_OPERATION@",
@@ -248,7 +259,8 @@ pub fn generate_program_with(
         module: js,
         launcher: LAUNCHER
             .replace("@STACK_MB@", &STACK_MB.to_string())
-            .replace("@EXIT_RESOURCE@", &EXIT_RESOURCE.to_string()),
+            .replace("@EXIT_RESOURCE@", &EXIT_RESOURCE.to_string())
+            .replace("@EXIT_UNREACHABLE@", &EXIT_UNREACHABLE.to_string()),
     })
 }
 
@@ -1000,6 +1012,9 @@ import { execFileSync as __execFileSync } from "node:child_process";
     } else if (e instanceof RangeError || (e instanceof Error && e.name === "InternalError")) {
       code = @EXIT_RESOURCE@;
       message = e.message + depthNote(e);
+    } else if (e instanceof Error && (e.name === "Unreachable" || e.message === "unreachable")) {
+      code = @EXIT_UNREACHABLE@;
+      message = e.at ?? "";
     } else {
       throw e;
     }
@@ -1078,6 +1093,10 @@ worker.on("error", (e) => {
   if (e && (e.name === "RangeError" || e.code === "ERR_WORKER_OUT_OF_MEMORY")) {
     writeFileSync(errorFile, e.message);
     process.exitCode = @EXIT_RESOURCE@;
+  } else if (e && e.name === "Unreachable") {
+    // A constant computed from an open goal, when the module loads.
+    writeFileSync(errorFile, e.at ?? "");
+    process.exitCode = @EXIT_UNREACHABLE@;
   } else {
     console.error(e);
     process.exitCode = 1;

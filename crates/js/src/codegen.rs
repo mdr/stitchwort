@@ -28,6 +28,9 @@ pub(crate) struct Gen<'g> {
     pub(crate) array_natives: HashMap<DefId, ArrayNative>,
     /// Per definition, computed on first use ([`Gen::try_info`]).
     pub(crate) infos: Vec<OnceCell<DefInfo>>,
+    /// Whether the program has an open goal standing for data, which a
+    /// constant mustn't compute while the module loads ([`Gen::try_info`]).
+    pub(crate) goals: bool,
     /// Each data type at the boundary's fields' boundaries, with the type's
     /// parameters as [`Boundary::Param`]. Read here, where only strings can be
     /// built, but computed once before, where a resource refusal can be
@@ -267,6 +270,7 @@ impl<'g> Gen<'g> {
             array,
             array_natives,
             infos: g.env.defs().iter().map(|_| OnceCell::new()).collect(),
+            goals: g.env.defs().iter().any(|d| d.is_open_goal()),
             fields,
             if_then_else: g.env.registry().def(Builtin::IfThenElse),
             elim_dec: g.env.registry().def(Builtin::ElimDec),
@@ -497,7 +501,17 @@ impl<'g> Gen<'g> {
                 matches!(b.peel_lams(def.arity()), Term::Case(..) | Term::NumCase(..))
             });
             let in_group = def.group().as_ref().is_some_and(|m| m.len() > 1);
-            if case_tree || in_group {
+            // An open goal throws when it's reached ([`goal_stopper`]), not
+            // when the module loads, so neither it nor a constant that
+            // relies on one is computed then (D3777).
+            let goal = self.goals
+                && stitchwort_core::assumption::relies_on(
+                    g,
+                    stitchwort_core::assumption::Decl::Def(id),
+                    &|_| false,
+                )
+                .is_some();
+            if case_tree || in_group || goal {
                 Convention::Thunk
             } else {
                 Convention::Value
@@ -659,6 +673,9 @@ impl<'g> Gen<'g> {
                 js
             };
             return Ok(format!("const {} = {js};\n", def_name(def.path())));
+        }
+        if def.is_open_goal() {
+            return Ok(goal_stopper(self.g, id));
         }
         let Some(body) = def.run_body() else {
             unreachable!("`generate_with` refuses a definition without a body");

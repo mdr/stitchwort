@@ -297,15 +297,27 @@ gets a result:
 |---|---|---|
 | everything its code runs is checked | runs: passes or fails on its merits | `✓ … ran` |
 | …and it relies on gaps that are proofs or types | runs, never from an old result (its hash covers the gaps) | `✓ … ran  (assuming `doubleTwo`, which has an error (…))` |
-| its code needs a `?` | fails, not run (SW-2909) | ``(`later` isn't written yet: its body is `?` (…))`` |
+| its code needs a `?` | runs until it reaches one (D3777): if it does, fails there; if not, passes or fails on its merits | ``✗ … ran  (reached `?` at src/a.sw:3:16 (`later` isn't written yet))`` |
 | its code needs a declaration with an error | fails, not run (SW-2932) | ``(it uses `twice`, which depends on `broken`, which has an error (…))`` |
 | it waits for a proof or statement gap | fails, not run | ``(it can't be checked until `doubleTwo` is fixed (…))`` |
 | its own body has an error | fails, not run: a result, so the count of tests doesn't change as errors come and go | `(it has an error (src/a.sw:16:23))` |
 
 "Needs" is decided before running, from what the test refers to, by the
 gap's type (data stops a run, a proof or a type doesn't), as
-`unfinished_message` does today for goals [checked]. So a test never
-starts and then stops at a gap.
+`unfinished_message` does [checked]. For an error that is final: a test
+that needs one never starts. For a `?` it isn't (D3777, Matt, 28 Nov
+2026, reversing SW-2909's "a test never starts and then stops at a
+gap"): the test runs, and only a `?` it actually reaches stops it, so a
+function written for some cases and `?` for the others (`| Greater => ?
+| Equal => 1`) is tested on the cases that are written. The stop is a
+run-time error, like an out-of-bounds stop: every runtime compiles a
+data `?` to code that stops the run and names it (its place, and the
+declaration it is in), where before such a declaration had no code at
+all. A test that stops is counted as run and failed, and never cached;
+one that passes is cached under its hash with the goals', so filling any
+of them reruns it. Under `open-goals: fail` nothing changes: the goals
+fail the run before any test does. Errors stay as they were: a stand-in
+has no code to stop at, and its statement may be false.
 
 Exit 1 if any test failed or ran out of resources, if nothing matched, or
 if anything checked for the run has an error. `--json`: `ok` as the exit
@@ -342,7 +354,14 @@ has any error**; JSON `ok: false`, statuses `checked`, `assuming`,
 `run` and `eval` follow `test`'s rule: the diagnostics, then the program
 runs if the code `main` runs needs no gap, with the warning line D3507
 gave goals ("`main` relies on …"); otherwise "`main` uses `broken`, which
-has an error (…), so it isn't run". `build` refuses while what it builds
+has an error (…), so it isn't run". *As built (D3777):* a program whose
+gaps are all `?`s standing for data runs, after ``warning: running with
+1 open goal: `half`'s (a.sw:3:10); the run stops if it reaches it``,
+and one that reaches a `?` stops with ``[E-UNREACHABLE] reached a `?`:
+`half` isn't written yet`` at the `?`, exit 1; `eval` the same, without
+the warning line. A program that relies on a proof's `?` or on an error
+is still not run (D3516, on what a run does under a false proof, is
+open). `build` refuses while what it builds
 has, relies on or waits for an error: an executable outlives the session
 that knew about the gap.
 
@@ -451,7 +470,7 @@ and the run exits 1 because the project has an error. See D-c.
 
 | A test that… | SW-2909 (`?`) | SW-2932 (error) | This note |
 |---|---|---|---|
-| calls a function with the gap | fails | fails | fails (both) |
+| calls a function with the gap | fails | fails | fails (both); a `?` only if the run reaches it (D3777) |
 | only cites a theorem with the gap | runs | fails | runs, and says what it assumed (both) |
 | is in a namespace that imports one with the gap | runs | not run | runs or fails by its own dependencies (both) |
 

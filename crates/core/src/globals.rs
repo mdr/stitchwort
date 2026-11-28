@@ -321,6 +321,12 @@ impl Def {
         self.assumption.as_deref()
     }
 
+    /// Whether it is an open goal's assumption (a `?`), not an error's
+    /// stand-in.
+    pub fn is_open_goal(&self) -> bool {
+        self.assumption().is_some_and(|a| !a.is_error())
+    }
+
     /// Where it was declared.
     pub fn span(&self) -> Span {
         self.span

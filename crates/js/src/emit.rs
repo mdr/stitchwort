@@ -201,7 +201,11 @@ pub fn generate_exports(
         // a module with errors, but if it were asked to, the JS would call a
         // function that isn't there.
         let def = g.def(id);
-        if def.body().is_none() && !codegen.info(id)?.result_erased && !codegen.is_native(id) {
+        if def.body().is_none()
+            && !def.is_open_goal()
+            && !codegen.info(id)?.result_erased
+            && !codegen.is_native(id)
+        {
             return Err(Diagnostic::error(
                 "E-EXPORT",
                 format!("can't generate JavaScript for `{}`", def.name()),

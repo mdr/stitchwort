@@ -342,7 +342,7 @@ fn test_fields(session: &Session, known: &str, with_namespace: bool, run: bool) 
                 String::new()
             };
             let detail = failure_json(r.detail.as_ref());
-            let detail = match &r.unfinished {
+            let detail = match r.unfinished.as_ref().or(r.stopped.as_ref()) {
                 Some(why) => format!(r#","why":{}{detail}"#, json_string(why)),
                 None => detail,
             };

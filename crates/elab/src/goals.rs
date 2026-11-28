@@ -1182,6 +1182,18 @@ pub(crate) fn uses_unfinished(span: Option<Span>) -> Diagnostic {
     }
 }
 
+/// The error for a computation that reached open goal `id`, a `?` standing
+/// for data, which has no value to compute with: the run stops there
+/// (D3777).
+pub(crate) fn reached(e: &Elaborator, id: stitchwort_core::DefId) -> Diagnostic {
+    let owner = e.goal_owner_name(id).unwrap_or_default();
+    Diagnostic::error(
+        "E-UNREACHABLE",
+        format!("reached a `?`: `{owner}` isn't written yet"),
+    )
+    .with_label(e.assumption_span(id), "this `?` was reached")
+}
+
 /// The kernel refused a declaration because `terms` (its bodies and types)
 /// use a failed declaration: if every failed declaration they use is
 /// unfinished, the refusal becomes [`UNFINISHED`]. `own` are the

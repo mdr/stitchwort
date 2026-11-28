@@ -51,6 +51,9 @@ pub struct Main {
     pub partial: bool,
     /// The row `term` is in: which of `Fail` and `Files` it has beside `IO`.
     pub row: MainRow,
+    /// The open goals standing for data it relies on: the `?`s a run of it
+    /// stops at if it reaches them (D3777).
+    goals: std::collections::BTreeSet<stitchwort_core::DefId>,
 }
 
 /// One thing a run did, in order: for tests that compare whole runs.
@@ -212,9 +215,12 @@ impl Session {
     fn main_call(&mut self, index: usize, name: &str) -> Result<Main, CallError> {
         let def = &self.elab.kernel.env.defs()[index];
         let (span, ty) = (def.span(), self.elab.show(def.ty_value()));
-        // It has no body to run (docs/proposals/lsp-goal-holes.md, D636).
+        // It has no body to run (docs/proposals/lsp-goal-holes.md, D636),
+        // or relies on gaps that are erased or assumed when it runs. One
+        // that relies only on `?`s standing for data runs until it reaches
+        // one (D3777).
         let id = stitchwort_core::DefId(index);
-        if self.elab.is_unfinished(id) {
+        if self.elab.is_unfinished(id) && !self.elab.runs_to_its_goals(id) {
             let (ids, waits) = if self.elab.relies_on_goal(id) {
                 (self.elab.goals_relied_on(id), false)
             } else {
@@ -262,6 +268,7 @@ impl Session {
                         span,
                         partial,
                         row,
+                        goals: self.elab.goals_relied_on(id),
                     });
                 }
                 Err(d) if d.is_resource() || d.code == "E-UNFINISHED" => {
@@ -271,6 +278,53 @@ impl Session {
             }
         }
         Err(CallError::Type { span, ty })
+    }
+
+    /// The warning before running `main` when it relies on `?`s standing
+    /// for data (D3777): it stops if it reaches one. `None` if it relies on
+    /// none.
+    pub fn running_with_goals(&self, main: &Main) -> Option<String> {
+        let goals = self.goal_places(&main.goals);
+        let (n, it) = match goals.len() {
+            0 => return None,
+            1 => ("1 open goal".to_string(), "it"),
+            n => (format!("{n} open goals"), "one"),
+        };
+        Some(format!(
+            "running with {n}: {}; the run stops if it reaches {it}",
+            crate::reliance::describe_goals(&goals, false)
+        ))
+    }
+
+    /// The error for a run of `main` that stopped at code with nothing to
+    /// run ([`RunError::Unreachable`]), in the body of global `at`: an open
+    /// goal standing for data (D3777), or else a branch the kernel found
+    /// impossible, which a program that relies on no proof's goal never
+    /// reaches.
+    pub fn unreachable_diagnostic(&self, at: Option<&str>, span: Span) -> Diagnostic {
+        let g = &self.elab.ev();
+        let id = at.and_then(|name| {
+            (g.env.defs().iter())
+                .rposition(|d| **d.path() == *name)
+                .map(stitchwort_core::DefId)
+        });
+        if let Some(id) = id
+            && self.elab.is_data_goal(id)
+        {
+            let place = self.goal_place(id);
+            return Diagnostic::error(
+                "E-UNREACHABLE",
+                format!("reached a `?`: `{}` isn't written yet", place.short()),
+            )
+            .with_label(g.def(id).span(), "this `?` was reached")
+            .with_label(span, "while running this");
+        }
+        let place = id.map_or(String::new(), |id| format!(" in `{}`", g.def(id).name()));
+        Diagnostic::error(
+            "E-INTERNAL",
+            format!("internal error: the program reached a branch that can't be reached{place}"),
+        )
+        .with_label(span, "while running this")
     }
 
     /// Finds the definition a project's `run` names by its full name
@@ -565,6 +619,9 @@ impl Session {
                     .collect();
                 Err(RunError::Deep(parts.join(", ")))
             }
+            Err(RunError::Resource(ResourceError::Unreachable)) => Err(RunError::Unreachable {
+                at: (g.machine.erasure.reached()).map(|id| g.def(id).path().clone()),
+            }),
             other => other,
         }
     }
