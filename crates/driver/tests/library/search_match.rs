@@ -175,6 +175,28 @@ fn the_relaxed_pass_doesnt_relate_a_thunk_pattern_through_unit() {
     assert!(mine.is_empty(), "{mine:?}");
 }
 
+#[test]
+fn the_filtered_pass_doesnt_match_a_premise_through_a_variable_taking_unit() {
+    // `q: k → Bool` meets `() → Bool` only by `k := ()` (the `()` in the
+    // type lets it through the filter); `thunkBool`'s `p: () → Bool` is the
+    // real match (SW-4973).
+    let source = "\
+theorem viaVariable [k: Type] (q: k → Bool) (xs: List (k, ())): xs.all (e => q e.fst) = xs.all (e => q e.fst) := ?
+theorem thunkBool (p: () → Bool): p () = p () := ?
+";
+    let report = with_session(STACK, Session::for_stack, |session| {
+        let _ = session.load("unit.sw", source);
+        session
+            .search("() → Bool", &Options::default(), &Scope::File)
+            .unwrap()
+    });
+    let mine: Vec<&str> = (report.results.iter())
+        .map(|r| r.name.as_str())
+        .filter(|n| n.starts_with("Main."))
+        .collect();
+    assert_eq!(mine, ["Main.thunkBool"], "{:?}", report.search_tier);
+}
+
 /// Overloaded operators with operands nothing types (SW-927).
 const OVERLOADED: &str = "\
 theorem textJoin (a: Text) (b: Text): a ++ b = b ++ a := ?
