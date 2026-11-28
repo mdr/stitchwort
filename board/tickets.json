@@ -23082,12 +23082,12 @@
     {
       "id": 5021,
       "title": "List.scanLeft returns NonEmptyList b, initial value as head (D3778, Matt: yes); update all 63 uses in 22 files and its lemmas; .drop 1 becomes .tail",
-      "status": "doing",
+      "status": "review",
       "agent": "Sonnet",
       "where": "",
       "labels": [],
       "epic": "std-library",
-      "body": "D3778, Matt 28 Nov: 'D3778 yes, kick that specific change off now.' Restated lemmas keep their meaning (orchestrator checks each).",
+      "body": "D3778, Matt 28 Nov: 'D3778 yes, kick that specific change off now.' Restated lemmas keep their meaning (orchestrator checks each).\n\nDone on lane/SW-5021 (65bd21b51): scanLeft returns NonEmptyList; scan lemmas moved to std/List/Scan.sw (cycle: NonEmptyList.sw needs Index/Zip); NonEmptyList.scanLeft added (SW-5028).",
       "created": "2026-11-28",
       "updated": "2026-11-28",
       "commits": []
