@@ -941,6 +941,19 @@ impl Elaborator {
         keys
     }
 
+    /// The keys the short name `x` means through this module's own
+    /// declarations or this file's imports, at the first of those levels
+    /// that has any; empty when only the default set (or nothing) has it.
+    /// For a line of imports added on top of a file (search's), which
+    /// mustn't change what a name there already means (SW-4951).
+    pub fn brought_here(&self, x: &str) -> Vec<String> {
+        match self.resolve_short(x, false) {
+            Resolved::Found { key, level, .. } if level != Level::Default => vec![key.to_string()],
+            Resolved::Ambiguous(keys, level) if level != Level::Default => keys,
+            _ => Vec::new(),
+        }
+    }
+
     /// The `import` items that bring `first` as a namespace here, as
     /// `import P (S)`, with their spans.
     fn qualifier_imports(&self, first: &str) -> Vec<(String, Span)> {

@@ -792,8 +792,10 @@ fn in_std_loads_the_project_when_the_query_names_a_declaration_of_it() {
     // The lowercase name is the project's: not the hole it is without.
     let (code, report) = json(&dir, &["length (_ ++ _)", "--in", "Std"]);
     assert_eq!(code, 2, "{report}");
+    // So is the type, which hides the library's `Pair` there (SW-4951):
+    // the pattern elaborates rather than taking `Std.Pair`'s two arguments.
     let (_, report) = json(&dir, &["Pair → Nat", "--in", "Std"]);
-    assert!(report.get("error").is_some(), "{report}");
+    assert!(report.get("error").is_none(), "{report}");
 }
 
 #[test]

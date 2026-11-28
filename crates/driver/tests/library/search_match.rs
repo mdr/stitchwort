@@ -429,6 +429,84 @@ def listN (xs: List): Nat := match xs with
     );
 }
 
+/// A namespace that defines its own `Pair` and `length`, both also names
+/// in the library, for patterns naming them (SW-4951). `length` is opaque,
+/// so a call of it doesn't compute away.
+const PROBE: &str = "\
+namespace Probe
+
+type Pair = | MkPair (n: Nat)
+
+def pairN (p: Pair): Nat := match p with
+  | MkPair n => n
+
+opaque def length (n: Nat): Nat := n
+";
+
+/// Searches for `query` in a project of `PROBE` and a file of another
+/// namespace that imports it, the results' names: as `stitchwort search`
+/// does in the project, or as the editor's search does from that file.
+fn probe_search(query: &str, from_a_file: bool) -> Result<Vec<String>, String> {
+    use stitchwort_driver::project::{MemoryFiles, Target};
+    const USER: &str = "namespace User\n\nimport Probe (..)\n\ndef one (p: Pair): Nat := pairN p\n";
+    let files = MemoryFiles {
+        files: [
+            ("stitchwort.yaml", "sources: [src]\n"),
+            ("src/probe.sw", PROBE),
+            ("src/user.sw", USER),
+        ]
+        .into_iter()
+        .map(|(p, t)| (p.to_string(), t.to_string()))
+        .collect(),
+        reversed: false,
+    };
+    let options = Options {
+        limit: usize::MAX,
+        ..Options::default()
+    };
+    with_session(STACK, Session::for_stack, |session| {
+        let report = if from_a_file {
+            session
+                .search_in_project("proj", &files, "src/user.sw", None, query, &options)
+                .expect("not cancelled")
+        } else {
+            session
+                .load_project(&files, "proj", &Target::Everything)
+                .expect("the project checks");
+            session.elab.leave_namespace();
+            let scope = Scope::Project(vec!["Probe".to_string(), "User".to_string()]);
+            session.search(query, &options, &scope)
+        };
+        report
+            .map(|r| r.results.into_iter().map(|r| r.name).collect())
+            .map_err(|d| format!("{}: {}", d.code, d.message))
+    })
+}
+
+/// A pattern names what the same text names in the project's code: the
+/// project's `Pair`, which hides the library's there, not the library's
+/// (SW-4951: `E-ARITY`, from `Std.Pair`'s two parameters).
+#[test]
+fn a_pattern_naming_a_projects_own_pair_finds_its_functions() {
+    for from_a_file in [true, false] {
+        let names = probe_search("Pair → Nat", from_a_file).unwrap();
+        assert!(names.iter().any(|n| n == "Probe.pairN"), "{names:?}");
+    }
+    // The library's is still reached in full.
+    let names = probe_search("Std.Pair Nat Nat → Nat", false).unwrap();
+    assert!(names.iter().any(|n| n.starts_with("Std.")), "{names:?}");
+}
+
+/// The same for a lowercase name: the project's `length`, not a hole
+/// (so before SW-4951 too).
+#[test]
+fn a_pattern_naming_a_projects_own_length_finds_it() {
+    for from_a_file in [false, true] {
+        let names = probe_search("length _", from_a_file).unwrap();
+        assert_eq!(names, ["Probe.length.unfold"]);
+    }
+}
+
 /// A search from a file (the editor's `stitchwort/search`) stops part way
 /// once its cancel flag is set, rather than running to its end: a query
 /// typed over in the editor costs little more than what it had compared
