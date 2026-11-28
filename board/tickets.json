@@ -11479,7 +11479,7 @@
       "where": "",
       "labels": [],
       "epic": "proof-search",
-      "body": "\n\nAudit note (22 Nov): Audit 22 Nov: the book still has otherSideSwaps (book/src/02-cases.sw:117) and its later answer; search still offers later declarations as far as the ticket says; not re-run.\n",
+      "body": "\n\nAudit note (22 Nov): Audit 22 Nov: the book still has otherSideSwaps (book/src/02-cases.sw:117) and its later answer; search still offers later declarations as far as the ticket says; not re-run.\n\nHeld for Matt (orchestrator, 28 Nov 04:30): lane/SW-2928 (2877d5213, 9660df8db) drops a file's declarations after the ? from goal search (searchable() gets a 'before' cut; test search_at::only_what_precedes_the_goal_is_offered). But docs/syntax.md says top-level names are visible throughout their module, so a later theorem is legal at an earlier goal; the cut hides valid results. Options: (a) merge as is; (b) rank later declarations after earlier ones instead; (c) hide them only in projects marked as exercises (book/sf, openGoals). To bring as a D question with the morning report. Model result: sonnet, worked (premise questioned), 10 min (est. 35).",
       "created": "2026-11-11",
       "updated": "2026-11-28",
       "commits": []
