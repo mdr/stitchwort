@@ -22106,14 +22106,14 @@
     {
       "id": 4968,
       "title": "docs/syntax.md crib: add the proposition constructors (Both, Witness), h.flipped and Pair's fields (.fst/.snd)",
-      "status": "backlog",
+      "status": "doing",
       "agent": "",
       "where": "",
       "labels": [],
       "epic": "docs-tutorials",
       "body": "[DeepSeek] From SW-4962 (27 Nov): a lane guessed And.intro, Exists.intro, Eq.symm, .first.",
       "created": "2026-11-27",
-      "updated": "2026-11-27",
+      "updated": "2026-11-28",
       "commits": []
     },
     {
