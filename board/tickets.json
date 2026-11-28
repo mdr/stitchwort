@@ -1,5 +1,5 @@
 {
-  "next": 4981,
+  "next": 4983,
   "tickets": [
     {
       "id": 47,
@@ -21218,17 +21218,21 @@
     {
       "id": 4913,
       "title": "[Sonnet] SW-4910 follow-up: a comparison kept for lifted helpers inside a joined group (a helper calling the pending owner) still reaches the kernel before the elaborator compares it; check with a repro whether oracle 3 can see it, fix if so",
-      "status": "review",
+      "status": "done",
       "agent": "",
       "where": "",
       "labels": [
         "bug"
       ],
       "epic": "audit-fuzzing",
-      "body": "From SW-4910's report: lift::resolve_batch now redoes kept comparisons once their helpers are defined, but a joined group (join && pending) still defines the owner with the comparison pending. No test for that shape yet.\nSW-4910 round 2 (27 Nov): a second shape of the same kind: an arm comparison that mentions a helper of the group being defined (a recursive helper) also still waits for finish, so the kernel can see it first. Cover both here. Note: lift::check_settled_awaiting (68d29bdaa) checks only settled comparisons (no unsolved unknown, no Pending def) before each group; extend that rather than unifying early (round one broke 6 theorems by solving unknowns of matches not yet lifted).\n\nLane (Opus, 28 Nov): shape (a), joined group: not observable. Every join=true caller (lifted_body, partial.rs, decreasing.rs) runs finish, so compare_awaiting_helpers, before the owner and its joined helpers go to define_group; repro docs/reviews/repros/sw-4913-joined-group.sw gives the elaborator's E-REFL with no kernel rejection; pinned by oracle_3_comparison_in_a_joined_group. Shape (b), recursive helper: observable. A `match` inside local `def go` that calls `go` is one group with it; an equation about the `match` later in go's body awaited, check_settled_awaiting skipped it (pending members), and the kernel refused first (E-REFL rejection, oracle 3), true claims too (members don't unfold in their own group). Fix: check_settled_awaiting also checks a comparison whose innermost draft (by span, strictly inside a `match` or a local's whole text) is a member of the group being defined, letting it mention the group's pending members; still pure, nothing solved; a comparison outside the group (in the owner) waits as before. Repro docs/reviews/repros/sw-4913-recursive-helper.sw; test oracle_3_comparison_in_a_recursive_helpers_group (failed before: kernel rejection), plus comparison_after_a_recursive_local_waits_for_it (equation in the owner about the local stays accepted). Verdicts unchanged: both shapes were refused before, now by the elaborator. Tests: the 3 new + oracle_3_let_bound_value_in_match_arms pass; test:example (19 examples) 7 passed; memPositionsWhere, rowCellsDistinct, LexProofs (3, --only), Fmt.ReadBackFile clean.\n",
+      "body": "From SW-4910's report: lift::resolve_batch now redoes kept comparisons once their helpers are defined, but a joined group (join && pending) still defines the owner with the comparison pending. No test for that shape yet.\nSW-4910 round 2 (27 Nov): a second shape of the same kind: an arm comparison that mentions a helper of the group being defined (a recursive helper) also still waits for finish, so the kernel can see it first. Cover both here. Note: lift::check_settled_awaiting (68d29bdaa) checks only settled comparisons (no unsolved unknown, no Pending def) before each group; extend that rather than unifying early (round one broke 6 theorems by solving unknowns of matches not yet lifted).\n\nLane (Opus, 28 Nov): shape (a), joined group: not observable. Every join=true caller (lifted_body, partial.rs, decreasing.rs) runs finish, so compare_awaiting_helpers, before the owner and its joined helpers go to define_group; repro docs/reviews/repros/sw-4913-joined-group.sw gives the elaborator's E-REFL with no kernel rejection; pinned by oracle_3_comparison_in_a_joined_group. Shape (b), recursive helper: observable. A `match` inside local `def go` that calls `go` is one group with it; an equation about the `match` later in go's body awaited, check_settled_awaiting skipped it (pending members), and the kernel refused first (E-REFL rejection, oracle 3), true claims too (members don't unfold in their own group). Fix: check_settled_awaiting also checks a comparison whose innermost draft (by span, strictly inside a `match` or a local's whole text) is a member of the group being defined, letting it mention the group's pending members; still pure, nothing solved; a comparison outside the group (in the owner) waits as before. Repro docs/reviews/repros/sw-4913-recursive-helper.sw; test oracle_3_comparison_in_a_recursive_helpers_group (failed before: kernel rejection), plus comparison_after_a_recursive_local_waits_for_it (equation in the owner about the local stays accepted). Verdicts unchanged: both shapes were refused before, now by the elaborator. Tests: the 3 new + oracle_3_let_bound_value_in_match_arms pass; test:example (19 examples) 7 passed; memPositionsWhere, rowCellsDistinct, LexProofs (3, --only), Fmt.ReadBackFile clean.\n\nDone (Opus): (a) joined group not observable: every caller runs finish (compare_awaiting_helpers) before the kernel gets the owner; pinned by oracle_3_comparison_in_a_joined_group. (b) recursive helper observable: a comparison in go's body mentioning go's match waited and the kernel refused it first (oracle 3); check_settled_awaiting now also checks comparisons inside the group's own bodies (by span), still only when settled. Verdicts unchanged (not a soundness fix). Repros in docs/reviews/repros/sw-4913-*.sw. Orchestrator checks: tools/fmt, aoc, games/rogue check --no-cache clean; 62 example/hash tests. Model result: opus, worked, 16 min (est. 40).",
       "created": "2026-11-27",
       "updated": "2026-11-28",
-      "commits": []
+      "commits": [
+        "bc3368b14",
+        "064697e73",
+        "f4a9acb40"
+      ]
     },
     {
       "id": 4914,
@@ -22380,6 +22384,32 @@
       ],
       "epic": "proof-search",
       "body": "[Sonnet] From SW-4974 and Overmind (28 Nov, 4ca5b79a3 green with the test at 12.7 s). SW-4976/SW-4978 made later searches cheap; this is the first one. Time the phases per commit (build only the suspects).",
+      "created": "2026-11-28",
+      "updated": "2026-11-28",
+      "commits": []
+    },
+    {
+      "id": 4981,
+      "title": "E-MUTUAL-SIGNATURE goes through a kernel refusal first: a match whose annotated type mentions another match that calls the owner or local function records a kernel E-MALFORMED before the elaborator reports; refuse before declaring the helper",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "epic": "elaborator-kernel",
+      "body": "[Sonnet] From SW-4913 (28 Nov): probe shapes a1, a3, r4, r5, r8; oracle 3 misses it because the messages differ. Also fix Draft::span's comment (for a local def it is only the signature; LocalDraft::whole is the definition).",
+      "created": "2026-11-28",
+      "updated": "2026-11-28",
+      "commits": []
+    },
+    {
+      "id": 4982,
+      "title": "A dev flag or env var that prints the kernel's refusals (which side refused first), so lanes can tell an elaborator E-REFL from a kernel one without a probe test",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "epic": "dev-loop-speed",
+      "body": "[Sonnet] From SW-4913 (28 Nov): the CLI prints E-REFL either way; the lane added a temporary probe in fuzz_elab.rs.",
       "created": "2026-11-28",
       "updated": "2026-11-28",
       "commits": []
