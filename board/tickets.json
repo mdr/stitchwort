@@ -21664,7 +21664,7 @@
     {
       "id": 4941,
       "title": "search: a pattern like () → Int falls into the relaxed pass and lists 11 unrelated premise matches (theorems with a premise symbol: a → t)",
-      "status": "doing",
+      "status": "review",
       "agent": "",
       "where": "",
       "labels": [],
