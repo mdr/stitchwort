@@ -441,3 +441,131 @@ theorem Stream.unfoldUnique ∀ (s: Type) (step: s → Pair a s) (h: s → Strea
     (state => (heads state).trans (Stream.unfoldHead s step state).flipped)
     (state => Witness (step state).snd (Both (tails state) (Stream.unfoldTail s step state)))
     start
+
+--| The first value that is one seen before, among the first `n` values from position `i`, given a map `seen` from each
+--| value met so far to the position it was first at: the pair of that position and the position of the repeat.
+@[tailrec]
+def Stream.findRepeatFrom [auto ord: Ord a] (s: Stream a) (n i: Nat) (seen: Map a Nat): Option (Nat, Nat) := match n with
+  | Zero => None
+  | Succ k =>
+    match Map.get seen (Stream.head s) with
+      | Some j => Some (j, i)
+      | None => Stream.findRepeatFrom (Stream.tail s) k (i + 1) (Map.insert seen (Stream.head s) i)
+
+--| The first repeated value among the first `n` values, as the position it was first at and the position it
+--| repeats at, or `None`: `(Stream.iterate (n => (n * n + 1) % 7) 0).findRepeat 100` is `Some (2, 5)`. It reads by
+--| `head` and `tail` and remembers the values seen in a `Map`, so it takes about `n` steps, each a map lookup.
+def Stream.findRepeat [auto ord: Ord a] (s: Stream a) (n: Nat): Option (Nat, Nat) :=
+  Stream.findRepeatFrom s n 0 Map.empty
+
+--| What a seen-map keeps true when `x`, the value at position `i`, is added at `i`: every value in it is at its position.
+theorem Stream.seenInsert ∀ [auto ord: Ord a] (s: Stream a) (i: Nat) (x: a) (seen: Map a Nat)
+    (here: s.at i = x)
+    (inv: ∀ (y: a) (j: Nat) => Map.get seen y = Some j → j < i ∧ s.at j = y)
+    (y: a) (j: Nat) (got: Map.get (Map.insert seen x i) y = Some j):
+    j < i + 1 ∧ s.at j = y :=
+  if h: y = x then
+    (rewrite h at got then
+      (rewrite h then
+      (rewrite Map.getInsert x i seen at got then
+        (rewrite <- Option.someInjective got then Both arithmetic here))))
+  else
+    (rewrite Map.getInsertOther x i y h seen at got then
+      (let g := inv y j got; Both arithmetic g.right))
+
+--| A stream that is `s` from position `i` starts with the value of `s` at `i`.
+theorem Stream.shiftHead ∀ (s t: Stream a) (i: Nat) (shift: ∀ (m: Nat) => t.at m = s.at (i + m)): t.head = s.at i :=
+  calc t.head
+    _ = t.at 0 := Stream.headIs t
+    _ = s.at (i + 0) := shift 0
+    _ = s.at i := byComputing
+
+--| The tail of a stream that is `s` from position `i` is `s` from position `i + 1`.
+theorem Stream.shiftTail ∀ (s t: Stream a) (i: Nat) (shift: ∀ (m: Nat) => t.at m = s.at (i + m)) (m: Nat):
+    t.tail.at m = s.at (i + 1 + m) :=
+  calc t.tail.at m
+    _ = t.at (Succ m) := Stream.tailAt t m
+    _ = s.at (i + Succ m) := shift (Succ m)
+    _ = s.at (i + 1 + m) := Eq.cong (x => s.at x) (arithmetic: i + Succ m = i + 1 + m)
+
+--| `findRepeatFrom` finding `(p, q)` means `p` is before `q`, `q` is within the `n` values read, and the two positions
+--| hold the same value. `t` is `s` from position `i`, and `seen` has each of its values at the position it holds.
+--| By induction on `n`: a hit in the map is `seenInsert`'s invariant at the head; a miss adds the head and goes on.
+theorem Stream.findRepeatFromSome ∀ [auto ord: Ord a] (s t: Stream a) (n i: Nat) (seen: Map a Nat)
+    (shift: ∀ (m: Nat) => t.at m = s.at (i + m))
+    (inv: ∀ (y: a) (j: Nat) => Map.get seen y = Some j → j < i ∧ s.at j = y) (p q: Nat):
+    Stream.findRepeatFrom t n i seen = Some (p, q) → p < q ∧ q < i + n ∧ s.at p = s.at q :=
+  match n with
+    | Zero => found => (Option.noneNotSome (p, q) found).impossible
+    | Succ k =>
+      match e: Map.get seen (Stream.head t) with
+        | Some j =>
+          found =>
+            (let g := inv (Stream.head t) j e;
+              let jp: j = p := Eq.cong (r => r.fst) (Option.someInjective found);
+              let iq: i = q := Eq.cong (r => r.snd) (Option.someInjective found);
+              let at0: Stream.head t = s.at i := Stream.shiftHead s t i shift;
+              let here: s.at j = s.at i := g.right.trans at0;
+              rewrite <- jp, <- iq then Both g.left (Both arithmetic here))
+        | None =>
+          Stream.findRepeatFromSome s (Stream.tail t) k (i + 1) (Map.insert seen (Stream.head t) i)
+            (Stream.shiftTail s t i shift)
+            (Stream.seenInsert s i (Stream.head t) seen
+              (Stream.shiftHead s t i shift).flipped
+              inv)
+            p q
+
+--| A repeat found in the first `n` values: the first position is before the second, which is within the `n`, and the
+--| two positions hold the same value.
+theorem Stream.findRepeatSome ∀ [auto ord: Ord a] (s: Stream a) (n p q: Nat):
+    s.findRepeat n = Some (p, q) → p < q ∧ q < n ∧ s.at p = s.at q :=
+  found =>
+    (let r := Stream.findRepeatFromSome s s n 0 Map.empty (m => Eq.cong (x => s.at x) arithmetic)
+        (y j got => (Option.noneNotSome j ((Map.getEmpty y).flipped.trans got)).impossible) p q found;
+      Both r.left (Both (rewrite <- Nat.zeroAdd n then r.right.left) r.right.right))
+
+--| The fold of the first values, stopping at the first accumulator `stop` holds of, from position `i`: the
+--| accumulator and the position it stopped at (`i` plus the values folded).
+@[tailrec]
+def Stream.foldUntilFrom (s: Stream a) (n i: Nat) (acc: b) (f: b → a → b) (stop: b → Bool): (b, Nat) := match n with
+  | Zero => (acc, i)
+  | Succ k =>
+    if stop acc then (acc, i) else Stream.foldUntilFrom (Stream.tail s) k (i + 1) (f acc (Stream.head s)) f stop
+
+--| Fold the first values with `f` until the accumulator satisfies `stop` or `n` values are read, and give the
+--| accumulator and how many values were folded: `(Stream.iterate (+ 1) 1).foldUntil 100 0 (+) (total => total > 20)` is
+--| `(21, 6)`.
+def Stream.foldUntil (s: Stream a) (n: Nat) (init: b) (f: b → a → b) (stop: b → Bool): (b, Nat) :=
+  Stream.foldUntilFrom s n 0 init f stop
+
+--| `foldUntilFrom` is a `fold` of some `m ≤ n` values, which stopped there: it read all `n` or `stop` held.
+theorem Stream.foldUntilFromFold ∀ (s: Stream a) (n i: Nat) (acc: b) (f: b → a → b) (stop: b → Bool):
+    ∃ (m: Nat) => m ≤ n ∧ Stream.foldUntilFrom s n i acc f stop = (s.fold m acc f, i + m)
+      ∧ (m < n → stop (s.fold m acc f)) :=
+  match n with
+    | Zero => Witness 0 (Both arithmetic (Both byComputing (h => (Nat.lessIrrefl 0 h).impossible)))
+    | Succ k =>
+      match e: stop acc with
+        | True => Witness 0 (Both arithmetic (Both byComputing (h => e)))
+        | False =>
+          Exists.elim
+            (Stream.foldUntilFromFold (Stream.tail s) k (i + 1) (f acc (Stream.head s)) f stop)
+            (m h =>
+              Witness
+                (Succ m)
+                (Both
+                  arithmetic
+                  (Both
+                    (rewrite h.right.left then Eq.cong (x => (s.fold (Succ m) acc f, x)) arithmetic)
+                    (d => h.right.right arithmetic))))
+
+--| `foldUntil` is a `fold` over some number of the first values, at most `n`, and it stopped there.
+theorem Stream.foldUntilFold ∀ (s: Stream a) (n: Nat) (init: b) (f: b → a → b) (stop: b → Bool):
+    ∃ (m: Nat) => m ≤ n ∧ s.foldUntil n init f stop = (s.fold m init f, m)
+      ∧ (m < n → stop (s.fold m init f)) :=
+  Exists.elim
+    (Stream.foldUntilFromFold s n 0 init f stop)
+    (m h =>
+      Witness
+        m
+        (Both h.left (Both (h.right.left.trans (Eq.cong (x => (s.fold m init f, x)) arithmetic)) h.right.right)))
