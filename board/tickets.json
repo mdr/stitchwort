@@ -22501,7 +22501,7 @@
     {
       "id": 4986,
       "title": "Refold proofs by type, stage 1 (docs/proposals/refold-proofs-by-type.md): refold's hook compares with matching::same_shifted_but_proofs; ctor_type_fixed stops counting proof fields; then retry SW-4905's skip of proof-valued lets' read-backs; measure %equal size and derive_cost steps",
-      "status": "backlog",
+      "status": "doing",
       "agent": "Opus",
       "where": "",
       "labels": [
