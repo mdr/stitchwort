@@ -11268,9 +11268,11 @@ fn written_sides(cx: &Ctx, a: &Value, b: &Value) -> Option<(String, String)> {
     // from their values, which the arm has substituted into.
     let level = cx.level();
     let refined = (0..level).any(|at| {
-        cx.env
-            .get(at)
-            .is_some_and(|v| !matches!(v, Value::Neutral(..)))
+        cx.lets.get(at).is_some_and(|l| l.is_none())
+            && cx
+                .env
+                .get(at)
+                .is_some_and(|v| !matches!(v, Value::Neutral(..)))
             && (ga.mentions(level - 1 - at) || gb.mentions(level - 1 - at))
     });
     if refined {
