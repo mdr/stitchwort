@@ -64,3 +64,31 @@ test "Stream.take: 20,000 values" := ((Stream.iterate (+ 1) 0).take 20000).lengt
 test "Stream.find: 20,000 values" := (Stream.iterate (+ 1) 0).find 20000 (n => n == 19999) == Some 19999
 
 test "Stream.fold: 20,000 values" := (Stream.iterate (+ 1) 0).fold 20000 0 (+) == 199990000
+
+test "Stream.findRepeat" :=
+  (Stream.iterate (n => (n * n + 1) % 7) 0).findRepeat 100 == Some (3, 4)
+    ∧ (Stream.iterate (+ 1) 0).findRepeat 100 == None
+    ∧ (Stream.iterate (n => (n + 1) % 5) 0).findRepeat 5 == None
+    ∧ (Stream.iterate (n => (n + 1) % 5) 0).findRepeat 6 == Some (0, 5)
+
+-- A cycle of 20,000 states, found by one walk with a map of what was seen.
+test "Stream.findRepeat: a cycle after 20,000 steps" :=
+  (Stream.iterate (n => (n + 1) % 20000) 0).findRepeat 40000 == Some (0, 20000)
+
+test "Stream.findIndex" :=
+  (Stream.iterate (+ 1) 0).findIndex 100 (n => n * n > 50) == Some 8
+    ∧ (Stream.iterate (+ 1) 0).findIndex 5 (n => n > 50) == None
+    ∧ (Stream.iterate (+ 3) 0).tail.findIndex 10 (n => n == 9) == Some 2
+
+test "Stream.foldUntil" :=
+  (Stream.iterate (+ 1) 1).foldUntil 100 0 (+) (total => total > 20) == (21, 6)
+    ∧ (Stream.iterate (+ 1) 1).foldUntil 3 0 (+) (total => total > 20) == (6, 3)
+
+--| A step that is slow: a hundred additions to add one.
+def Stream.Tests.slowStep (x: Nat): Nat := Nat.iterate 100 (+ 1) x - 99
+
+-- The same 20,000 values with a slow step: `fold` reads the walk once, a head and tail loop pays the re-walk too.
+test "Stream.fold: a slow step, 20,000 values" := (Stream.iterate Stream.Tests.slowStep 0).fold 20000 0 (+) == 199990000
+
+test "Stream head and tail loop: a slow step, 20,000 values" :=
+  Stream.Tests.sumFirst (Stream.iterate Stream.Tests.slowStep 0) 20000 0 == 199990000

@@ -1,5 +1,5 @@
 {
-  "next": 5006,
+  "next": 5007,
   "tickets": [
     {
       "id": 47,
@@ -22728,7 +22728,8 @@
         "75e95d708",
         "f9345f4f2",
         "4e739cd42",
-        "ca853edf1"
+        "ca853edf1",
+        "5cf0c4df0"
       ]
     },
     {
@@ -22808,7 +22809,7 @@
       "where": "",
       "labels": [],
       "epic": "std-library",
-      "body": "Matt, 28 Nov: 'Proceed with S2-S4 - I'm interested in which AoC days might genuinely benefit from streams'. Plan: docs/proposals/streams-head-tail.md §6.",
+      "body": "Matt, 28 Nov: 'Proceed with S2-S4 - I'm interested in which AoC days might genuinely benefit from streams'. Plan: docs/proposals/streams-head-tail.md §6.\n\nScope added (orchestrator, from SW-5005's survey): Stream.findIndex with position laws; fold/find/findIndex/findRepeat/foldUntil read the walk once (head/tail loops pay E's re-walk, about 2n steps for n values); optional iterateCongr. Est. +15 min.",
       "created": "2026-11-28",
       "updated": "2026-11-28",
       "commits": []
@@ -22816,15 +22817,19 @@
     {
       "id": 5004,
       "title": "Streams S3: E-TERMINATION on a definition whose result is a Stream points at Stream.unfold / Stream.iterate / Stream.repeat; a feature-tour page (web/guide/) on head/tail recursion over streams",
-      "status": "doing",
+      "status": "done",
       "agent": "Sonnet",
       "where": "",
       "labels": [],
       "epic": "std-library",
-      "body": "Matt, 28 Nov: 'Proceed with S2-S4 - I'm interested in which AoC days might genuinely benefit from streams'. Plan: docs/proposals/streams-head-tail.md §6.",
+      "body": "Matt, 28 Nov: 'Proceed with S2-S4 - I'm interested in which AoC days might genuinely benefit from streams'. Plan: docs/proposals/streams-head-tail.md §6.\n\nLane note: note added in crates/core/src/termination.rs (result type Std.Stream, also for functions); reject examples stream-defined-by-itself, stream-function-recursion; tour page web/guide/45-streams.sw + guide.html. Commit f3df62bc1.\n\nDone (Sonnet): crates/core/src/termination.rs records returns_stream per member (result type after Pi binders is Data 'Std.Stream'); no_descent adds the note when any cycle member returns a stream. Orchestrator reviewed: note only, acceptance unchanged. Two reject examples; tour page web/guide/45-streams.sw. Matching by path string 'Std.Stream', like pretty.rs's 'Std.Map'. Model result: sonnet, worked, 25 min (est. 30).",
       "created": "2026-11-28",
       "updated": "2026-11-28",
-      "commits": []
+      "commits": [
+        "f3df62bc1",
+        "143afbd57",
+        "966a35d8f"
+      ]
     },
     {
       "id": 5005,
@@ -22834,7 +22839,20 @@
       "where": "",
       "labels": [],
       "epic": "std-library",
-      "body": "Matt, 28 Nov: 'Proceed with S2-S4 - I'm interested in which AoC days might genuinely benefit from streams'. Plan: docs/proposals/streams-head-tail.md §6.\n\nPhase 1 (Opus, 28 Nov): survey in docs/reviews/SW-5005-aoc-streams-survey.md. Picks: 2021 day 11, then 2024 day 22; neither needs findRepeat. Waiting for the orchestrator's go-ahead for phase 2.",
+      "body": "Matt, 28 Nov: 'Proceed with S2-S4 - I'm interested in which AoC days might genuinely benefit from streams'. Plan: docs/proposals/streams-head-tail.md §6.\n\nPhase 1 done (f138a63da): docs/reviews/SW-5005-aoc-streams-survey.md. Two days benefit a little: 2021 day 11 (clearer, shorter; proofs may shrink), 2024 day 22 (one stream for both parts). Most neutral, four worse; none faster, no new proofs. findRepeat fits no day. Phase 2 waits for SW-5003 (findIndex, walk-based fold/find added there, orchestrator's call).",
+      "created": "2026-11-28",
+      "updated": "2026-11-28",
+      "commits": []
+    },
+    {
+      "id": 5006,
+      "title": "Examples test: rejected_projects treats a stray .stitchwort cache folder in examples/projects/reject/ as a project and panics ('a project has a stitchwort.yaml'); skip dot folders",
+      "status": "backlog",
+      "agent": "DeepSeek",
+      "where": "",
+      "labels": [],
+      "epic": "test-infra",
+      "body": "Seen 28 Nov in the SW-5004 verifier; a gitignored cache from 04:12 that day. Reproduce by running stitchwort check in examples/projects/reject.",
       "created": "2026-11-28",
       "updated": "2026-11-28",
       "commits": []

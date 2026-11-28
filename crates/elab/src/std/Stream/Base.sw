@@ -235,23 +235,24 @@ theorem Stream.Cells.headOrFromAt ∀ (g: Nat → a) (c: Stream.Cells a) (m: Nat
       | Succ k => byComputing
 
 --| The value a front is at.
-def Stream.Front.head [at: Nat → a] (fr: Stream.Front a at): a := fr.cells.headOr (j => fr.origin.at (fr.offset + j))
+def Stream.Front.head [at: Nat → a] (fr: Stream.Front a at): a :=
+  Stream.Cells.headOr fr.cells (j => fr.origin.at (fr.offset + j))
 
 --| A front is at position 0 of its values.
-theorem Stream.Front.headIs ∀ (at: Nat → a) (fr: Stream.Front a at): fr.head = at 0 :=
+theorem Stream.Front.headIs ∀ (at: Nat → a) (fr: Stream.Front a at): Stream.Front.head fr = at 0 :=
   (Exists.elim fr.ok (m h => Stream.Cells.headOrFromAt (j => fr.origin.at (fr.offset + j)) fr.cells m h)).trans
     (fr.shifted 0).flipped
 
 --| The cells themselves, or when they have run out a fresh walk from the
 --| origin, twice as far as the reader has come, skipped to its place.
 def Stream.Cells.refill (c: Stream.Cells a) (origin: Stream.Base a) (offset: Nat): Stream.Cells a := match c with
-  | Done => (origin.walk (offset + (offset + 2))).skip offset
+  | Done => Stream.Cells.skip (origin.walk (offset + (offset + 2))) offset
   | Cell x rest => Cell x rest
 
 --| A front's cells one step on are again cells of the origin.
 theorem Stream.Front.nextOk ∀ (origin: Stream.Base a) (offset: Nat) (c: Stream.Cells a) (m: Nat)
     (h: c = Stream.Cells.fromAt (j => origin.at (offset + j)) 0 m):
-    ∃ (i: Nat) => Stream.Cells.tail (c.refill origin offset)
+    ∃ (i: Nat) => Stream.Cells.tail (Stream.Cells.refill c origin offset)
       = Stream.Cells.fromAt (j => origin.at (offset + 1 + j)) 0 i :=
   rewrite h then
     match m with

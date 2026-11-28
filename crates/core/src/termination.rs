@@ -240,6 +240,18 @@ struct MemberInfo<'a> {
     name: &'a str,
     params: Params,
     span: Span,
+    /// Its result type, after the parameters, is `Std.Stream` of
+    /// something.
+    returns_stream: bool,
+}
+
+/// Whether a definition's type, after its parameters, is `Stream a`.
+fn returns_stream(g: &Ev, id: DefId) -> bool {
+    let mut ty = g.def(id).ty.strip_loc();
+    while let Term::Pi(_, _, _, body, _) = ty {
+        ty = body.strip_loc();
+    }
+    matches!(ty, Term::Data(d, _) if &*g.data(*d).path == "Std.Stream")
 }
 
 fn check_members(
@@ -282,7 +294,12 @@ fn check_members(
                 _ => break,
             }
         }
-        infos.push(MemberInfo { name, params, span });
+        infos.push(MemberInfo {
+            name,
+            params,
+            span,
+            returns_stream: returns_stream(g, id),
+        });
         trees.push((tree, tree_span));
     }
     let inlined = inlined(&ids, &infos, &trees);
@@ -1114,6 +1131,12 @@ fn no_descent(
             format!("{round}, over and over, no argument is known to get smaller")
         };
         diagnostic = diagnostic.with_note(note);
+    }
+    if on_cycle.iter().any(|m| members[*m].returns_stream) {
+        diagnostic = diagnostic.with_note(
+            "a stream that refers to itself is built with `Stream.repeat`, `Stream.iterate` or \
+             `Stream.unfold` (`Stream.repeat 1` is 1, 1, 1, …)",
+        );
     }
     diagnostic
         .with_generic_note(
