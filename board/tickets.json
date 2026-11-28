@@ -1,5 +1,5 @@
 {
-  "next": 5026,
+  "next": 5028,
   "tickets": [
     {
       "id": 47,
@@ -23098,7 +23098,7 @@
     {
       "id": 5022,
       "title": "Survey: which other std functions would be better returning NonEmptyList than List (or taking one instead of returning Option), for type safety; ranked recommendations",
-      "status": "review",
+      "status": "done",
       "agent": "Opus",
       "where": "",
       "labels": [],
@@ -23106,7 +23106,11 @@
       "body": "Matt, 28 Nov: 'we should also consider if any other stdlib functions would be better off returning NEL rather than List for better type safety'. Paper lane.\n\nProgress: survey written, docs/reviews/SW-5022-nonempty-results.md. Top: Parse.oneOf takes a NonEmptyList (change), Text.split/splitOn give one once NEL has filter/filterMap/withIndex/toSet/join (change after), Parse.span1 gives one (change); chunksOf, tails and the rest left.",
       "created": "2026-11-28",
       "updated": "2026-11-28",
-      "commits": []
+      "commits": [
+        "34b2941e5",
+        "ef34d0e19",
+        "9532a75ad"
+      ]
     },
     {
       "id": 5023,
@@ -23143,6 +23147,32 @@
       "labels": [],
       "epic": "test-infra",
       "body": "From SW-5017.",
+      "created": "2026-11-28",
+      "updated": "2026-11-28",
+      "commits": []
+    },
+    {
+      "id": 5026,
+      "title": "NonEmptyList: the missing methods the non-empty-lists proposal planned (filter, filterMap, take, drop, withIndex, mapWithIndex, sum, product, toSet, dedup, findMap; Text.join/joinWith on NonEmptyList Text), each with a lemma tying it to toList",
+      "status": "backlog",
+      "agent": "Sonnet",
+      "where": "",
+      "labels": [],
+      "epic": "std-library",
+      "body": "From SW-5022 (docs/reviews/SW-5022-nonempty-results.md); cuts .toList after SW-5021 and before Text.split changes.",
+      "created": "2026-11-28",
+      "updated": "2026-11-28",
+      "commits": []
+    },
+    {
+      "id": 5027,
+      "title": "2020 day 15: starting.numbers.toList.maximum.getOrElse 0 on a NonEmptyList field becomes starting.numbers.maximum (Day15.sw:72, Proofs/Turns.sw:16)",
+      "status": "backlog",
+      "agent": "DeepSeek",
+      "where": "",
+      "labels": [],
+      "epic": "aoc-2020",
+      "body": "From SW-5022.",
       "created": "2026-11-28",
       "updated": "2026-11-28",
       "commits": []
