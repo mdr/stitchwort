@@ -1077,10 +1077,7 @@ pub(crate) fn attempt(
         let (arg_term, value) = match p {
             InstanceParam::Head(k) => (cx.quote_folded(&args[*k])?, args[*k].clone()),
             InstanceParam::Prerequisite => {
-                let meta = implicit_arg(cx, Icit::Auto, &dom);
-                if let Some(last) = cx.e.attempt.obligations.borrow_mut().last_mut() {
-                    last.tree = ob.tree;
-                }
+                let meta = crate::check::prerequisite_arg(cx, &dom, ob.tree);
                 let value = cx.eval(&meta)?;
                 (meta, value)
             }

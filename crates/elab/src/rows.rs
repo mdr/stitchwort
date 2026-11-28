@@ -263,6 +263,13 @@ pub(crate) fn refresh_at(cx: &Ctx, level: usize, value: &Value) -> Result<Value>
     )?)
 }
 
+/// What [`Elaborator::retry_one`] made of one comparison.
+enum RetryOne {
+    Waiting,
+    Settled,
+    Again(Vec<RowConstraint>),
+}
+
 impl Elaborator {
     /// Retries the row comparisons put aside. Whether any was settled. One
     /// that can't hold any more is an error.
@@ -289,25 +296,13 @@ impl Elaborator {
         };
         let mut progress = false;
         let mut still = Vec::new();
-        for item in kept {
-            let cx = item.context(self);
-            let RowConstraint { level, a, b } = &item.constraint;
-            let (fresh_a, fresh_b) = (refresh_at(&cx, *level, a)?, refresh_at(&cx, *level, b)?);
-            match settled_first(&cx, (a, &fresh_a), (b, &fresh_b))? {
-                SettledFirst::Waiting if !last => {
-                    still.push(item);
-                    continue;
-                }
-                SettledFirst::No | SettledFirst::Waiting => {}
-                SettledFirst::Abilities(comp) => {
-                    self.attempt.row_constraints.borrow_mut().extend(still);
-                    return Err(settled_too_early(&cx, &comp));
-                }
-            }
-            let (a, b) = (fresh_a, fresh_b);
-            match unify_postponing(&cx.u(), *level, &a, &b)? {
-                Some(again) if again.is_empty() => progress = true,
-                Some(again) => {
+        let mut rest = kept.into_iter();
+        let mut outcome = Ok(());
+        for item in rest.by_ref() {
+            match self.retry_one(&item, last) {
+                Ok(RetryOne::Waiting) => still.push(item),
+                Ok(RetryOne::Settled) => progress = true,
+                Ok(RetryOne::Again(again)) => {
                     for constraint in again {
                         still.push(Postponed {
                             constraint,
@@ -315,17 +310,42 @@ impl Elaborator {
                         });
                     }
                 }
-                None => {
-                    self.attempt.row_constraints.borrow_mut().extend(still);
-                    return Err(explain_defaulted(
-                        cx.mismatch(&b, &a),
-                        &self.settled_early()?,
-                    ));
+                Err(e) => {
+                    still.push(item);
+                    outcome = Err(e);
+                    break;
                 }
             }
         }
-        self.attempt.row_constraints.borrow_mut().extend(still);
-        Ok(progress)
+        // Every exit puts back what it didn't settle, the unvisited rest
+        // included: a caller that recovers from the error (`preadmit`)
+        // would otherwise go on without those comparisons.
+        {
+            let mut all = self.attempt.row_constraints.borrow_mut();
+            all.extend(still);
+            all.extend(rest);
+        }
+        outcome.map(|()| progress)
+    }
+
+    /// One comparison of [`Elaborator::retry`], left in place.
+    fn retry_one(&self, item: &Postponed, last: bool) -> Result<RetryOne> {
+        let cx = item.context(self);
+        let RowConstraint { level, a, b } = &item.constraint;
+        let (fresh_a, fresh_b) = (refresh_at(&cx, *level, a)?, refresh_at(&cx, *level, b)?);
+        match settled_first(&cx, (a, &fresh_a), (b, &fresh_b))? {
+            SettledFirst::Waiting if !last => return Ok(RetryOne::Waiting),
+            SettledFirst::No | SettledFirst::Waiting => {}
+            SettledFirst::Abilities(comp) => return Err(settled_too_early(&cx, &comp)),
+        }
+        match unify_postponing(&cx.u(), *level, &fresh_a, &fresh_b)? {
+            Some(again) if again.is_empty() => Ok(RetryOne::Settled),
+            Some(again) => Ok(RetryOne::Again(again)),
+            None => Err(explain_defaulted(
+                cx.mismatch(&fresh_b, &fresh_a),
+                &self.settled_early()?,
+            )),
+        }
     }
 
     /// At the end of a declaration, after the rounds: retries the row
@@ -400,7 +420,7 @@ impl Elaborator {
             // callbacks were total.
             if item.divergence {
                 let total = crate::effects::div_ctor(&cx, Builtin::DivTotal)?;
-                cx.unify(&value, &total)?;
+                cx.unify_settling(&value, &total)?;
                 continue;
             }
             let empty = empty_row_in(&cx)?;

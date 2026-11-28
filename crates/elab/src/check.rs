@@ -1081,8 +1081,20 @@ impl<'e> Ctx<'e> {
     /// `Ok(false)` if `a` and `b` can't be made equal; an error if it ran out
     /// of resources finding out.
     #[track_caller]
+    #[must_use = "`false` means the two can't be made equal"]
     pub fn unify(&self, a: &Value, b: &Value) -> Result<bool> {
         Ok(unify(&self.u(), self.level(), a, b)?)
+    }
+
+    /// [`Ctx::unify`] where the two are expected to be made equal (an
+    /// unknown row or divergence settled to the value a rule demands): a
+    /// failure (scope, occurs check) is a mismatch, not carried on from.
+    pub(crate) fn unify_settling(&self, a: &Value, b: &Value) -> Result<()> {
+        if self.unify(a, b)? {
+            Ok(())
+        } else {
+            Err(self.mismatch(b, a))
+        }
     }
 
     /// Whether `a` and `b` are equal by computation, solving nothing, with
@@ -6295,6 +6307,13 @@ pub(crate) fn implicit_arg(cx: &mut Ctx, icit: Icit, ty: &Value) -> Term {
     implicit_arg_for_call(cx, icit, ty, None)
 }
 
+/// [`implicit_arg`] for an automatic argument that belongs to the step
+/// budget of the obligation `tree` (a prerequisite of an instance being
+/// applied), not to a budget of its own.
+pub(crate) fn prerequisite_arg(cx: &mut Ctx, ty: &Value, tree: usize) -> Term {
+    implicit_arg_in_tree(cx, Icit::Auto, ty, None, Some(tree))
+}
+
 /// [`implicit_arg`] for an argument of the call `call`, named in a message
 /// if its automatic proof fails.
 pub(crate) fn implicit_arg_for_call(
@@ -6302,6 +6321,16 @@ pub(crate) fn implicit_arg_for_call(
     icit: Icit,
     ty: &Value,
     call: Option<String>,
+) -> Term {
+    implicit_arg_in_tree(cx, icit, ty, call, None)
+}
+
+fn implicit_arg_in_tree(
+    cx: &mut Ctx,
+    icit: Icit,
+    ty: &Value,
+    call: Option<String>,
+    budget_tree: Option<usize>,
 ) -> Term {
     let meta = cx.fresh_meta_of(ty);
     crate::rows::note_row_meta(cx, ty, &meta);
@@ -6325,7 +6354,7 @@ pub(crate) fn implicit_arg_for_call(
                 goal: ty.clone(),
                 meta: meta.clone(),
                 span: cx.span,
-                tree,
+                tree: budget_tree.unwrap_or(tree),
                 call,
             });
     }
