@@ -4335,7 +4335,10 @@ fn admit_stated_marked(
 /// Makes a group of definitions added by [`admit_trusted_def`] (or
 /// [`declare_def`]) final with the given bodies, as [`define_group`] does,
 /// without checking them or their termination: each body must be the one
-/// `define_group` installed. The trust boundary (above).
+/// `define_group` installed. The trust boundary (above). A group of more
+/// than one member is recorded as recursive, which the case-tree comparison
+/// skips, so a test that means to exercise that comparison must admit each
+/// definition in a group of its own.
 pub fn admit_trusted_group(g: &mut Kernel, members: &[(DefId, Term)]) -> Result<()> {
     in_kernel_modes(g, |g| {
         install_group(g, members, true, |g, members| {
