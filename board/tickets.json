@@ -21066,15 +21066,18 @@
     {
       "id": 4903,
       "title": "[DeepSeek] equations.rs: the skip message 'its branch uses {proof} of a condition…' fires only when lib.prop_irrel is missing, so is probably unreachable since SW-4665 sealed guards through Prop.irrel (SW-4901 finding); confirm and remove it or test it",
-      "status": "doing",
+      "status": "done",
       "agent": "",
       "where": "",
       "labels": [],
       "epic": "proof-automation",
-      "body": "",
+      "body": "Done (DeepSeek): Std.Prop.irrel is in the always-loaded core (Decidable.sw), so lib.prop_irrel was never None in a supported session; field made required, message and branch removed, uniqueness() loses its proof name parameter. Orchestrator checks: hash_stability, pinned_hashes, std_library, example kinds, equations tests 88 pass; tools/fmt, aoc, games/rogue check --no-cache clean. Model result: deepseek, worked, ~10 min (est. 20).",
       "created": "2026-11-27",
       "updated": "2026-11-28",
-      "commits": []
+      "commits": [
+        "67d77aeea",
+        "3a2a7175b"
+      ]
     },
     {
       "id": 4904,
