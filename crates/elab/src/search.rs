@@ -1025,6 +1025,29 @@ fn measure(
     Ok(Some((absorbed, instantiated, decisive, whole)))
 }
 
+/// Whether one of the candidate's variables (`opened`) became `()`: a
+/// premise `symbol: a → t` met `() → Nat` only because `a := ()`. `()` says
+/// nothing (see [`overlaps`]), so such a match is as empty as one a variable
+/// made whole.
+fn takes_unit(g: &Ev, opened: &[usize]) -> Res<bool> {
+    let Some(unit) = (g.env.registry())
+        .loaded_data(stitchwort_core::registry::Builtin::UnitType)
+        .map(|d| d.0)
+    else {
+        return Ok(false);
+    };
+    for m in opened {
+        let v = force(g, eval(g, &[], &Term::Meta(*m))?)?;
+        if let Term::Data(d, args) = crate::check::quote_folded(g, 0, &v)?.strip_loc()
+            && d.0 == unit
+            && args.is_empty()
+        {
+            return Ok(true);
+        }
+    }
+    Ok(false)
+}
+
 fn relation_of(absorbed: usize, decisive: usize) -> Relation {
     if decisive == 0 {
         Relation::Instance
@@ -2098,6 +2121,19 @@ impl Elaborator {
                 let measured = match fit {
                     Some(_) => measure(&g.ev, pattern, &opened)?,
                     None => None,
+                };
+                // In the filtered pass, a function type met in a premise or subterm
+                // only because a variable took `()` is no match (SW-4973).
+                let measured = match measured {
+                    Some(_)
+                        if filtered
+                            && matches!(place, Place::Premise | Place::Subterm)
+                            && pattern.head == HeadKey::Pi
+                            && takes_unit(&g.ev, &opened)? =>
+                    {
+                        None
+                    }
+                    m => m,
                 };
                 crate::unify::undo_since(g, inner);
                 let (Some((mut absorbed, mut instantiated, decisive, whole)), Some(fit)) =
