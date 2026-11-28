@@ -1,5 +1,5 @@
 {
-  "next": 5019,
+  "next": 5020,
   "tickets": [
     {
       "id": 47,
@@ -23041,6 +23041,19 @@
       "labels": [],
       "epic": "proof-automation",
       "body": "From SW-5010.",
+      "created": "2026-11-28",
+      "updated": "2026-11-28",
+      "commits": []
+    },
+    {
+      "id": 5019,
+      "title": "Stream.cycle (xs: NonEmptyList a): Stream a, constant time per value, with (Stream.cycle xs).at n tied to xs at n % xs.length",
+      "status": "backlog",
+      "agent": "Sonnet",
+      "where": "",
+      "labels": [],
+      "epic": "std-library",
+      "body": "Matt, 28 Nov: 'Add Stream.cycle to std' for AoC 2018 day 1 part 2 (cycle the changes, scan, findRepeat). Type: NonEmptyList (orchestrator's call; Matt left it to me): total, no fallback, nothing to repeat in an empty list. Held for load (5-min load 23.7 at 11:45).",
       "created": "2026-11-28",
       "updated": "2026-11-28",
       "commits": []
