@@ -197,6 +197,55 @@ theorem thunkBool (p: () → Bool): p () = p () := ?
     assert_eq!(mine, ["Main.thunkBool"], "{:?}", report.search_tier);
 }
 
+#[test]
+fn the_open_abilities_tier_doesnt_match_a_premise_through_a_generic_result() {
+    // Nothing pure is `() → Bool`, so the search runs again with abilities
+    // left open. `viaParser`'s `p: () → {Parse t} a` meets it only by
+    // `a := Bool`; `thunkBool`'s premise is the real match (SW-4977).
+    let source = "\
+import Std (Parse)
+
+theorem viaParser [t a: Type] (p: () → {Parse t} a) (x: Bool): p = p := ?
+theorem thunkBool (p: () → {Parse Char} Bool): p = p := ?
+";
+    let report = with_session(STACK, Session::for_stack, |session| {
+        let _ = session.load("unit.sw", source);
+        session
+            .search("() → Bool", &Options::default(), &Scope::File)
+            .unwrap()
+    });
+    let mine: Vec<&str> = (report.results.iter())
+        .map(|r| r.name.as_str())
+        .filter(|n| n.starts_with("Main."))
+        .collect();
+    assert_eq!(mine, ["Main.thunkBool"], "{:?}", report.search_tier);
+}
+
+#[test]
+fn the_relaxed_pass_doesnt_match_a_premise_through_a_variable_taking_the_rest() {
+    // Nothing names both `Gadget` and `Nat`, so the relaxed pass runs.
+    // `viaPremise`'s `q: Nat → a` meets `Nat → Nat → Gadget` only by
+    // `a := Nat → Gadget` (SW-4977).
+    let source = "\
+type Gadget =
+  | Mk (n: Nat)
+
+theorem viaPremise [a: Type] (q: Nat → a) (w: Nat): q w = q w := ?
+";
+    let report = with_session(STACK, Session::for_stack, |session| {
+        let _ = session.load("gadget.sw", source);
+        session
+            .search("Nat → Nat → Gadget", &Options::default(), &Scope::File)
+            .unwrap()
+    });
+    let mine: Vec<&str> = (report.results.iter())
+        .map(|r| r.name.as_str())
+        .filter(|n| n.starts_with("Main."))
+        .collect();
+    assert_eq!(report.search_tier, Some("relaxed"));
+    assert!(mine.is_empty(), "{mine:?}");
+}
+
 /// Overloaded operators with operands nothing types (SW-927).
 const OVERLOADED: &str = "\
 theorem textJoin (a: Text) (b: Text): a ++ b = b ++ a := ?
