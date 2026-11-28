@@ -1,5 +1,5 @@
 -- Chapter 7: infinite streams.
-import Std (Eq, List, Nat, Option, Stream)
+import Std (Eq, Int, List, Nat, NonEmptyList, Option, Stream)
 
 -- begin build
 def powers: Stream Nat := Stream.iterate (* 2) 1
@@ -38,10 +38,19 @@ def squares: Stream Nat := Stream.iterate (n => (n * n + 1) % 7) 0
 
 test "find a repeat" :=
   squares.take 6 == [0, 1, 2, 5, 5, 5]
-    ∧ squares.findRepeat 100 == Some (3, 4)
+    ∧ squares.findRepeat 100 == Some { value = 5, first = 3, again = 4 }
     ∧ (Stream.iterate (+ 1) 0).findRepeat 100 == None
     ∧ (Stream.iterate (+ 1) 1).foldUntil 100 0 (+) (total => total > 20) == (21, 6)
 -- end find-repeat
+
+-- begin cycle
+-- Frequency changes +1, -2, +3, +1, repeated forever: the running totals first reach a value twice at 2.
+def changes: NonEmptyList Int := [1, -2, 3, 1]
+
+test "cycle a list" :=
+  (Stream.cycle [1, 2, 3]).take 7 == [1, 2, 3, 1, 2, 3, 1]
+    ∧ (Stream.cycle changes |> .scan 0 (+) |> .findRepeat 100 |> .map .value) == Some 2
+-- end cycle
 
 -- begin proof
 theorem mapMap ∀ (s: Stream a) (f: a → b) (g: b → c): (s.map f).map g = s.map (x => g (f x)) :=

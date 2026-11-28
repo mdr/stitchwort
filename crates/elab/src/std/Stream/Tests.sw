@@ -66,14 +66,23 @@ test "Stream.find: 20,000 values" := (Stream.iterate (+ 1) 0).find 20000 (n => n
 test "Stream.fold: 20,000 values" := (Stream.iterate (+ 1) 0).fold 20000 0 (+) == 199990000
 
 test "Stream.findRepeat" :=
-  (Stream.iterate (n => (n * n + 1) % 7) 0).findRepeat 100 == Some (3, 4)
+  (Stream.iterate (n => (n * n + 1) % 7) 0).findRepeat 100 == Some { value = 5, first = 3, again = 4 }
     ∧ (Stream.iterate (+ 1) 0).findRepeat 100 == None
     ∧ (Stream.iterate (n => (n + 1) % 5) 0).findRepeat 5 == None
-    ∧ (Stream.iterate (n => (n + 1) % 5) 0).findRepeat 6 == Some (0, 5)
+    ∧ (Stream.iterate (n => (n + 1) % 5) 0).findRepeat 6 == Some { value = 0, first = 0, again = 5 }
 
 -- A cycle of 20,000 states, found by one walk with a map of what was seen.
 test "Stream.findRepeat: a cycle after 20,000 steps" :=
-  (Stream.iterate (n => (n + 1) % 20000) 0).findRepeat 40000 == Some (0, 20000)
+  (Stream.iterate (n => (n + 1) % 20000) 0).findRepeat 40000 == Some { value = 0, first = 0, again = 20000 }
+
+test "Stream.cycle" :=
+  (Stream.cycle [1, 2, 3]).take 7 == [1, 2, 3, 1, 2, 3, 1]
+    ∧ (Stream.cycle [7]).take 3 == [7, 7, 7]
+    ∧ (Stream.cycle [1, 2, 3]).at 100 == 2
+
+-- 20,000 values from a cycle, each in constant time.
+test "Stream.cycle: 20,000 values" :=
+  ((Stream.cycle [1, 2, 3]).fold 20000 0 (+) == 39999 ∧ ((Stream.cycle [1, 2, 3]).take 20000).length == 20000)
 
 test "Stream.findIndex" :=
   (Stream.iterate (+ 1) 0).findIndex 100 (n => n * n > 50) == Some 8
