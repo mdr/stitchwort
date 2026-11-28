@@ -23159,7 +23159,7 @@
       "where": "",
       "labels": [],
       "epic": "std-library",
-      "body": "From SW-5022 (docs/reviews/SW-5022-nonempty-results.md); cuts .toList after SW-5021 and before Text.split changes.\n\nD3779 yes (Matt, 28 Nov). Runs with SW-5030.",
+      "body": "From SW-5022 (docs/reviews/SW-5022-nonempty-results.md); cuts .toList after SW-5021 and before Text.split changes.\n\nD3779 yes (Matt, 28 Nov). Runs with SW-5030.\n\nStarted 12:18 on Sonnet on Matt's word ('I need the missing NEL methods quick, start work onit') at 5-min load ~60, above the hold; part 1 methods (incl. Matt's NonEmptyList.sum spec) est. 20 min, then SW-5030 (Parse) est. 15.",
       "created": "2026-11-28",
       "updated": "2026-11-28",
       "commits": []
