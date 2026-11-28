@@ -174,7 +174,7 @@ int : () → {Parse Char} Int  Std.Parse  std/Parse/Chars.sw:59
     A whole number with an optional '+' or '-' in front, else "expected a number".
 ```
 
-`{Parse _ | _}` is `Parse` and maybe more, as `{Log | e}` is in a type; `{Parse _}` is exactly `Parse`. The results whose rows have fewer abilities you didn't write come first. A pattern without braces, `() → Int`, means a pure function, as the type does; when nothing pure matches, the search tries again with the abilities left open and says so. The details are in [syntax.md](../syntax.md#lemma-search-stitchwort-search).
+`{Parse _ | _}` is `Parse` and maybe more, as `{Log | e}` is in a type; `{Parse _}` is exactly `Parse`. A pattern may be just a computation type, `{Parse _ | _} Int`, which finds a value of that type of any shape. The results whose rows have fewer abilities you didn't write come first. A pattern without braces, `() → Int`, means a pure function, as the type does; when nothing pure matches, the search tries again with the abilities left open and says so. The details are in [syntax.md](../syntax.md#lemma-search-stitchwort-search).
 
 ## Failing: `Fail` and `Abort`
 

@@ -439,6 +439,23 @@ pub fn parse_expression_within(file: FileId, text: &str, stack: usize) -> Parsed
 /// one root, an [`NodeKind::Expression`] holding the expression if it
 /// parsed, an `Error` if it didn't, over its raw text if it didn't lex.
 pub fn parse_expression_tree(file: FileId, text: &str, stack: usize) -> (Parsed<Expr>, SyntaxFile) {
+    parse_expression_tree_as(file, text, stack, false)
+}
+
+/// Parses text read as a function's result type: [`parse_expression_within`]
+/// except that a leading `{…}` is an ability row where it is not a record
+/// literal or update (`{Parse _ | _} Nat`, `{_} Int`). Only search patterns
+/// use it; program source is parsed as before.
+pub fn parse_result_type_within(file: FileId, text: &str, stack: usize) -> Parsed<Expr> {
+    parse_expression_tree_as(file, text, stack, true).0
+}
+
+fn parse_expression_tree_as(
+    file: FileId,
+    text: &str,
+    stack: usize,
+    result_type: bool,
+) -> (Parsed<Expr>, SyntaxFile) {
     let limit = parser_limit(stack);
     let lexed = match lex_with_trivia(file, text) {
         Ok(lexed) => lexed,
@@ -462,7 +479,12 @@ pub fn parse_expression_tree(file: FileId, text: &str, stack: usize) -> (Parsed<
         }
     };
     let mut parser = Parser::new(&lexed.tokens, file, text.len(), limit);
-    let parsed = parser.expr().and_then(|()| parser.finish());
+    let parsed = if result_type {
+        parser.result_type()
+    } else {
+        parser.expr()
+    }
+    .and_then(|()| parser.finish());
     let parsed = parser.strict(parsed).map_err(|d| *d);
     let root = DeclMarks {
         tokens: 0..lexed.tokens.len() as u32,

@@ -14,7 +14,7 @@ use stitchwort_elab::{Elaborator, LibraryIndex, prelude};
 use stitchwort_syntax::ast::{Expr, Module};
 use stitchwort_syntax::{
     Diagnostic, FileId, Severity, SourceMap, parse_expression_within, parse_module_recovering,
-    parse_module_within,
+    parse_module_within, parse_result_type_within,
 };
 
 /// Which library files a session knows.
@@ -1438,6 +1438,18 @@ impl Session {
     pub fn parse_expression(&mut self, name: &str, text: &str) -> Result<Expr, Diagnostic> {
         let file = self.sources.add(name, text);
         let expr = parse_expression_within(file, text, self.elab.options.limits.stack)?;
+        self.prepared(expr)
+    }
+
+    /// [`Self::parse_expression`] for a search pattern, read as a result
+    /// type: a leading `{…}` may be an ability row (`{Parse _ | _} Nat`).
+    pub fn parse_pattern(&mut self, name: &str, text: &str) -> Result<Expr, Diagnostic> {
+        let file = self.sources.add(name, text);
+        let expr = parse_result_type_within(file, text, self.elab.options.limits.stack)?;
+        self.prepared(expr)
+    }
+
+    fn prepared(&mut self, expr: Expr) -> Result<Expr, Diagnostic> {
         // The library files it uses load now: checking it needs them.
         self.elab.prepare_expr(&expr)?;
         Ok(expr)

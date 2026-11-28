@@ -340,6 +340,8 @@ def bothCount (d: Doc): {Note, Tick} Nat :=
 def loopCount (d: Doc): {Partial} Nat := loopCount d
 
 def tickFlag (d: Doc): {Tick} Bool := tick() == 0
+
+def oneTick: {Tick} Nat := tick()
 ";
 
 fn rows_search(query: &str) -> Result<Report, (String, Vec<String>)> {
@@ -422,6 +424,23 @@ fn a_pure_pattern_that_finds_nothing_leaves_the_abilities_open() {
         "{:?}",
         report.warnings
     );
+}
+
+#[test]
+fn a_pattern_starting_with_a_row_is_a_computation_type_not_a_record() {
+    // A leading `{…}` was read as a record update and failed with E-PARSE
+    // (SW-4958).
+    // Results ending in the type match too, as a pattern's tail does.
+    for (pattern, abilities) in [("{Tick} Nat", 0), ("{Tick | _} Nat", 0)] {
+        let found = taken(&rows_search(pattern).unwrap());
+        assert!(
+            found.contains(&("oneTick".to_string(), abilities)),
+            "{pattern}: {found:?}"
+        );
+    }
+    // The other spelling is still refused with its pointer.
+    let (code, _) = rows_search("{Tick, _} Nat").unwrap_err();
+    assert_eq!(code, "E-SEARCH-PATTERN");
 }
 
 #[test]

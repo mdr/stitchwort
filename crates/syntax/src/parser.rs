@@ -41,7 +41,7 @@ pub(crate) use entry::parse_with_tree;
 pub use entry::{
     parse_expression, parse_expression_tree, parse_expression_within, parse_module,
     parse_module_and_tree, parse_module_recovering, parse_module_within, parse_namespace_line,
-    parse_tree,
+    parse_result_type_within, parse_tree,
 };
 pub(crate) use failed_names::{failed_names_in, failed_names_of};
 
@@ -2548,7 +2548,7 @@ impl<'t> Parser<'t> {
     ///
     /// A theorem's statement is a result type too, and may start with a
     /// record literal or update: `{ p | x = 3 }.x = 3` ([`record_braces`]).
-    fn result_type(&mut self) -> Result<()> {
+    pub(super) fn result_type(&mut self) -> Result<()> {
         self.allow_brace_at_block_column();
         if self.peek() != Some(&Tok::LBrace) || record_braces(self.tokens, self.pos) {
             return self.expr();
