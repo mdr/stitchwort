@@ -1,5 +1,5 @@
 {
-  "next": 4989,
+  "next": 4992,
   "tickets": [
     {
       "id": 47,
@@ -22593,12 +22593,54 @@
     {
       "id": 4988,
       "title": "Streams: one fast Stream type with no performance trap (D3774): compare a memoising native, a fast-path field with a proof, and anything the literature offers; probe the best and time it against the n² case; propose one design, revising D3772",
-      "status": "doing",
+      "status": "done",
       "agent": "Fable",
       "where": "",
       "labels": [],
       "epic": "syntax-language",
-      "body": "D3774 (Matt, 28 Nov): yes, have Fable look at this again; free to review the literature and other implementations again. Matt on D3772(a): 'having two types, one with a performance trap waiting to bite you, feels wrong to me'. Builds on docs/proposals/streams.md (SW-4962). Expected: 30 min.",
+      "body": "D3774 (Matt, 28 Nov): yes, have Fable look at this again; free to review the literature and other implementations again. Matt on D3772(a): 'having two types, one with a performance trap waiting to bite you, feels wrong to me'. Builds on docs/proposals/streams.md (SW-4962). Expected: 30 min.\n\nDone (Fable, paper): docs/proposals/streams-one-type.md. Stream = { at, walk: Nat → Cells a (lazy), agrees }. Probe.Walk: ext, canonical, bisim (Quot.sound), iterate/unfold/cons tail laws byComputing; map's tail law now ext + byComputing. 20,000 values 0.11 s (was 26.35 s), 2,000,000 cells 0.67 s. Remaining slow shape: a loop over s.tail (4,000 in 1.37 s); proposes W-STREAM-TAIL-LOOP. Revised D3772 rec yes; Gen dropped; S1 50 min. Orchestrator reran check/test (12 pass) and axioms on ext.",
+      "created": "2026-11-28",
+      "updated": "2026-11-28",
+      "commits": [
+        "d74fb381d",
+        "d391df119"
+      ]
+    },
+    {
+      "id": 4989,
+      "title": "Dot resolution inside def Cells.map: (rest ()).map f picks Stream.map defined later in the same file and gives E-MUTUAL-SIGNATURE; it checked before Stream.map existed (SW-4988 finding)",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "epic": "syntax-language",
+      "body": "Repro in docs/proposals/streams/src/Probe/Walk.sw's history (SW-4988 report). Reproduce first.",
+      "created": "2026-11-28",
+      "updated": "2026-11-28",
+      "commits": []
+    },
+    {
+      "id": 4990,
+      "title": "rewrite finds nothing inside a record literal's proof field when the other fields are lambdas in the same literal: goal shows _ (Succ m) = Cell (_ 0) …, E-REWRITE-NOTHING (SW-4988 finding)",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "epic": "syntax-language",
+      "body": "Repro in docs/proposals/streams/src/Probe/Walk.sw's history (SW-4988 report). Reproduce first.",
+      "created": "2026-11-28",
+      "updated": "2026-11-28",
+      "commits": []
+    },
+    {
+      "id": 4991,
+      "title": "J motive base proof can't be applied to a further argument: (J … hw) q is E-ARITY; workaround moves the ∀ into the result type (SW-4988 finding)",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "epic": "syntax-language",
+      "body": "Repro in docs/proposals/streams/src/Probe/Walk.sw's history (SW-4988 report). Reproduce first.",
       "created": "2026-11-28",
       "updated": "2026-11-28",
       "commits": []
