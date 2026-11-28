@@ -1911,7 +1911,10 @@ pub(crate) fn is_fact(cx: &Ctx, ty: &Value) -> Result<bool> {
     let g = cx.g();
     let mut conclusion = force(&g, ty.clone())?;
     let mut k = cx.level();
-    while let Value::Pi(_, _, _, cod, _) = conclusion {
+    // The types of the variables the walk added, from level `cx.level()`.
+    let mut binders: Vec<Value> = Vec::new();
+    while let Value::Pi(_, _, dom, cod, _) = conclusion {
+        binders.push((**dom.rc()).clone());
         conclusion = force(&g, cod.apply(&g, Value::var(k))?)?;
         k += 1;
     }
@@ -1920,17 +1923,17 @@ pub(crate) fn is_fact(cx: &Ctx, ty: &Value) -> Result<bool> {
         Value::Data(d, _) => g.data(d).sort() == Sort::Prop,
         Value::Sort(_) | Value::Ctor(..) | Value::Nat(_) | Value::Lam(..) => false,
         Value::Neutral(Head::Var(l, _, _), spine) if spine.is_empty() => {
+            // A variable the walk added is a proposition by its binder's
+            // type: `∀ (A: Type), A` concludes in data, `∀ (P: Prop), P` in
+            // a proposition.
             matches!(
-                force(
-                    &g,
-                    cx.types.get(l).cloned().unwrap_or(Value::Sort(Sort::Prop))
-                )?,
+                force(&g, variable_type(cx, &binders, l))?,
                 Value::Sort(Sort::Prop)
             )
         }
         applied @ Value::Neutral(Head::Var(..), _) => {
             // `g x` for `g: Nat → Prop`.
-            is_prop_family_application(cx, &applied)?
+            is_prop_family_application(cx, &binders, &applied)?
         }
         other => {
             let binders = k - cx.level();
@@ -1944,16 +1947,24 @@ pub(crate) fn is_fact(cx: &Ctx, ty: &Value) -> Result<bool> {
     })
 }
 
+/// The type of the variable at `level`: in the context, or one of
+/// `binders`, the variables [`is_fact`]'s walk added past it.
+fn variable_type(cx: &Ctx, binders: &[Value], level: usize) -> Value {
+    cx.types
+        .get(level)
+        .or_else(|| binders.get(level.checked_sub(cx.level())?))
+        .cloned()
+        .unwrap_or(Value::Sort(Sort::Prop))
+}
+
 /// Whether `ty`, a variable applied to arguments, is a proposition by the
 /// variable's type (`g: Nat → Prop`).
-fn is_prop_family_application(cx: &Ctx, ty: &Value) -> Result<bool> {
+fn is_prop_family_application(cx: &Ctx, binders: &[Value], ty: &Value) -> Result<bool> {
     let g = cx.g();
     let Value::Neutral(Head::Var(l, _, _), spine) = force(&g, ty.clone())? else {
         return Ok(false);
     };
-    let Some(mut fty) = cx.types.get(l).cloned() else {
-        return Ok(false);
-    };
+    let mut fty = variable_type(cx, binders, l);
     for e in spine.iter() {
         let stitchwort_core::value::Elim::App(v, _) = e else {
             return Ok(false);

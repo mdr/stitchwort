@@ -1,0 +1,5 @@
+---
+source: crates/driver/tests/library/hash_stability.rs
+expression: "lines(session, d, f)"
+---
+Main.propHyp 1cb488a3a3d90df6bf7c5ce18e65b4452734225b6a1af253988b053ebba1d391
