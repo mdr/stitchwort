@@ -22803,12 +22803,12 @@
     {
       "id": 5003,
       "title": "Streams S2: Stream.findRepeat and foldUntil with their laws, the stream timings in the performance log; and SW-5001's pass writing clashing dot calls in full",
-      "status": "doing",
+      "status": "review",
       "agent": "Sonnet",
       "where": "",
       "labels": [],
       "epic": "std-library",
-      "body": "Matt, 28 Nov: 'Proceed with S2-S4 - I'm interested in which AoC days might genuinely benefit from streams'. Plan: docs/proposals/streams-head-tail.md §6.",
+      "body": "Matt, 28 Nov: 'Proceed with S2-S4 - I'm interested in which AoC days might genuinely benefit from streams'. Plan: docs/proposals/streams-head-tail.md §6.\n\nLane: findRepeat (laws: p<q, q<n, equal values; minimality not attempted), findIndex (Some/None laws by position), foldUntil, fold/find via one walk (iterate slow step 20,000 values: fold 2.0 s vs head/tail loop 8.4 s), iterateCongr; guide, syntax, perf log done; hashes re-snapped.",
       "created": "2026-11-28",
       "updated": "2026-11-28",
       "commits": []
