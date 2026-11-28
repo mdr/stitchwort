@@ -11448,7 +11448,7 @@
     {
       "id": 2923,
       "title": "[Sonnet] Inside a match arm, rfl's error shows the statement before the arm's substitution ('beats m m and True aren't equal' in the Rock arm; should say beats Rock Rock) (SW-2921)",
-      "status": "doing",
+      "status": "review",
       "agent": "Sonnet",
       "where": "",
       "labels": [],
