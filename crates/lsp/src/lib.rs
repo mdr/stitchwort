@@ -5411,10 +5411,29 @@ struct Warm {
     key: (usize, Option<Key>),
     session: Session,
     mark: stitchwort_driver::rewind::Mark,
+    /// The library bundle as the session's check cache, with a layer above
+    /// it that keeps the library's put-off equations (`eqs.` units): a
+    /// search makes them, and the rewind after it forgets them, so without
+    /// the layer every search of a host with no cache folder makes them
+    /// again (seconds natively, SW-4976).
+    store: Option<Rc<LayeredStore>>,
 }
 
 thread_local! {
     static WARM: std::cell::RefCell<Option<Warm>> = const { std::cell::RefCell::new(None) };
+}
+
+/// The put-off equations the calling thread's search session has replayed
+/// from its store and made, as `(hits, misses)`, once it has searched. For
+/// tests of what a search keeps.
+#[doc(hidden)]
+pub fn warm_search_equation_counts() -> Option<(usize, usize)> {
+    WARM.with(|w| {
+        (w.borrow().as_ref()).map(|warm| {
+            let stats = warm.session.elab.check_cache_stats();
+            (stats.equation_hits, stats.equation_misses)
+        })
+    })
 }
 
 /// Runs `f` on a session for a search of a project's file, set up as
@@ -5447,16 +5466,21 @@ fn with_project_session<T>(
                     return None;
                 }
                 let mark = session.mark();
-                Warm { key, session, mark }
+                let store = (server.library.get())
+                    .map(|bundle| Rc::new(LayeredStore::for_equations(bundle.clone())));
+                Warm {
+                    key,
+                    session,
+                    mark,
+                    store,
+                }
             }
         };
         // The check cache isn't part of what a rewind restores: back to the
         // bundle's, or none, as in a new session.
         warm.session.elab.clear_check_cache();
-        if let Some(bundle) = server.library.get() {
-            warm.session
-                .elab
-                .set_check_cache(Rc::new(BundleStore(bundle.clone())));
+        if let Some(store) = &warm.store {
+            warm.session.elab.set_check_cache(store.clone());
         }
         watch_cancel(&mut warm.session, cancel);
         let found = f(&mut warm.session);

@@ -22274,14 +22274,14 @@
     {
       "id": 4976,
       "title": "Language server goal search starts with ~2.4 s of cold put-off equation generation per session: SW-4954's equations cache isn't kept by its LayeredStore (Store::keeps, Fable finding 1); measure the cost in a real editor session and decide whether the server should keep eqs.std entries",
-      "status": "doing",
+      "status": "review",
       "agent": "",
       "where": "",
       "labels": [
         "perf"
       ],
       "epic": "proof-search",
-      "body": "[Sonnet] From SW-4974 (28 Nov): equation_hits 0 / misses 0 before generation in features::a_code_action...; ~2.4 s cold, ~2x under load. Check with the installed bundle (SW-2163/SW-4960) too.",
+      "body": "[Sonnet] From SW-4974 (28 Nov): equation_hits 0 / misses 0 before generation in features::a_code_action...; ~2.4 s cold, ~2x under load. Check with the installed bundle (SW-2163/SW-4960) too.\n\nMeasured 28 Nov (release, loaded machine): native server with a cache folder: 1st search of a session, equations cold 2.47 s (895 misses), warm folder 0.50 s replay (895 hits, 0 misses), every later search in the session 0.45-0.55 s again (the warm session's rewind forgets them). CLI search --at, cold eqs 1.49 s total, warm 0.73 s. So the premise only held with no cache folder (playground/BundleStore): every search made them. Fixed there (LayeredStore::for_equations in the search thread's Warm); bundle option not taken (see report). Test: features::a_second_search_without_a_cache_folder_makes_no_equations. Open: the 0.5 s replay per search natively.",
       "created": "2026-11-28",
       "updated": "2026-11-28",
       "commits": []

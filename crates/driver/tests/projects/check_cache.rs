@@ -18,7 +18,8 @@ use std::rc::Rc;
 use std::sync::{Arc, Mutex};
 
 use stitchwort_driver::check_cache::{
-    BundleRecorder, CheckCache, EntrySink, LayeredStore, LibraryBundle, MemoryStore, StoreLog,
+    BundleRecorder, BundleStore, CheckCache, EntrySink, LayeredStore, LibraryBundle, MemoryStore,
+    StoreLog,
 };
 use stitchwort_driver::driver::{Session, all_tier, par_map, tier_sample, with_stack};
 use stitchwort_driver::project::{DiskFiles, Target};
@@ -2904,14 +2905,14 @@ fn an_equations_segment_filed_under_another_definition_is_made_fresh() {
     assert_eq!((s.equation_misses, s.refused), (2, 0), "{s:?}");
 }
 
-/// A store that keeps no equations entry (the playground's and the
-/// language server's, `LayeredStore`) has the equations made fresh, as
+/// A store that keeps no equations entry (`BundleStore`; a search's
+/// `LayeredStore::for_equations` keeps them, SW-4976) has the equations made fresh, as
 /// without a cache, and none encoded only to be dropped.
 #[test]
 fn a_store_that_keeps_no_equations_entry_makes_them_without_encoding() {
     let (_, fresh, _) = with_equations(EQUATIONS_FILE, |_| ());
     let (_, dump, s) = with_equations(EQUATIONS_FILE, |s| {
-        let store = LayeredStore::new(Arc::new(LibraryBundle::default()));
+        let store = BundleStore(Arc::new(LibraryBundle::default()));
         s.elab.set_check_cache(Rc::new(store));
     });
     assert!(dump == fresh, "{}", first_difference(&fresh, &dump));
