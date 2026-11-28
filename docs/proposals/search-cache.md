@@ -169,7 +169,7 @@ mark its own definition done, since which segment is filed under which
 definition is only the container's word. Measured: warm `search --in Std
 '() → {Parse Char} Int'` 1.27 s → 0.79 s, `doc Nat.gcd` 1.56 s → 1.10 s,
 results byte-identical; the first search after a change writes the
-entries (1.69 s once). The installed bundle (SW-2163) doesn't carry them
+entries (1.65 s once). The installed bundle (SW-2163) doesn't carry them
 yet: its recorder loads the library without making the equations.
 
 ### 2.5 Not proposed: `check`'s on-demand equations

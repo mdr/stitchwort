@@ -3530,6 +3530,9 @@ impl Store for GatedCache {
             self.inner.write(unit, key, entry);
         }
     }
+    fn keeps(&self, unit: &str) -> bool {
+        self.writable.get() && self.inner.keeps(unit)
+    }
 }
 
 /// A project the checker keeps.

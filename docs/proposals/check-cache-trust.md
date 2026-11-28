@@ -261,7 +261,13 @@ over), for a key of a loaded file whose definition is there and final,
 whose equations aren't made yet (`equations_done`, its first equation's
 name, every name the segment declares, every key it marks done), and
 which the segment itself marks done (the container's filing of segments
-by definition isn't trusted). Segments replay in fresh generation's order,
+by definition isn't trusted), and which holds only equations: no data
+type, instance, primitive, test, extension or changed name. The same
+checks run on a segment before it is stored, so none is written that
+would be refused at every replay. A store that wouldn't keep the entry
+(`Store::keeps`: the playground's and the language server's layered
+store, a bundle) gets none encoded; the equations are made as without a
+cache. Segments replay in fresh generation's order,
 so ids are the same. `--recheck` sends them through the kernel's checking
 calls (`Stats::equation_rechecked`); `--no-cache` makes them all fresh.
 A program's on-demand equations (`load_needs`) are always made fresh

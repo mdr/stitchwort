@@ -62,15 +62,23 @@ in [../proposals/README.md](../proposals/README.md).
   Nat` with `--no-cache` the same too.
 - **Time** (measured, warm, best of 3, interleaved): `search --in Std '() → {Parse Char}
   Int'` 1.27 s → 0.79 s (−0.48 s; the note estimated −0.43 s); `doc Nat.gcd` 1.56 s →
-  1.10 s. The first search after a std change or a new build writes the entries: 1.69 s
-  once (79 entries, 3.2 MB in all).
+  1.10 s. The first search after a std change or a new build writes the entries: 1.65 s
+  once (79 entries, 3.2 MB in all; 1.69 s before segments stopped computing an interface
+  digest no key reads). A store that keeps no equations entry (the playground's and the
+  language server's `LayeredStore`, a bundle) encodes none: over the core and a small
+  file, 123 definitions' equations made, 0 segments encoded, 0 entries written (123
+  encoded and 2 entries dropped before the fix, Fable review SW-4955).
 - **Tests.** `check_cache::deferred_equations_replay_from_the_cache_unchanged`,
   `recheck_sends_replayed_equations_through_the_kernel`,
   `deferred_equations_are_never_carried_over`,
   `an_equations_segment_whose_definition_changed_is_made_fresh` (fails with the
   dependency-hash comparison in `decode` turned off),
   `an_equations_segment_filed_under_another_definition_is_made_fresh` (fails without the
-  check that a segment marks its own key done).
+  check that a segment marks its own key done),
+  `a_store_that_keeps_no_equations_entry_makes_them_without_encoding`,
+  `a_warm_run_makes_no_deferred_equation_again`, and in `stitchwort-elab`
+  `cache::tests::an_equations_segment_holding_more_than_equations_is_refused` (fails without
+  the data-type check).
 
 ### SW-4953: `search`, `audit` and `run` read the project through the scan cache
 

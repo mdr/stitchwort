@@ -48,7 +48,8 @@ impl Elaborator {
     /// Makes the deferred equations of `keys`, the definitions of file `f`
     /// (0 the core) in source order, from the check cache where it holds
     /// them and fresh otherwise; and writes the file's equations entry when
-    /// anything was made fresh.
+    /// anything was made fresh, if the store keeps it ([`Store::keeps`]:
+    /// otherwise no segment is encoded).
     pub(crate) fn ensure_file_equations(&mut self, f: usize, keys: &[String]) -> Result<()> {
         let lookup = (!keys.is_empty())
             .then(|| self.equations_lookup(f))
@@ -58,6 +59,7 @@ impl Elaborator {
         };
         let store = self.options.check_cache.clone().expect("a cache is set");
         let salt = store.salt();
+        let keep = store.keeps(&unit) && !self.carried_anything();
         let read = self.read_equations_entry(&*store, &unit, &key);
         let mut changed = read.is_none();
         let mut segments = read.unwrap_or_default();
@@ -86,13 +88,16 @@ impl Elaborator {
                 }
                 elab.session.cache_stats.equation_misses += 1;
                 changed |= segments.remove(k).is_some();
-                if let Some(bytes) = elab.make_equations_segment(f, k, &key, salt)? {
+                if !keep {
+                    elab.ensure_equations_of_key(k)?;
+                } else if let Some(bytes) = elab.make_equations_segment(f, k, &key, salt)? {
                     made.insert(k.clone(), bytes);
                 }
             }
             Ok::<(), Diagnostic>(())
         })?;
-        if (changed || !made.is_empty())
+        if keep
+            && (changed || !made.is_empty())
             && !self.carried_anything()
             && !self.kernel.machine.budget.cancelled()
         {
@@ -114,9 +119,14 @@ impl Elaborator {
 
     /// The unit and key of file `f`'s equations entry, if they may be read
     /// and written now: with a check cache, outside any library file's load
-    /// or unit's capture (whose write-set the segments' would join).
+    /// or capture and any project namespace's capture (whose write-set the
+    /// segments' would join).
     fn equations_lookup(&self, f: usize) -> Option<(String, Key)> {
-        if !self.cache_usable() || self.scope.log.is_some() || self.scope.loading.is_some() {
+        if !self.cache_usable()
+            || self.scope.log.is_some()
+            || self.scope.loading.is_some()
+            || self.unit.namespace_capture.is_some()
+        {
             return None;
         }
         let lib = self.session.library.as_ref()?;
@@ -174,8 +184,9 @@ impl Elaborator {
     /// Makes `key`'s equations fresh, capturing what that wrote as a segment
     /// of file `f`'s entry (the equations, or only why each was skipped):
     /// `None` if it didn't mark `key` done, loaded a library file (whose
-    /// unit the write-set would take in), was cancelled, or can't be
-    /// encoded.
+    /// unit the write-set would take in), was cancelled, can't be encoded,
+    /// or holds what a segment may not ([`Self::segment_holds_only_equations`]),
+    /// so that it would be refused at every replay.
     fn make_equations_segment(
         &mut self,
         f: usize,
@@ -191,8 +202,19 @@ impl Elaborator {
             && self.tables.equations_done.iter().any(|k| k == key)
             && self.loaded_library_files().len() == loaded
             && !self.kernel.machine.budget.cancelled())
-        .then(|| self.encode_library_file(f, &capture, &log, entry_key, salt))
-        .and_then(|encoded| {
+        .then(|| {
+            self.session.cache_stats.equation_segments_encoded += 1;
+            let bytes = self.encode_library_file(f, &capture, &log, entry_key, salt, false)?;
+            let (_, deps, body) = open(&bytes, entry_key, salt).map_err(|Bad(why)| why)?;
+            let head = self
+                .read_head(body, &self.std_file_ids())
+                .map_err(|Bad(why)| why)?;
+            let d = (self.decode(&deps, head, &[], true)).map_err(|Bad(why)| why)?;
+            self.segment_holds_only_equations(key, &d)
+                .map_err(|Bad(why)| why)?;
+            Ok(bytes)
+        })
+        .and_then(|encoded: std::result::Result<Vec<u8>, String>| {
             encoded
                 .map_err(|why| debug(&format!("`{key}`'s equations can't be cached: {why}")))
                 .ok()
@@ -269,14 +291,7 @@ impl Elaborator {
             return bad("an equations segment with a namespace's parts");
         }
         let d = self.decode(&deps, head, &[], true)?;
-        if !d.rest.tables.tests.is_empty() || !d.rest.changed.is_empty() {
-            return bad("an equations segment with tests or changed names");
-        }
-        // The segment is filed under `def` by the container only: what it
-        // made is what it marks done.
-        if !d.rest.tables.equations_done().iter().any(|k| k == def) {
-            return bad(format!("a segment that doesn't make `{def}`'s equations"));
-        }
+        self.segment_holds_only_equations(def, &d)?;
         if let Some((k, ..)) = (d.rest.new.iter()).find(|(k, ..)| self.scope.get(k).is_some()) {
             return bad(format!("`{k}` is in scope already"));
         }
@@ -293,6 +308,31 @@ impl Elaborator {
         self.session.owners.leave(self.ids(), outer);
         self.unit_changed();
         admitted
+    }
+
+    /// Whether a decoded segment holds only what making `def`'s equations
+    /// may: definitions that are neither instances nor primitives, no data
+    /// type, test, extension or changed name; and it marks `def` done (the
+    /// container files segments by definition, and that isn't trusted).
+    /// Checked on replay, and before a segment is stored, so that one that
+    /// would be refused is never written.
+    pub(super) fn segment_holds_only_equations(&self, def: &str, d: &Decoded) -> Read<()> {
+        if !d.datas.is_empty()
+            || d.rest.tables.has_instances()
+            || d.defs.iter().any(|x| x.instance || x.primitive)
+        {
+            return bad("an equations segment with data types, instances or primitives");
+        }
+        if !d.rest.tables.tests.is_empty()
+            || !d.rest.changed.is_empty()
+            || !d.rest.extensions.is_empty()
+        {
+            return bad("an equations segment with tests, extensions or changed names");
+        }
+        if !d.rest.tables.equations_done().iter().any(|k| k == def) {
+            return bad(format!("a segment that doesn't make `{def}`'s equations"));
+        }
+        Ok(())
     }
 
     /// The equations entry holding `segments` (by definition key, sorted),

@@ -174,6 +174,13 @@ pub trait Store {
     /// cached, or was cancelled). A store that tells concurrent readers
     /// that one is making an entry lets them go. Nothing by default.
     fn abandon(&self, _unit: &str, _key: &Key) {}
+    /// Whether an entry written for `unit` now would be kept, so that one
+    /// read later may find it: a store that drops some units' writes says
+    /// so, and what only an entry would be made for isn't (the equations
+    /// segments, `equations_entry`). Yes by default.
+    fn keeps(&self, _unit: &str) -> bool {
+        true
+    }
     /// The interface entry made in this run for project namespace `unit`
     /// at `key` ([`InterfaceEntry`]), if this store holds one: only the
     /// store `check --jobs` gives its workers does, in memory, for the run
@@ -312,11 +319,13 @@ pub struct Stats {
     /// Definitions whose deferred equations came from a file's equations
     /// entry (`equations_entry`, for `search` and `doc`), of those how many
     /// through this kernel's checking calls (`--recheck`), definitions whose
-    /// equations were made fresh with the cache on, and equations entries
-    /// written.
+    /// equations were made fresh with the cache on, of those how many were
+    /// encoded as segments to keep (none where the store doesn't keep
+    /// equations entries, [`Store::keeps`]), and equations entries written.
     pub equation_hits: usize,
     pub equation_rechecked: usize,
     pub equation_misses: usize,
+    pub equation_segments_encoded: usize,
     pub equation_entries_written: usize,
 }
 
@@ -1000,7 +1009,7 @@ impl Elaborator {
         // A cancelled check isn't a result, even where it reported nothing.
         let store = self.options.check_cache.clone().expect("a cache is set");
         if ok && !self.kernel.machine.budget.cancelled() {
-            let entry = self.encode_library_file(f, &capture, &log, key, store.salt());
+            let entry = self.encode_library_file(f, &capture, &log, key, store.salt(), true);
             match entry {
                 // Seen while encoding (another thread set the flag):
                 // whatever the encoder computed after it stopped.
@@ -1781,6 +1790,7 @@ impl Elaborator {
             library: false,
             interface: self.interface_pass_of(ns),
             core: false,
+            digest: true,
         };
         if unit.own_files.len() != files.len() {
             return Err("a file without an id".to_string());
@@ -2602,6 +2612,9 @@ struct UnitOut {
     /// core's primitives and bind core built-ins. A library file's may hold
     /// float primitives.
     core: bool,
+    /// Whether its entry's stamp holds its interface digest: not for an
+    /// equations segment (`equations_entry`), whose digest no key reads.
+    digest: bool,
 }
 
 /// The names a unit declared: those that existed and changed; those new
@@ -2849,7 +2862,8 @@ impl Elaborator {
     }
 
     /// The entry for library file `f`, which has just loaded without
-    /// errors, or why it can't be cached (see [`Self::encode`]).
+    /// errors, or why it can't be cached (see [`Self::encode`]); with its
+    /// interface digest if `digest`.
     fn encode_library_file(
         &self,
         f: usize,
@@ -2857,6 +2871,7 @@ impl Elaborator {
         log: &[ScopeOp],
         key: &Key,
         salt: [u8; 16],
+        digest: bool,
     ) -> Result<Vec<u8>, String> {
         let index = self.library_index().expect("a library is installed");
         let writes = self.write_set(&capture.transaction, |u| u > capture.after);
@@ -2896,6 +2911,7 @@ impl Elaborator {
             library: true,
             interface: false,
             core: false,
+            digest,
         };
         let before = &capture.before;
         self.encode(
@@ -2950,7 +2966,11 @@ impl Elaborator {
     ) -> Result<(Vec<u8>, Key, DigestShape), String> {
         let parts = self.encode_pass(unit, before, writes, names, pre, warnings, None)?;
         self.cancel_while_encoding();
-        let (digest, mut shape) = self.interface_digest(unit, before, writes, names, pre)?;
+        let (digest, mut shape) = if unit.digest {
+            self.interface_digest(unit, before, writes, names, pre)?
+        } else {
+            ([0; 32], DigestShape::default())
+        };
         shape.entry_bytes = parts.stream_bytes();
         shape.entry_nodes = parts.node_count;
         shape.sizes = parts.sizes;
@@ -4035,6 +4055,7 @@ enum GlobalEntry {
 }
 
 /// Everything an entry holds besides the kernel's declarations.
+#[derive(Default)]
 struct Rest {
     changed: Vec<(String, GlobalEntry, Span)>,
     new: Vec<(String, GlobalEntry, Span, bool)>,
@@ -6407,6 +6428,59 @@ mod tests {
             "`Float` isn't bound"
         );
         e
+    }
+
+    /// An equations segment for `Forged.f`, decoded, holding `defs` and
+    /// `datas` and marking `done` made.
+    fn segment(
+        defs: Vec<super::DefEntry>,
+        datas: Vec<super::DataEntry>,
+        done: &[&str],
+    ) -> super::Decoded {
+        super::Decoded {
+            defs,
+            datas,
+            bound: Vec::new(),
+            rest: super::Rest {
+                tables: state::TablesDelta::marking_done(done),
+                ..super::Rest::default()
+            },
+        }
+    }
+
+    /// What an equations segment may hold (`equations_entry`): its
+    /// definition's equations, which it marks made. A data type, an
+    /// instance or a segment that marks another definition made is
+    /// refused, each for its own reason.
+    #[test]
+    fn an_equations_segment_holding_more_than_equations_is_refused() {
+        let e = Elaborator::new();
+        let why = |d: &super::Decoded| match e.segment_holds_only_equations("Forged.f", d) {
+            Ok(()) => "admitted".to_string(),
+            Err(super::Bad(why)) => why,
+        };
+        let eq = || identity_def("f.eq1", 0, None);
+        assert_eq!(
+            why(&segment(vec![eq()], Vec::new(), &["Forged.f"])),
+            "admitted"
+        );
+        let data = data_entry("Box", 1, Vec::new(), None);
+        assert!(
+            why(&segment(vec![eq()], vec![data], &["Forged.f"])).contains("data types"),
+            "a data type"
+        );
+        let instance = super::DefEntry {
+            instance: true,
+            ..eq()
+        };
+        assert!(
+            why(&segment(vec![instance], Vec::new(), &["Forged.f"])).contains("instances"),
+            "an instance"
+        );
+        assert!(
+            why(&segment(vec![eq()], Vec::new(), &["Forged.g"])).contains("doesn't make"),
+            "another definition's"
+        );
     }
 
     /// `Float -> cod`, as `float::primitive_type` writes `toText`'s type.
