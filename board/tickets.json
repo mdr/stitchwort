@@ -22419,15 +22419,19 @@
     {
       "id": 4982,
       "title": "A dev flag or env var that prints the kernel's refusals (which side refused first), so lanes can tell an elaborator E-REFL from a kernel one without a probe test",
-      "status": "review",
+      "status": "done",
       "agent": "",
       "where": "",
       "labels": [],
       "epic": "dev-loop-speed",
-      "body": "[Sonnet] From SW-4913 (28 Nov): the CLI prints E-REFL either way; the lane added a temporary probe in fuzz_elab.rs.",
+      "body": "[Sonnet] From SW-4913 (28 Nov): the CLI prints E-REFL either way; the lane added a temporary probe in fuzz_elab.rs.\n\nDone (Sonnet): kernel.rs timed prints under STITCHWORT_KERNEL_DEBUG (OnceLock, env_flag), name found by span; test kernel_dump::prints_each_kernel_refusal_under_kernel_debug; docs/testing.md 'Kernel debug switch' + lane line, workflow.md line. Orchestrator checks: tools/fmt, aoc, rogue check --no-cache clean; wasm check clean. Model result: sonnet, worked, 7 min (est. 25).",
       "created": "2026-11-28",
       "updated": "2026-11-28",
-      "commits": []
+      "commits": [
+        "8bb312b29",
+        "958daedc9",
+        "678d237a6"
+      ]
     }
   ]
 }
