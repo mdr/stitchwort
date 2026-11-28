@@ -11412,14 +11412,14 @@
     {
       "id": 2911,
       "title": "[DeepSeek] Hover on a ? returns the goal twice (a code block and plain text); confirm in VS Code and show it once (book SW-2902)",
-      "status": "backlog",
+      "status": "doing",
       "agent": "DeepSeek",
       "where": "",
       "labels": [],
       "epic": "editor-playground",
       "body": "\n\nAudit note (22 Nov): Audit 22 Nov: still open; no commit besides board edits mentions it and no later ticket covers it.\n",
       "created": "2026-11-11",
-      "updated": "2026-11-22",
+      "updated": "2026-11-28",
       "commits": []
     },
     {
