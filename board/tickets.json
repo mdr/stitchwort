@@ -11517,14 +11517,14 @@
     {
       "id": 2946,
       "title": "[DeepSeek] web/bundle-projects.sh (rm -rf then copy) can interleave when two playground builds overlap in one checkout, as bundle-std.sh did (corrupt std.bundle broke the browser suite, SW-2940); write to a temp dir and rename",
-      "status": "backlog",
+      "status": "doing",
       "agent": "DeepSeek",
       "where": "",
       "labels": [],
       "epic": "editor-playground",
       "body": "\n\nAudit note (22 Nov): Audit 22 Nov: still true: web/bundle-projects.sh does rm -rf of its destinations (:61, :141, :206).\n",
       "created": "2026-11-11",
-      "updated": "2026-11-22",
+      "updated": "2026-11-28",
       "commits": []
     },
     {
