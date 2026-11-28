@@ -11529,12 +11529,12 @@
     {
       "id": 2934,
       "title": "[DeepSeek] explain_lifted searches message text for helper names; read a record of which helpers the printer showed as (match … with …) and restore D229's 'this match' note (SW-2154)",
-      "status": "doing",
+      "status": "done",
       "agent": "DeepSeek",
       "where": "",
       "labels": [],
       "epic": "test-infra",
-      "body": "\n\nAudit note (22 Nov): 22 Nov 2026 audit: No commit or ticket addresses it.\n",
+      "body": "\n\nAudit note (22 Nov): 22 Nov 2026 audit: No commit or ticket addresses it.\n\nClosed by the orchestrator (28 Nov): already done by 6bf0a05e5 (SW-2154, 11 Nov): explain_lifted reads decl.matches_shown (printed_matches, lift.rs ~2001) and the D229 'this match' label and note are back (lift.rs ~1965).",
       "created": "2026-11-11",
       "updated": "2026-11-28",
       "commits": []
