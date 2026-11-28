@@ -552,8 +552,6 @@ test "Parse: oneOf, error" :=
         Parse.char 'c'
     ])
     == "column 2: expected 'b' or 'c', got 'd'"
-test "Parse: oneOf, none" :=
-  Parse.Tests.lineResult "a" (() => (Parse.oneOf []: Nat)) == Err "column 1: `oneOf`: no alternatives"
 test "Parse: many" :=
   Parse.Tests.lineResult "aaab" (() =>
     let found := Parse.many (() => Parse.satisfy "an a" (== 'a'))

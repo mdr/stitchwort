@@ -789,29 +789,25 @@ theorem Parse.runsOne ∀ (what: Text) (select: t → Option a) (item: t) (value
 
 --| `span1` on a non-empty run of items that pass, with `rest` not starting
 --| with another: it reads the run and gives it.
-theorem Parse.runsSpan1 ∀ (what: Text) (passes: t → Bool) (taken rest: List t)
-    (some: taken ≠ [])
-    (all: taken.all passes = True)
+theorem Parse.runsSpan1 ∀ (what: Text) (passes: t → Bool) (item: t) (others rest: List t)
+    (all: [item, ..others].all passes = True)
     (stops: rest.takeWhile passes = []):
-    Parse.Runs (() => Parse.span1 what passes) taken rest taken :=
-  match taken with
-    | [] => (some byComputing).impossible
-    | [item, ..others] =>
-      Parse.runsBind
-        (() => Parse.span passes)
-        (items =>
-          match items with
-            | [] => Parse.expected what
-            | others2 => others2)
-        [item, ..others]
-        []
-        [item, ..others]
-        rest
-        [item, ..others]
-        [item, ..others]
-        (Eq.flipped (List.appendNil [item, ..others]))
-        (Parse.runsSpan passes [item, ..others] rest all stops)
-        (Parse.runsPure [item, ..others] rest)
+    Parse.Runs (() => Parse.span1 what passes) [item, ..others] rest [item, ..others] :=
+  Parse.runsBind
+    (() => Parse.span passes)
+    (items =>
+      match items with
+        | [] => Parse.expected what
+        | [first, ..more] => [first, ..more])
+    [item, ..others]
+    []
+    [item, ..others]
+    rest
+    [item, ..others]
+    [item, ..others]
+    (Eq.flipped (List.appendNil [item, ..others]))
+    (Parse.runsSpan passes [item, ..others] rest all stops)
+    (Parse.runsPure [item, ..others] rest)
 
 --| `optional p` where `p` runs: it stops where `p` does and gives `Some` of
 --| its value.
@@ -2434,13 +2430,11 @@ theorem Parse.declinesOneOfFrom ∀ (first: () → {Parse t} a) (rest: List (() 
         (Parse.declinesRuns first input declinesFirst)
         (Parse.declinesOneOfFrom next more input declinesNext declinesMore)
 
---| `oneOf parsers` declines where every alternative does (including where
---| there are none: it fails).
-theorem Parse.declinesOneOf ∀ (parsers: List (() → {Parse t} a)) (input: List t)
-    (declines: Parse.DeclinesAll parsers input):
+--| `oneOf parsers` declines where every alternative does.
+theorem Parse.declinesOneOf ∀ (parsers: NonEmptyList (() → {Parse t} a)) (input: List t)
+    (declines: Parse.DeclinesAll parsers.toList input):
     Parse.Declines (() => Parse.oneOf parsers) input :=
   match parsers, declines with
-    | [], done => Parse.declinesFail "`oneOf`: no alternatives" input
     | [first, ..rest], (Both declinesFirst declinesRest) =>
       Parse.declinesOneOfFrom first rest input declinesFirst declinesRest
 
