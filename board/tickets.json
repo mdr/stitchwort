@@ -21951,17 +21951,21 @@
     {
       "id": 4958,
       "title": "search: a pattern starting with a brace ({Parse _ | _} Nat) parses as a record update (E-PARSE), so a computation type can't be searched on its own",
-      "status": "review",
+      "status": "done",
       "agent": "",
       "where": "",
       "labels": [
         "bug"
       ],
       "epic": "proof-search",
-      "body": "[Sonnet] From SW-4944 (27 Nov).",
+      "body": "[Sonnet] From SW-4944 (27 Nov).\nDone (Sonnet): parse_result_type_within (syntax entry) + Driver::parse_pattern used by search; general grammar unchanged, so no formatter change. {Parse _ | _} Int finds Std.Parse.int, {Fail} Nat finds toNatOrFail; record patterns byte-identical. On main: 211 tests incl. stitchwort-fmt. Model result: sonnet, worked, 11 min (est. 30).\n",
       "created": "2026-11-27",
       "updated": "2026-11-28",
-      "commits": []
+      "commits": [
+        "3c21fd1a8",
+        "b1c8324f0",
+        "07ffa9460"
+      ]
     },
     {
       "id": 4959,
@@ -22082,17 +22086,21 @@
     {
       "id": 4966,
       "title": "stitchwort axioms NAME in a project prints every other namespace's errors before its answer",
-      "status": "review",
+      "status": "done",
       "agent": "",
       "where": "",
       "labels": [
         "bug"
       ],
       "epic": "diagnostics",
-      "body": "[Sonnet] From SW-4962 (27 Nov).\n\nFixed: axioms loads only the names' namespaces (Target::Namespaces, as run does); test a_project_report_ignores_other_namespaces_errors.",
+      "body": "[Sonnet] From SW-4962 (27 Nov).\n\nFixed: axioms loads only the names' namespaces (Target::Namespaces, as run does); test a_project_report_ignores_other_namespaces_errors.\nDone (Sonnet): axioms in a project loads Target::Namespaces of the names (via analyse_cached + namespace_of), so unrelated errors are silent (exit 0); errors in NAME's namespace or imports still fail; project-wide parse/import errors still fail, as for run. On main: 8 axioms tests among 211. Model result: sonnet, worked, 4 min (est. 30).\n",
       "created": "2026-11-27",
       "updated": "2026-11-28",
-      "commits": []
+      "commits": [
+        "fa74c2ee0",
+        "9b61278f9",
+        "741d9798b"
+      ]
     },
     {
       "id": 4967,
