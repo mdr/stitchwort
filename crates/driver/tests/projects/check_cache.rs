@@ -647,7 +647,7 @@ fn a_bundle_with_the_editors_modes_serves_the_language_servers_sessions() {
     // Another mode's entries are other units: merging adds, never replaces.
     let both = std::sync::Arc::new(LibraryBundle::merged(&cli, &editor));
     assert_eq!(both.len(), cli.len() + editor.len());
-    assert!(editor.len() > 0);
+    assert!(!editor.is_empty());
     let dir = temp_dir("installed-editor");
     let served_by = |bundle: &std::sync::Arc<LibraryBundle>, editor_mode: bool| {
         with_stack(STACK, || {
