@@ -21436,14 +21436,14 @@
     {
       "id": 4927,
       "title": "Playground: the outline re-parses all 726 AoC files on every pause (~400 ms), only to find the day's tabs: keep each file's parse, or ask again only when a namespace or import line changes",
-      "status": "doing",
+      "status": "review",
       "agent": "",
       "where": "",
       "labels": [
         "perf"
       ],
       "epic": "editor-playground",
-      "body": "[Sonnet] From SW-4925 (27 Nov): outline_project -> analyse parses the whole project on every pause in typing. crates/web and the driver.",
+      "body": "[Sonnet] From SW-4925 (27 Nov): outline_project -> analyse parses the whole project on every pause in typing. crates/web and the driver.\n\nLane (Sonnet): outline_project now uses a bare session (Session::reading_for_stack; the 112 ms core/library start was the larger cost) and an in-memory scan cache (ScanMemory), so only changed files are parsed. Native 138 -> 18 ms unchanged, 23 ms one file typed. Test outline_reparses_only_changed_files; browser tests for typing/tabs pass. Commit dff61d750.",
       "created": "2026-11-27",
       "updated": "2026-11-28",
       "commits": []
