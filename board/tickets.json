@@ -22076,15 +22076,20 @@
     {
       "id": 4965,
       "title": "A self-recursive record (type Co (a: Type) = { head: a, tail: Co a }) is accepted silently though it has no values: warn",
-      "status": "review",
+      "status": "done",
       "agent": "",
       "where": "",
       "labels": [],
       "epic": "diagnostics",
-      "body": "[Sonnet] From SW-4962 (27 Nov).",
+      "body": "[Sonnet] From SW-4962 (27 Nov).\n\nDone (Sonnet): W-NO-VALUES (warn_if_no_values in elab lib.rs, after the kernel admits a data group): no indices, at least one constructor, every constructor has a field of the type itself; still accepted. Guide 03-data and syntax.md updated; examples/accept/no-values-warning.sw. Orchestrator checks: tools/fmt, aoc, games/rogue check --no-cache raise none; ten pathological reject/soundness examples gained the warning (snapshots re-recorded, warning lines only, bc9df8bbc). On main: example kinds, hash_stability, guide pass. Model result: sonnet, needed fixes (ten example snapshots not re-recorded), 10 min (est. 35).",
       "created": "2026-11-27",
       "updated": "2026-11-28",
-      "commits": []
+      "commits": [
+        "59784f282",
+        "ff6e70d62",
+        "bc9df8bbc",
+        "c404f45a0"
+      ]
     },
     {
       "id": 4966,
@@ -22108,15 +22113,19 @@
     {
       "id": 4967,
       "title": "E-REWRITE-NO-GOAL for rewrite hs, ht on its own block line before the result: the notes should suggest rewrite … then",
-      "status": "review",
+      "status": "done",
       "agent": "",
       "where": "",
       "labels": [],
       "epic": "diagnostics",
-      "body": "[Sonnet] From SW-4962 (27 Nov).\n\nLane: a note on E-REWRITE-NO-GOAL when the rewrite is a block line above the result (rewrite.rs note_statement, called from effects.rs Seq); example examples/reject/rewrite-no-goal-statement.sw; docs/syntax.md and proving-guide updated. Pre-fix output had no Note 4 (seen on the release CLI).",
+      "body": "[Sonnet] From SW-4962 (27 Nov).\n\nLane: a note on E-REWRITE-NO-GOAL when the rewrite is a block line above the result (rewrite.rs note_statement, called from effects.rs Seq); example examples/reject/rewrite-no-goal-statement.sw; docs/syntax.md and proving-guide updated. Pre-fix output had no Note 4 (seen on the release CLI).\n\nDone (Sonnet): note_statement in elab rewrite.rs adds a fourth note to E-REWRITE-NO-GOAL when the rewrite is a block line with no at/then: 'chain the result onto it, rewrite p then result'. examples/reject/rewrite-no-goal-statement.sw; syntax.md and proving-guide updated. On main: example kinds pass. Model result: sonnet, worked, 8 min (est. 25).",
       "created": "2026-11-27",
       "updated": "2026-11-28",
-      "commits": []
+      "commits": [
+        "e6e637809",
+        "6b0097627",
+        "293567b01"
+      ]
     },
     {
       "id": 4968,
