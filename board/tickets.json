@@ -22474,7 +22474,7 @@
     {
       "id": 4985,
       "title": "stitchwort check DIR fails with a bare 'Is a directory': check a project directory (its stitchwort.yaml) or say how to",
-      "status": "backlog",
+      "status": "doing",
       "agent": "DeepSeek",
       "where": "",
       "labels": [],
