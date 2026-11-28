@@ -22293,15 +22293,20 @@
     {
       "id": 4977,
       "title": "search: the open-abilities fallback lists generic-parser lemmas (() → {Parse t} a premises, absorbed 1) for thunk patterns: 68 of 76 results for () → Nat, most of 42 for () → Bool, ranked below the real matches",
-      "status": "review",
+      "status": "done",
       "agent": "",
       "where": "",
       "labels": [],
       "epic": "proof-search",
-      "body": "[Sonnet] From SW-4973 (28 Nov): consider the same unit-absorption rule in the open-abilities tier, comparing the usual queries before/after.",
+      "body": "[Sonnet] From SW-4973 (28 Nov): consider the same unit-absorption rule in the open-abilities tier, comparing the usual queries before/after.\n\nDone (Sonnet): in the open-abilities and relaxed tiers, a premise or subterm match of a function-type pattern is dropped when the candidate's variables absorbed anything (whole and reordered stay). () → Nat 75 -> 8 (its real parsers); () → Bool 41 -> 13 reordered (orchestrator's call after the first version sent it to 361 relaxed); nine other queries unchanged. Doc line in search-open-abilities.md. On main: search tests pass. Model result: sonnet, needed fixes (relaxed tier fall-through), 33 min (est. 25).",
       "created": "2026-11-28",
       "updated": "2026-11-28",
-      "commits": []
+      "commits": [
+        "156c753e2",
+        "ea7c7dc31",
+        "08a16057f",
+        "5ccae6568"
+      ]
     },
     {
       "id": 4978,
