@@ -17986,15 +17986,19 @@
     {
       "id": 4505,
       "title": "[Sonnet] Docs for lanes: how to record new insta snapshots in this repo (docs/testing.md), and how to profile the elaborator on macOS (samply or /usr/bin/sample; docs/performance/) (SW-4498)",
-      "status": "review",
+      "status": "done",
       "agent": "",
       "where": "",
       "labels": [],
       "epic": "docs-tutorials",
-      "body": "\n\nBacklog grooming 27 Nov 2026: Half done: docs/testing.md:166 documents `task snap:examples NAME=…` and `task snap:hashes NAME=…` (recording snapshots), and docs/workflow.md:197 mentions `INSTA_UPDATE=always`. Remaining: how to profile the elaborator on macOS (samply only appears in docs/evaluator-speed.md:63; docs/performance has only log.md).\n",
+      "body": "\n\nBacklog grooming 27 Nov 2026: Half done: docs/testing.md:166 documents `task snap:examples NAME=…` and `task snap:hashes NAME=…` (recording snapshots), and docs/workflow.md:197 mentions `INSTA_UPDATE=always`. Remaining: how to profile the elaborator on macOS (samply only appears in docs/evaluator-speed.md:63; docs/performance has only log.md).\n\nDone (Sonnet, paper): 'Running tests in a lane' in docs/testing.md (binary table, EXAMPLES=/task test:example, backgrounding, slow tests, search tiers, profiling with sample/samply, browser tests waiting for web/pkg/version.json). Suggested CLAUDE.md pointer line for Matt (optional). Model result: sonnet, worked, 2 min (est. 25).",
       "created": "2026-11-21",
       "updated": "2026-11-28",
-      "commits": []
+      "commits": [
+        "787674f07",
+        "8741f3111",
+        "3b8cf0391"
+      ]
     },
     {
       "id": 4508,
@@ -22259,17 +22263,21 @@
     {
       "id": 4975,
       "title": "Live answers per key: index_data_of in LiveProject::answers (crates/driver/src/live.rs) costs ~134 ms a key and make_plan re-analyses all 726 AoC files on every key: most of the ~300 ms left per key after SW-4928",
-      "status": "review",
+      "status": "done",
       "agent": "",
       "where": "",
       "labels": [
         "perf"
       ],
       "epic": "editor-playground",
-      "body": "[Sonnet] From SW-4928 (28 Nov): native, 2021 day 18, 20 keys 400 ms apart: 6.3 s busy of 8.2 s. Profile first; also measure the wasm worker per key.\n\nLane (Sonnet, 02:12-02:55): native, day 18, 20 keys: answers 161 to 23 ms a key, plan 62 to 28 ms, busy 5.9 s to 2.3 s of 8.1 s; answers hash identical before/after. Cause of the answers: navigation_index copied the library's 125k locals, 50k binders and 268k expr types per key. Left: edges of all namespaces and text copies in the plan (28 ms), Day18 check 80 ms. Wasm worker per key not measured (no browser here). Commit e263af72a.",
+      "body": "[Sonnet] From SW-4928 (28 Nov): native, 2021 day 18, 20 keys 400 ms apart: 6.3 s busy of 8.2 s. Profile first; also measure the wasm worker per key.\n\nLane (Sonnet, 02:12-02:55): native, day 18, 20 keys: answers 161 to 23 ms a key, plan 62 to 28 ms, busy 5.9 s to 2.3 s of 8.1 s; answers hash identical before/after. Cause of the answers: navigation_index copied the library's 125k locals, 50k binders and 268k expr types per key. Left: edges of all namespaces and text copies in the plan (28 ms), Day18 check 80 ms. Wasm worker per key not measured (no browser here). Commit e263af72a.\n\nDone (Sonnet): navigation_index copied the library's 125k locals/50k binders/268k expression types into the index every key; navigation_index_for indexes only library-or-user files once. LiveProject keeps each file's sketch and outline until its text changes (analyse_kept). Native 2021 day 18: answers 161 -> 23 ms/key, plan 62 -> 28 ms, 20 keys busy 5.9 -> 2.3 s of 8.1 s; answers hash identical. On main: 47 lsp/navigation tests, wasm builds. Model result: sonnet, worked, 38 min (est. 40).",
       "created": "2026-11-28",
       "updated": "2026-11-28",
-      "commits": []
+      "commits": [
+        "e263af72a",
+        "e3872d7f2",
+        "492cfb737"
+      ]
     },
     {
       "id": 4976,
