@@ -621,7 +621,9 @@ enum Command {
     /// A definition that uses none is reported as such; that does not mean
     /// the term computes to data in the kernel (a proof built from
     /// `Quot.ind` can still be stuck). With several names, each is reported
-    /// under its own heading
+    /// under its own heading. In a project only the names' namespaces and
+    /// what they import are checked: errors there are reported and fail the
+    /// command, errors elsewhere are not
     Axioms {
         /// A file, or the full name of a definition in the project
         /// (`Main.total`)
@@ -2099,12 +2101,7 @@ fn locate_project(flag: Option<&Path>, what: &str, example: &str) -> Option<Proj
 }
 
 /// Loads the namespaces `target` needs; reports what's wrong, or the
-/// warnings.
-fn load_project(session: &mut Session, project: &Project, target: &Target) -> bool {
-    load_project_into(session, project, target, &mut Vec::new())
-}
-
-/// [`load_project`], also keeping what it reported in `reported`.
+/// warnings, and keeps what it reported in `reported`.
 fn load_project_into(
     session: &mut Session,
     project: &Project,
@@ -3895,12 +3892,45 @@ fn axioms(target: &str, names: &[String], project: Option<&Path>, cache: &CacheA
             return ExitCode::FAILURE;
         };
         use_cache(&mut session, cache, &project.dir);
-        if !load_project(&mut session, &project, &Target::Everything) {
+        let keys: Vec<&str> = std::iter::once(target)
+            .chain(names.iter().map(String::as_str))
+            .collect();
+        // Only the namespaces of the names, and what they import, are
+        // checked: another namespace's errors don't bear on the answer.
+        session.include_from(std::rc::Rc::new(DiskFiles {
+            root: project.dir.clone(),
+        }));
+        let sources = match project_sources(&project.files, &project.name, &mut session.sources) {
+            Ok(sources) => sources,
+            Err(diagnostics) => {
+                report(&session.sources, &diagnostics);
+                return ExitCode::FAILURE;
+            }
+        };
+        let analysis = session.analyse_cached(&project.name, sources);
+        if !analysis.diagnostics.is_empty() {
+            report(&session.sources, &analysis.diagnostics);
             return ExitCode::FAILURE;
         }
-        std::iter::once(target)
-            .chain(names.iter().map(String::as_str))
-            .collect()
+        let mut namespaces: Vec<String> = Vec::new();
+        for key in &keys {
+            if let Some(ns) = namespace_of(&analysis, key)
+                && !namespaces.iter().any(|n| n == ns)
+            {
+                namespaces.push(ns.to_string());
+            }
+        }
+        match session.load_analysis(&project.name, analysis, &Target::Namespaces(namespaces)) {
+            Ok(_) => {
+                let reported = std::mem::take(&mut session.warnings);
+                report(&session.sources, &reported);
+            }
+            Err(diagnostics) => {
+                report(&session.sources, &diagnostics);
+                return ExitCode::FAILURE;
+            }
+        }
+        keys
     };
     session.elab.leave_namespace();
     let mut ids = Vec::new();
