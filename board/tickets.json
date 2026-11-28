@@ -22817,15 +22817,19 @@
     {
       "id": 5004,
       "title": "Streams S3: E-TERMINATION on a definition whose result is a Stream points at Stream.unfold / Stream.iterate / Stream.repeat; a feature-tour page (web/guide/) on head/tail recursion over streams",
-      "status": "review",
+      "status": "done",
       "agent": "Sonnet",
       "where": "",
       "labels": [],
       "epic": "std-library",
-      "body": "Matt, 28 Nov: 'Proceed with S2-S4 - I'm interested in which AoC days might genuinely benefit from streams'. Plan: docs/proposals/streams-head-tail.md §6.\n\nLane note: note added in crates/core/src/termination.rs (result type Std.Stream, also for functions); reject examples stream-defined-by-itself, stream-function-recursion; tour page web/guide/45-streams.sw + guide.html. Commit f3df62bc1.\n",
+      "body": "Matt, 28 Nov: 'Proceed with S2-S4 - I'm interested in which AoC days might genuinely benefit from streams'. Plan: docs/proposals/streams-head-tail.md §6.\n\nLane note: note added in crates/core/src/termination.rs (result type Std.Stream, also for functions); reject examples stream-defined-by-itself, stream-function-recursion; tour page web/guide/45-streams.sw + guide.html. Commit f3df62bc1.\n\nDone (Sonnet): crates/core/src/termination.rs records returns_stream per member (result type after Pi binders is Data 'Std.Stream'); no_descent adds the note when any cycle member returns a stream. Orchestrator reviewed: note only, acceptance unchanged. Two reject examples; tour page web/guide/45-streams.sw. Matching by path string 'Std.Stream', like pretty.rs's 'Std.Map'. Model result: sonnet, worked, 25 min (est. 30).",
       "created": "2026-11-28",
       "updated": "2026-11-28",
-      "commits": []
+      "commits": [
+        "f3df62bc1",
+        "143afbd57",
+        "966a35d8f"
+      ]
     },
     {
       "id": 5005,
