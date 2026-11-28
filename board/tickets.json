@@ -21108,12 +21108,12 @@
     {
       "id": 4905,
       "title": "[Sonnet] unify::value_forms tries an unfolded form of a proof-valued let (e.g. %sameIff's %k) when zonking; with rule F keeping proof calls this read-back now exceeds cheap_limits' cap and is thrown away (32 x ~26 K steps for 16 constructors of 3 fields; derive_cost bound raised 3 M -> 3.5 M in SW-4900). Skip the unfolded form for proof-valued lets (rule I makes proofs equal; erased at run time); re-record hash snapshots if terms change; restore the 3 M bound",
-      "status": "doing",
+      "status": "review",
       "agent": "",
       "where": "",
       "labels": [],
       "epic": "performance",
-      "body": "",
+      "body": "Lane 28 Nov 03:45-04:05 (Opus). value_forms is used only to build refold's table (zonk_let, Lift::around), never by a unification decision. Skipping the unfolded form of proof-valued lets (as proposed) changed derived Ord's %equal in 3 examples: data let %b0 := T.%C%0%at %s %e folds only through proof let %e's unfolded form; dropped. Instead value_forms returns no forms for a Value::Lam (every read-back is a lambda, never worth_folding): no hash moved (snap:hashes), derive_cost 16x3 3.11 M -> 2.58 M, bound back to 3 M. Perf log entry added. Commit f69079d33.\n",
       "created": "2026-11-27",
       "updated": "2026-11-28",
       "commits": []
