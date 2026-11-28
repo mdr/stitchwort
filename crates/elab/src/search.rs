@@ -571,6 +571,15 @@ impl Item {
         }
     }
 
+    /// A name for it that is the same in every session over the same
+    /// declarations: its path, and for a conjunct which one it is.
+    pub(crate) fn stable_key(self, g: &Ev) -> String {
+        match self {
+            Item::Part(id, part) => format!("{}#{}.{}", g.def(id).path(), part.len, part.bits),
+            _ => self.path(g),
+        }
+    }
+
     /// Its name from the root of its module (`List.lengthAppend`, without
     /// the module's namespace).
     pub fn name(self, g: &Ev) -> String {
@@ -667,6 +676,24 @@ pub struct Index {
     pub data: BTreeSet<usize>,
     /// The constructors its type names, as (data type, index).
     pub ctors: BTreeSet<(usize, usize)>,
+}
+
+impl Index {
+    /// Adds what `other` names.
+    pub(crate) fn absorb(&mut self, other: Index) {
+        self.ty.extend(other.ty);
+        self.data.extend(other.data);
+        self.ctors.extend(other.ctors);
+    }
+}
+
+/// What `ty` names as written.
+pub(crate) fn syntactic_index(ty: &Term) -> Index {
+    Index {
+        ty: constants(ty),
+        data: data_types(ty),
+        ctors: ctors(ty),
+    }
 }
 
 /// A declaration to search, with its type and what the type names.
@@ -1680,12 +1707,17 @@ impl Elaborator {
         let and = (0..g.env.datas().len())
             .map(DataId)
             .find(|d| &**g.data(*d).path() == "Std.And");
-        let candidate = |item: Item, ty: Term, open: bool| {
+        let mut tix = self.type_index_cache();
+        let mut candidate = |item: Item, ty: Term, open: bool| {
             let (size, premises) = shape(&ty);
+            let index = match tix.as_mut() {
+                Some(cache) => self.cached_type_index(cache, item, &ty),
+                None => self.type_index(&ty),
+            };
             Candidate {
                 open,
                 item,
-                index: self.type_index(&ty),
+                index,
                 ty,
                 size,
                 premises,
@@ -1713,6 +1745,9 @@ impl Elaborator {
                 out.push(candidate(part, t, open));
             }
         }
+        if let Some(cache) = tix {
+            self.finish_type_index_cache(cache);
+        }
         out
     }
 
@@ -1720,6 +1755,17 @@ impl Elaborator {
     /// such as `Ord.compare` is named the same way in both), and as
     /// written.
     pub fn type_index(&self, ty: &Term) -> Index {
+        let mut index = syntactic_index(ty);
+        if let Some(folded) = self.folded_index(ty) {
+            index.absorb(folded);
+        }
+        index
+    }
+
+    /// What `ty` names once evaluated and read back folded: the expensive
+    /// half of [`Elaborator::type_index`]. `None` if that failed (or ran
+    /// out of budget), which the index takes as naming nothing more.
+    pub(crate) fn folded_index(&self, ty: &Term) -> Option<Index> {
         let g = &self.ev();
         let was = g.machine.glue.replace(self.gluing());
         let found = (|| {
@@ -1728,17 +1774,7 @@ impl Elaborator {
             crate::check::quote_folded(g, 0, &v)
         })();
         g.machine.glue.set(was);
-        let mut index = Index {
-            ty: constants(ty),
-            data: data_types(ty),
-            ctors: ctors(ty),
-        };
-        if let Ok(t) = found {
-            index.ty.extend(constants(&t));
-            index.data.extend(data_types(&t));
-            index.ctors.extend(ctors(&t));
-        }
-        index
+        found.ok().map(|t| syntactic_index(&t))
     }
 
     /// Searches `candidates` (those `keep` keeps) for `patterns`, the halves

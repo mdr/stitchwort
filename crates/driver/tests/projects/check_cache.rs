@@ -2964,3 +2964,88 @@ fn a_warm_run_makes_no_deferred_equation_again() {
         "{w:?}"
     );
 }
+
+// ---- Type index entries (docs/proposals/search-cache.md §3, SW-4956) ----
+
+/// A library file whose declarations' types name others only once unfolded
+/// (`Nat.libAlias` is `Nat`).
+const TYPE_INDEX_FILE: &str = "def Nat.libAlias: Type := Nat\n\n\
+     def Nat.libDouble: Nat.libAlias → Nat.libAlias\n  | Zero => Zero\n  \
+     | Succ k => Succ (Succ (Nat.libDouble k))\n";
+
+/// A session whose library is `A.sw` holding `text`, given to `setup`, then
+/// loaded; `search`'s candidates are listed with what they name. Each
+/// candidate's index is checked against one worked out with no cache. The
+/// candidates' (path, names) and the cache's statistics.
+fn candidate_indexes(
+    text: &str,
+    setup: impl FnOnce(&mut Session) + Send,
+) -> (Vec<(String, String)>, Stats) {
+    with_stack(STACK, || {
+        let mut session =
+            Session::with_library_files(&[("A.sw", text)], false, false).expect("a session");
+        setup(&mut session);
+        session
+            .elab
+            .load_all_libraries()
+            .expect("the library loads");
+        session
+            .elab
+            .generate_deferred_equations()
+            .expect("the equations are made");
+        let g = &session.elab.ev();
+        let candidates = session.elab.search_candidates(&|_, _| true);
+        let out = candidates
+            .iter()
+            .map(|c| {
+                let fresh = session.elab.type_index(&c.ty);
+                let names = format!("{:?} {:?} {:?}", c.index.ty, c.index.data, c.index.ctors);
+                assert_eq!(
+                    names,
+                    format!("{:?} {:?} {:?}", fresh.ty, fresh.data, fresh.ctors),
+                    "`{}`'s index differs from a fresh one",
+                    c.item.path(g)
+                );
+                (c.item.path(g), names)
+            })
+            .collect();
+        (out, session.elab.check_cache_stats())
+    })
+}
+
+#[test]
+fn type_indexes_replay_from_the_cache_unchanged() {
+    let (fresh, _) = candidate_indexes(TYPE_INDEX_FILE, |_| ());
+    let store = MemoryStore::default();
+    let (cold, c) = candidate_indexes(TYPE_INDEX_FILE, |s| through(&store, false)(s));
+    assert_eq!(cold, fresh);
+    assert!(c.type_index_misses > 0 && c.type_index_hits == 0, "{c:?}");
+    // The core's and `A.sw`'s.
+    assert_eq!(c.type_index_entries_written, 2, "{c:?}");
+    let (warm, w) = candidate_indexes(TYPE_INDEX_FILE, |s| through(&store, false)(s));
+    assert_eq!(warm, fresh);
+    assert_eq!(
+        (
+            w.type_index_hits,
+            w.type_index_misses,
+            w.type_index_entries_written
+        ),
+        (c.type_index_misses, 0, 0),
+        "{w:?}"
+    );
+}
+
+/// A changed library file is another key: the entry of the old text isn't
+/// read, and the new one's index is its own.
+#[test]
+fn a_changed_definitions_type_index_entry_is_not_used() {
+    let store = MemoryStore::default();
+    candidate_indexes(TYPE_INDEX_FILE, |s| through(&store, false)(s));
+    let changed = TYPE_INDEX_FILE.replace("Zero => Zero", "Zero => Succ Zero");
+    let (fresh, _) = candidate_indexes(&changed, |_| ());
+    let (read, r) = candidate_indexes(&changed, |s| through(&store, false)(s));
+    assert_eq!(read, fresh);
+    // The core's entry is used; `A.sw`'s items are worked out.
+    assert!(r.type_index_misses > 0, "{r:?}");
+    assert!(r.type_index_entries_written == 1, "{r:?}");
+}

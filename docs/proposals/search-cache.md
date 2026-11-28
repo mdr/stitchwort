@@ -224,6 +224,23 @@ Saving: about −0.14 s a search (0.16 s, less about 0.02 s to read and
 resolve the names, estimated). A differential test compares every std
 candidate's index from the entry with a fresh one.
 
+Built (SW-4956, 28 Nov 2026), on disk only (the session memo would help
+only the language server, and a CLI search computes each type once):
+an entry per library file, unit `tix.` and the file's unit, under the
+file's own library key (`cache/type_index_entry.rs`), mapping each
+declaration (its path, and which conjunct for a theorem's parts) to the
+names its folded type adds to those it names as written, as paths. Unlike
+the equations, **nothing in it is trusted or admitted**: it holds names
+only, `search_candidates` uses it to fill `Index` for filtering and
+ranking, and a wrong entry could only make a search miss or show a
+candidate. It is read as an exact hit (this build, this library interface,
+the same gluing switch), names that don't resolve make the item a miss, and
+an item is stored only if its names resolve back to the same
+declarations and its fold succeeded. A store that doesn't keep the entry
+gets nothing encoded. Measured: warm `search --in Std '() → {Parse Char}
+Int'`, 0.82 s → 0.62 s from the repo root (type_index was 0.19 s of it,
+timed in place), 0.85 s → 0.70 s in `aoc/`; results byte-identical.
+
 ## 4. Leaving the project out
 
 ### 4.1 What happens today

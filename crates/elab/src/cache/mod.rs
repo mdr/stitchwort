@@ -72,6 +72,7 @@ mod deferral;
 mod dump;
 mod equations_entry;
 mod rows;
+mod type_index_entry;
 
 use std::collections::BTreeSet;
 use std::rc::Rc;
@@ -327,6 +328,12 @@ pub struct Stats {
     pub equation_misses: usize,
     pub equation_segments_encoded: usize,
     pub equation_entries_written: usize,
+    /// Candidates whose folded type index came from a file's type index
+    /// entry (`type_index_entry`, for `search`), those that were worked out
+    /// and, of those, the entries written.
+    pub type_index_hits: usize,
+    pub type_index_misses: usize,
+    pub type_index_entries_written: usize,
 }
 
 impl Stats {
@@ -732,7 +739,13 @@ impl Elaborator {
 
     /// What the cache has done so far.
     pub fn check_cache_stats(&self) -> Stats {
-        self.session.cache_stats
+        let [hits, misses, written] = self.session.type_index_tally.get();
+        Stats {
+            type_index_hits: hits,
+            type_index_misses: misses,
+            type_index_entries_written: written,
+            ..self.session.cache_stats
+        }
     }
 
     /// Each project namespace's check cache key and digest as of now, by
