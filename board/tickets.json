@@ -11448,14 +11448,14 @@
     {
       "id": 2923,
       "title": "[Sonnet] Inside a match arm, rfl's error shows the statement before the arm's substitution ('beats m m and True aren't equal' in the Rock arm; should say beats Rock Rock) (SW-2921)",
-      "status": "backlog",
+      "status": "doing",
       "agent": "Sonnet",
       "where": "",
       "labels": [],
       "epic": "diagnostics",
       "body": "\n\nAudit note (22 Nov): Audit 22 Nov: no commit touches it; not re-run.\n\nBacklog grooming 27 Nov 2026: \"rfl's error\" → \"`byComputing`'s error (E-REFL)\".\n",
       "created": "2026-11-11",
-      "updated": "2026-11-27",
+      "updated": "2026-11-28",
       "commits": []
     },
     {
