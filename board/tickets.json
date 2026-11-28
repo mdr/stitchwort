@@ -22093,14 +22093,14 @@
     {
       "id": 4967,
       "title": "E-REWRITE-NO-GOAL for rewrite hs, ht on its own block line before the result: the notes should suggest rewrite … then",
-      "status": "backlog",
+      "status": "doing",
       "agent": "",
       "where": "",
       "labels": [],
       "epic": "diagnostics",
       "body": "[Sonnet] From SW-4962 (27 Nov).",
       "created": "2026-11-27",
-      "updated": "2026-11-27",
+      "updated": "2026-11-28",
       "commits": []
     },
     {
