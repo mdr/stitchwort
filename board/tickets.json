@@ -21098,14 +21098,14 @@
     {
       "id": 4905,
       "title": "[Sonnet] unify::value_forms tries an unfolded form of a proof-valued let (e.g. %sameIff's %k) when zonking; with rule F keeping proof calls this read-back now exceeds cheap_limits' cap and is thrown away (32 x ~26 K steps for 16 constructors of 3 fields; derive_cost bound raised 3 M -> 3.5 M in SW-4900). Skip the unfolded form for proof-valued lets (rule I makes proofs equal; erased at run time); re-record hash snapshots if terms change; restore the 3 M bound",
-      "status": "backlog",
+      "status": "doing",
       "agent": "",
       "where": "",
       "labels": [],
       "epic": "performance",
       "body": "",
       "created": "2026-11-27",
-      "updated": "2026-11-27",
+      "updated": "2026-11-28",
       "commits": []
     },
     {
@@ -21155,14 +21155,14 @@
     {
       "id": 4909,
       "title": "[DeepSeek] Tier reports list only the 15 slowest tests; record every test's time per run (e.g. a JSON beside target/tier-report/*.md) and say in docs/testing.md where per-test all-tier times live (SW-4902 finding)",
-      "status": "backlog",
+      "status": "doing",
       "agent": "",
       "where": "",
       "labels": [],
       "epic": "test-infra",
       "body": "",
       "created": "2026-11-27",
-      "updated": "2026-11-27",
+      "updated": "2026-11-28",
       "commits": []
     },
     {
