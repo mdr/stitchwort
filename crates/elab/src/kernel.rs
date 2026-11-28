@@ -137,13 +137,22 @@ fn dump_wanted() -> Option<&'static str> {
         .as_deref()
 }
 
+/// Whether `STITCHWORT_DUMP_KERNEL_FULL` is on. Read once.
+fn dump_full_wanted() -> bool {
+    static WANTED: std::sync::OnceLock<bool> = std::sync::OnceLock::new();
+    *WANTED.get_or_init(|| stitchwort_core::env_flag::env_flag("STITCHWORT_DUMP_KERNEL_FULL"))
+}
+
 /// With `STITCHWORT_DUMP_KERNEL` set to a declaration's full name, prints
 /// the type and value the kernel is given for it, after zonking and
-/// saturation: exactly the terms it checks.
+/// saturation: exactly the terms it checks. With
+/// `STITCHWORT_DUMP_KERNEL_FULL=1` too, case trees print with their arms
+/// (`case x of { … }`) rather than elided as `case x of …`.
 fn dump_kernel_declaration(g: &Kernel, members: &[(DefId, Term)]) {
     let Some(wanted) = dump_wanted() else {
         return;
     };
+    let full = dump_full_wanted();
     for (id, body) in members {
         let def = g.def(*id);
         let name = def.path().to_string();
@@ -155,9 +164,16 @@ fn dump_kernel_declaration(g: &Kernel, members: &[(DefId, Term)]) {
             continue;
         }
         let ev = g.ev();
+        let show = |term: &Term| {
+            if full {
+                pretty::term_with_cases(&ev, &[], term)
+            } else {
+                pretty::term(&ev, &[], term)
+            }
+        };
         eprintln!("kernel dump: {name}");
-        eprintln!("  type: {}", pretty::term(&ev, &[], def.ty()));
-        eprintln!("  value: {}", pretty::term(&ev, &[], body));
+        eprintln!("  type: {}", show(def.ty()));
+        eprintln!("  value: {}", show(body));
     }
 }
 
