@@ -693,6 +693,13 @@ lane missed it and a batch failed:
   '<old text>'` and re-record what changes (`UPDATE=1` for the same task
   writes them); it finds the examples whose snapshots quote the old text
   instead of running the whole examples sweep" (SW-4667).
+- **Deletes or renames AoC lemmas (a sweep):** "grep
+  `crates/driver/tests/search_at_aoc.rs` for each name you drop; its cases
+  anchor on the days' file text" (SW-2167 broke one; SW-4900).
+- **Builds outside `.claude/worktrees`** (a bisect checkout, say): "copy
+  `.claude/worktrees/.cargo/config.toml` (`task kache:config` rewrites it)
+  into a `.cargo/` folder in a parent of the checkout, or the build runs
+  without kache and takes minutes" (SW-4900).
 - **Adds files under `examples/goals`:** re-record the server's goal_index
   snapshots with `INSTA_UPDATE=always cargo nextest run --release -p
   stitchwort-cli --test server -E 'test(/^goal_index::/)'`, reading each
