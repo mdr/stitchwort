@@ -5295,7 +5295,7 @@
     {
       "id": 1947,
       "title": "[DeepSeek] Split js/lib.rs (now about 7,000 lines), pure move",
-      "status": "backlog",
+      "status": "doing",
       "agent": "",
       "where": "",
       "labels": [
@@ -5304,7 +5304,7 @@
       "epic": "effects-native",
       "body": "From docs/reviews/code-review-js-native.md. 45 min. The 1 Nov finding.\n\nAudit note (22 Nov): crates/js/src/lib.rs is still 6,993 lines. Audit 22 Nov: still true: crates/js/src/lib.rs is 6,993 lines (the title's 6,566 is stale); no commit mentions SW-1947.\n",
       "created": "2026-11-07",
-      "updated": "2026-11-22",
+      "updated": "2026-11-28",
       "commits": []
     },
     {
@@ -11361,14 +11361,14 @@
     {
       "id": 2903,
       "title": "[DeepSeek] ctor_written's last fallback writes a constructor's full key when neither its short nor Type.Ctor name resolves (type not in scope at all); check that form parses and checks as a pattern, and add a test of the qualified branch (Nat.O when O isn't imported) (SW-2889)",
-      "status": "backlog",
+      "status": "doing",
       "agent": "DeepSeek",
       "where": "",
       "labels": [],
       "epic": "editor-playground",
       "body": "\n\nAudit note (22 Nov): Audit 22 Nov: still true: ctor_written/ctor_qualified at crates/elab/src/missing.rs:340-358.\n",
       "created": "2026-11-11",
-      "updated": "2026-11-22",
+      "updated": "2026-11-28",
       "commits": []
     },
     {
