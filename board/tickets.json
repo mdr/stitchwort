@@ -21915,17 +21915,21 @@
     {
       "id": 4956,
       "title": "search cache stage 3: memoise type_index's folded read-back by content hash and save it with the equations entry",
-      "status": "review",
+      "status": "done",
       "agent": "",
       "where": "",
       "labels": [
         "perf"
       ],
       "epic": "proof-search",
-      "body": "[Sonnet] After SW-4954. Est. 30 min.\n\nProgress (lane): type_index was 0.19 s of a 0.81 s warm std search; per-file type index entry (names only, untrusted, filtering/ranking data) built; warm 0.82 -> 0.62 s (root), 0.85 -> 0.70 s (aoc/); 7 queries byte-identical. Tests: check_cache::type_indexes_* (2 new), equations/digest, search_match, server search::. Commit 8c2acfb0f.",
+      "body": "[Sonnet] After SW-4954. Est. 30 min.\n\nProgress (lane): type_index was 0.19 s of a 0.81 s warm std search; per-file type index entry (names only, untrusted, filtering/ranking data) built; warm 0.82 -> 0.62 s (root), 0.85 -> 0.70 s (aoc/); 7 queries byte-identical. Tests: check_cache::type_indexes_* (2 new), equations/digest, search_match, server search::. Commit 8c2acfb0f.\nDone (Sonnet): tix.<file> entries (names only, not trusted, exact hits, Store::keeps respected), type_index split into syntactic + folded halves. Profile: type_index 0.19 s of 0.81 s warm. Warm std search 0.82 -> 0.62 s (lane); Matt's aoc/ --in Std search 0.88 -> 0.72 s (measured on main). Seven queries byte-identical. On main: 134 tests with SW-4969, wasm builds. Model result: sonnet, worked, 21 min (est. 40).\n",
       "created": "2026-11-27",
       "updated": "2026-11-28",
-      "commits": []
+      "commits": [
+        "8c2acfb0f",
+        "df1d5c335",
+        "26c629ae5"
+      ]
     },
     {
       "id": 4957,
@@ -22122,17 +22126,21 @@
     {
       "id": 4969,
       "title": "search: a pattern of 10,000 chained arrows ran past 100 s (killed); check whether a deep chain is slow rather than failing cleanly",
-      "status": "review",
+      "status": "done",
       "agent": "",
       "where": "",
       "labels": [
         "perf"
       ],
       "epic": "proof-search",
-      "body": "[Sonnet] From SW-4964 (27 Nov); 10,000 nested parentheses around ?a fail cleanly (exit 2). Reproduce with a timeout first.\n\nLane (Sonnet): quadratic cost found and part fixed in 0bec67842. Remaining at 3,000 arrows 11.7 s (was >60 s), 10,000 still >40 s: measure's quote_folded of a whole-pattern solution per matching candidate (core env copy per closure) and the printer's per-link mentions walk; both general core, so stopped. Needs a decision: linear quote/printer, or a pattern-size E-RESOURCE.",
+      "body": "[Sonnet] From SW-4964 (27 Nov); 10,000 nested parentheses around ?a fail cleanly (exit 2). Reproduce with a timeout first.\n\nLane (Sonnet): quadratic cost found and part fixed in 0bec67842. Remaining at 3,000 arrows 11.7 s (was >60 s), 10,000 still >40 s: measure's quote_folded of a whole-pattern solution per matching candidate (core env copy per closure) and the printer's per-link mentions walk; both general core, so stopped. Needs a decision: linear quote/printer, or a pattern-size E-RESOURCE.\nDone (Sonnet): Pattern caches its opened binders (search.rs reordered), pretty.rs binder one walk (was cubic), go_pi asks once. 1,000 arrows 25 -> 2.6 s, 3,000 -> 11.7 s; 10,000 still >40 s: the rest is core quoting/printing, filed as SW-4971 (no size limit: that would narrow). Orchestrator checks: whole tools/fmt, aoc, games/rogue check --no-cache pass; examples kinds, hash_stability, search, hover pass (53); merged with search_match.rs conflict resolved keeping both tests. Model result: sonnet, worked (partial: core part filed), 30 min (est. 35).\n",
       "created": "2026-11-27",
       "updated": "2026-11-28",
-      "commits": []
+      "commits": [
+        "0bec67842",
+        "88f75c769",
+        "8c1b4aaa8"
+      ]
     },
     {
       "id": 4970,
