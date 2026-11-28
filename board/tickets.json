@@ -21456,17 +21456,21 @@
     {
       "id": 4928,
       "title": "Playground: the language server re-checks the AoC day on every key and holds a core busy while typing: try a short wait before re-checking in a project",
-      "status": "review",
+      "status": "done",
       "agent": "",
       "where": "",
       "labels": [
         "perf"
       ],
       "epic": "editor-playground",
-      "body": "[Sonnet] From SW-4925 (27 Nov): during 20 keys 400 ms apart in 2021 day 18, the language server worker ran 11.7 of 11.8 s. Measure before and after.\n[Sonnet lane, 28 Nov] Measured native (Inline, 2021 day 18, 20 keys 400 ms): 91 namespace checks, 8.4 s busy of 8.4 s; each key's rewind makes the checker re-check ~90 settled namespaces from the cache, thrown away by the next key. Fix: the rest of a project waits 300 ms of quiet after the edit's answer (Options::sweep_quiet; playground sets it; native default 0). After: 20 checks, 6.3 s busy of 8.2 s. Remaining per key: check 115 ms + index_data_of ~134 ms + plan. Model result: sonnet, worked, 40 min (est. 45).\n",
+      "body": "[Sonnet] From SW-4925 (27 Nov): during 20 keys 400 ms apart in 2021 day 18, the language server worker ran 11.7 of 11.8 s. Measure before and after.\n[Sonnet lane, 28 Nov] Measured native (Inline, 2021 day 18, 20 keys 400 ms): 91 namespace checks, 8.4 s busy of 8.4 s; each key's rewind makes the checker re-check ~90 settled namespaces from the cache, thrown away by the next key. Fix: the rest of a project waits 300 ms of quiet after the edit's answer (Options::sweep_quiet; playground sets it; native default 0). After: 20 checks, 6.3 s busy of 8.2 s. Remaining per key: check 115 ms + index_data_of ~134 ms + plan. Model result: sonnet, worked, 40 min (est. 45).\n\nDone (Sonnet): each key rewound to the day and then re-checked ~90 other namespaces from the cache (~0.4 s), thrown away by the next key. Options::sweep_quiet holds the rest-of-project sweep until 300 ms after the last edit's answer (playground only; native default 0); the edited file is answered at once. Native 20 keys: 91 -> 20 checks, busy 8.4 -> 6.3 s of 8.2-8.4 s. Browser not re-measured. Follow-up SW-4975 (index_data_of, make_plan per key). On main: 16 lsp tests, wasm builds. Model result: sonnet, worked, 26 min (est. 45).",
       "created": "2026-11-27",
       "updated": "2026-11-28",
-      "commits": []
+      "commits": [
+        "3e37f45b0",
+        "c4c8fdb01",
+        "443e23b57"
+      ]
     },
     {
       "id": 4929,
