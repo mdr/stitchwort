@@ -22232,14 +22232,14 @@
     {
       "id": 4974,
       "title": "Goal-search ladder rungs have a 500 ms wall-clock budget, so under load byComputing can miss and the code action lists every closer: features::a_code_action_on_a_goal_offers_a_search_that_runs_when_asked failed once on Overmind (left 3, right 1); make the rung budget robust (work steps, or a generous budget for rungs that are cheap by construction) or the test independent of wall time",
-      "status": "doing",
+      "status": "review",
       "agent": "",
       "where": "",
       "labels": [
         "flaky"
       ],
       "epic": "proof-search",
-      "body": "[Sonnet] Overmind, 28 Nov: red once at 4cdc0e87e in the loop's niced lsp-features step right after the quick tier (test 13.7 s vs 7 s usually); not reproduced alone 3/3 there nor in the full step 50/50, nor 3/3 on Speedwell. Ladder: crates/driver/src/search_at.rs (RUNG_TIME, LADDER_TIME).",
+      "body": "[Sonnet] Overmind, 28 Nov: red once at 4cdc0e87e in the loop's niced lsp-features step right after the quick tier (test 13.7 s vs 7 s usually); not reproduced alone 3/3 there nor in the full step 50/50, nor 3/3 on Speedwell. Ladder: crates/driver/src/search_at.rs (RUNG_TIME, LADDER_TIME).\n\nLane: cause found. The 500 ms rung is not the problem (byComputing checks in 0.00 s). The search's 5 s clock (started + options.time) began before generate_deferred_equations, which takes ~2.4 s on a cold start in this test (lsp session, searcher with no warm equations), ~5 s niced after the quick tier; the ladder checker's deadline was then already past, so the ladder was skipped and the full search ran (left 3, right 1). Fix: start the clock after the equations (b9987bbbb). Test a_searchs_time_does_not_include_its_setup (500 ms search time) failed before (left 3, right 1), passes after. Not changed: rung wall budgets (a count budget would not have helped).",
       "created": "2026-11-28",
       "updated": "2026-11-28",
       "commits": []
