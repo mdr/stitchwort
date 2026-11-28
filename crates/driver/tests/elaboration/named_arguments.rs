@@ -748,7 +748,7 @@ import Std (List)
 type Item = { id: Nat, size: Nat }
 
 def ids (items: List Item): List Nat :=
-  List.zipWith items (List.scanLeft items 0 (offset item => offset + item.size)) (item offset => item)
+  List.zipWith items (List.scanLeft items 0 (offset item => offset + item.size)).toList (item offset => item)
     |> List.map (f := item => item.id)
 
 theorem positional (items: List Item): ids items = List.map items (item => item.id) :=

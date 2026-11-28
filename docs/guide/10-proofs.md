@@ -1358,7 +1358,7 @@ The [aoc/](../../aoc/) project solves Advent of Code puzzles and proves the answ
 <!-- snippet: ../../../aoc/src/Aoc/Year2025/Day01/Day01.sw@zerosPassed,Dial.zerosDuring -->
 ```stitchwort
 def zerosPassed (turns: List Turn) (startingDial: Dial n): Nat :=
-  turns |> .scanLeft startingDial .move |> .zipWith turns .zerosDuring |> .sum
+  turns |> .scanLeft startingDial .move |> .toList |> .zipWith turns .zerosDuring |> .sum
 
 def Dial.zerosDuring [n: Nat] (dial: Dial n): Turn → Nat
   | Right distance => (dial.position.value + distance) / Mod.size n

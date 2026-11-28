@@ -31,7 +31,7 @@ def PrefixSums.of (rows: List (List Nat)): PrefixSums :=
   { sums = table.map Map.byPosition |> Map.byPosition }
 
 --| The running sums of a row, from 0: `[2, 3]` gives `[0, 2, 5]`.
-def PrefixSums.runningSums (row: List Nat): List Nat := List.scanLeft row 0 Nat.add
+def PrefixSums.runningSums (row: List Nat): List Nat := (List.scanLeft row 0 Nat.add).toList
 
 --| The table's rows from the running sums of each row: `above` is the row of
 --| the table for the rows before.

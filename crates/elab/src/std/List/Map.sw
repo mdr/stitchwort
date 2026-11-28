@@ -28,25 +28,6 @@ theorem List.memLeSumBy ∀ (f: a → Nat) (xs: List a) (x: a) (none: x ∈ xs):
 
 test "List.sumByOne" := List.sumBy ["a", "b", "c"] (x => 1) == 3
 
-theorem List.scanLeftCons ∀ (xs: List a) (z: b) (f: b → a → b):
-    List.scanLeft xs z f = [z, ..List.drop (List.scanLeft xs z f) 1] :=
-  match xs with | [] | [_, .._] => byComputing
-
-theorem List.scanLeftAppend ∀ (xs: List a) (z: b) (ys: List a) (f: b → a → b):
-    List.drop (List.scanLeft (List.append xs ys) z f) 1
-      = List.append (List.drop (List.scanLeft xs z f) 1) (List.drop (List.scanLeft ys (List.foldLeft xs z f) f) 1) :=
-  match xs with
-    | [] => byComputing
-    | [x, ..xs] =>
-      calc (xs ++ ys).scanLeft (f z x) f
-        _ = [f z x, ..((xs ++ ys).scanLeft (f z x) f).drop 1] := List.scanLeftCons (List.append xs ys) (f z x) f
-        _ = [f z x, ..(xs.scanLeft (f z x) f).drop 1 ++ (ys.scanLeft (xs.foldLeft (f z x) f) f).drop 1] :=
-          Eq.cong (Cons (f z x)) (List.scanLeftAppend xs (f z x) ys f)
-        _ = xs.scanLeft (f z x) f ++ (ys.scanLeft (xs.foldLeft (f z x) f) f).drop 1 :=
-          Eq.cong
-            (l => List.append l (List.drop (List.scanLeft ys (List.foldLeft xs (f z x) f) f) 1))
-            (Eq.flipped (List.scanLeftCons xs (f z x) f))
-
 theorem List.permRefl ∀ (xs: List a): List.Perm xs xs := p => byComputing
 
 theorem List.permSym ∀ (xs ys: List a) (h: List.Perm xs ys): List.Perm ys xs := p => (h p).flipped

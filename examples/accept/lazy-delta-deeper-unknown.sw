@@ -8,7 +8,7 @@
 import Std (Int, List)
 
 def weighted (aim: Int) (steps: List Int): Int :=
-  steps |> .scanLeft aim (soFar step => soFar + step) |> .zipWith steps (at step => at * step) |> .sum
+  steps |> .scanLeft aim (soFar step => soFar + step) |> .toList |> .zipWith steps (at step => at * step) |> .sum
 
 theorem weightedCons ∀ (aim step: Int) (rest: List Int):
     weighted aim [step, ..rest] = aim * step + weighted (aim + step) rest :=
