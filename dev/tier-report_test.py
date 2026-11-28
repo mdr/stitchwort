@@ -2,6 +2,7 @@
 """Tests for dev/tier-report and dev/tier-step. Run: python3 dev/tier-report_test.py"""
 import importlib.machinery
 import importlib.util
+import json
 import os
 import subprocess
 import sys
@@ -90,12 +91,30 @@ class T(unittest.TestCase):
         tr.append_history(path, row)
         self.assertEqual(len(open(path).read().splitlines()), 3)
 
+    def test_writes_every_tests_time_beside_the_report(self):
+        out = os.path.join(self.dir, "out")
+        path, _ = tr.write_report("quick", self.log, self.junit, 100.0, 140.0, (0, 0, 0), (0, 0, 0),
+                                  areas_fn=lambda: {}, out=out, history=os.path.join(out, "h.tsv"))
+        paths = (os.path.join(out, "latest-quick-tests.json"), path.removesuffix(".md") + "-tests.json")
+        for path in paths:
+            rows = json.load(open(path))
+            self.assertEqual(
+                {r["name"]: (r["binary"], r["seconds"], r["status"]) for r in rows},
+                {
+                    "kernel::a": ("stitchwort-core", 0.5, "passed"),
+                    "kernel::b": ("stitchwort-core", 1.5, "passed"),
+                    "slow": ("stitchwort-driver::proofs", 30.0, "passed"),
+                    "bad": ("stitchwort-driver::proofs", 2.0, "failed"),
+                },
+            )
+
     def test_a_report_without_junit_still_writes(self):
         out = os.path.join(self.dir, "out")
         path, text = tr.write_report("quick", self.log, None, 100.0, 140.0, (0, 0, 0), (0, 0, 0),
                                      areas_fn=lambda: {}, out=out, history=os.path.join(out, "h.tsv"))
         self.assertTrue(os.path.exists(path))
         self.assertTrue(os.path.exists(os.path.join(out, "latest-quick.md")))
+        self.assertEqual(json.load(open(os.path.join(out, "latest-quick-tests.json"))), [])
         self.assertIn("No JUnit file", text)
 
     def test_tier_step_logs_and_keeps_the_exit_code(self):

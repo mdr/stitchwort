@@ -4,10 +4,11 @@
   dev/tier-report run TIER -- COMMAND [ARG...]
       Runs COMMAND (a tier's steps) with STITCHWORT_TIER_LOG set, so each
       `dev/tier-step` in it logs its wall time; then writes
-      target/tier-report/TIER-TIMESTAMP.md and latest-TIER.md and appends a
-      line to target/tier-report/history.tsv. Exits with COMMAND's status.
-      The report is for a person: a failure to write it is a warning, never
-      a different exit code.
+      target/tier-report/TIER-TIMESTAMP.md and latest-TIER.md, every test's
+      time to TIER-TIMESTAMP-tests.json and latest-TIER-tests.json beside
+      them, and appends a line to target/tier-report/history.tsv. Exits with
+      COMMAND's status. The report is for a person: a failure to write it is
+      a warning, never a different exit code.
   dev/tier-report history [-n N] [--tier TIER]
       The last N runs (default 10) from history.tsv.
   dev/tier-report report TIER --log FILE --junit FILE [--areas FILE] ...
@@ -232,6 +233,21 @@ def history_row(tier, commit, start, steps, sm):
     ]
 
 
+def tests_json(tests):
+    """Every test's time, beside the report: [{name, binary, seconds, status}]."""
+    return [
+        {"name": t["name"], "binary": t["binary"], "seconds": t["time"],
+         "status": "failed" if t["failed"] else "passed"}
+        for t in tests
+    ]
+
+
+def write_tests_json(path, tests):
+    with open(path, "w") as f:
+        json.dump(tests_json(tests), f, indent=2)
+        f.write("\n")
+
+
 def append_history(path, row):
     new = not os.path.exists(path)
     os.makedirs(os.path.dirname(path), exist_ok=True)
@@ -279,6 +295,8 @@ def write_report(tier, log, junit, start, end, load_start, load_end, areas_fn=ar
     stamped = os.path.join(out, f"{tier}-{datetime.datetime.fromtimestamp(start).strftime('%Y%m%d-%H%M%S')}.md")
     for path in (stamped, os.path.join(out, f"latest-{tier}.md")):
         open(path, "w").write(text)
+    for path in (stamped.removesuffix(".md") + "-tests.json", os.path.join(out, f"latest-{tier}-tests.json")):
+        write_tests_json(path, tests)
     append_history(history or os.path.join(out, "history.tsv"), history_row(tier, commit, start, steps, sm))
     return stamped, text
 
