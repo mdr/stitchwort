@@ -21082,14 +21082,14 @@
     {
       "id": 4904,
       "title": "[DeepSeek] A driver test that runs the theorem search (crates/driver/src/search.rs import_library_namespaces) on a file defining a std top-level name (Pair, List), so an import clash is caught in the quick tier, not only by the all tier's CLI doc tests (SW-4901 finding)",
-      "status": "backlog",
+      "status": "doing",
       "agent": "",
       "where": "",
       "labels": [],
       "epic": "test-infra",
       "body": "",
       "created": "2026-11-27",
-      "updated": "2026-11-27",
+      "updated": "2026-11-28",
       "commits": []
     },
     {
