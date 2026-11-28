@@ -22065,20 +22065,20 @@
     {
       "id": 4965,
       "title": "A self-recursive record (type Co (a: Type) = { head: a, tail: Co a }) is accepted silently though it has no values: warn",
-      "status": "backlog",
+      "status": "doing",
       "agent": "",
       "where": "",
       "labels": [],
       "epic": "diagnostics",
       "body": "[Sonnet] From SW-4962 (27 Nov).",
       "created": "2026-11-27",
-      "updated": "2026-11-27",
+      "updated": "2026-11-28",
       "commits": []
     },
     {
       "id": 4966,
       "title": "stitchwort axioms NAME in a project prints every other namespace's errors before its answer",
-      "status": "backlog",
+      "status": "doing",
       "agent": "",
       "where": "",
       "labels": [
@@ -22087,7 +22087,7 @@
       "epic": "diagnostics",
       "body": "[Sonnet] From SW-4962 (27 Nov).",
       "created": "2026-11-27",
-      "updated": "2026-11-27",
+      "updated": "2026-11-28",
       "commits": []
     },
     {
