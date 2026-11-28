@@ -21915,7 +21915,7 @@
     {
       "id": 4956,
       "title": "search cache stage 3: memoise type_index's folded read-back by content hash and save it with the equations entry",
-      "status": "backlog",
+      "status": "doing",
       "agent": "",
       "where": "",
       "labels": [
@@ -21924,7 +21924,7 @@
       "epic": "proof-search",
       "body": "[Sonnet] After SW-4954. Est. 30 min.",
       "created": "2026-11-27",
-      "updated": "2026-11-27",
+      "updated": "2026-11-28",
       "commits": []
     },
     {
