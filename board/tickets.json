@@ -23098,12 +23098,12 @@
     {
       "id": 5022,
       "title": "Survey: which other std functions would be better returning NonEmptyList than List (or taking one instead of returning Option), for type safety; ranked recommendations",
-      "status": "doing",
+      "status": "review",
       "agent": "Opus",
       "where": "",
       "labels": [],
       "epic": "std-library",
-      "body": "Matt, 28 Nov: 'we should also consider if any other stdlib functions would be better off returning NEL rather than List for better type safety'. Paper lane.",
+      "body": "Matt, 28 Nov: 'we should also consider if any other stdlib functions would be better off returning NEL rather than List for better type safety'. Paper lane.\n\nProgress: survey written, docs/reviews/SW-5022-nonempty-results.md. Top: Parse.oneOf takes a NonEmptyList (change), Text.split/splitOn give one once NEL has filter/filterMap/withIndex/toSet/join (change after), Parse.span1 gives one (change); chunksOf, tails and the rest left.",
       "created": "2026-11-28",
       "updated": "2026-11-28",
       "commits": []
