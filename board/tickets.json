@@ -1,5 +1,5 @@
 {
-  "next": 4976,
+  "next": 4977,
   "tickets": [
     {
       "id": 47,
@@ -22259,6 +22259,21 @@
       ],
       "epic": "editor-playground",
       "body": "[Sonnet] From SW-4928 (28 Nov): native, 2021 day 18, 20 keys 400 ms apart: 6.3 s busy of 8.2 s. Profile first; also measure the wasm worker per key.",
+      "created": "2026-11-28",
+      "updated": "2026-11-28",
+      "commits": []
+    },
+    {
+      "id": 4976,
+      "title": "Language server goal search starts with ~2.4 s of cold put-off equation generation per session: SW-4954's equations cache isn't kept by its LayeredStore (Store::keeps, Fable finding 1); measure the cost in a real editor session and decide whether the server should keep eqs.std entries",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [
+        "perf"
+      ],
+      "epic": "proof-search",
+      "body": "[Sonnet] From SW-4974 (28 Nov): equation_hits 0 / misses 0 before generation in features::a_code_action...; ~2.4 s cold, ~2x under load. Check with the installed bundle (SW-2163/SW-4960) too.",
       "created": "2026-11-28",
       "updated": "2026-11-28",
       "commits": []
