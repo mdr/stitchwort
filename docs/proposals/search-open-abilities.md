@@ -222,6 +222,13 @@ question when the user didn't think of abilities. It runs only when the
 filtered pass found nothing, so it costs nothing otherwise (about 2 s more
 on std when it does run, like the relaxed pass).
 
+In this fallback and in the relaxed pass, a premise or subterm of a function
+type that matches only because a variable of the candidate took part of the
+pattern is dropped (SW-4977): `() → {Parse t} a` is a premise of dozens of
+parser lemmas and meets `() → Nat` by `a := Nat`, so it says nothing about
+`Nat`. Whole and `reordered` matches stay; a query left with nothing shows
+no results.
+
 ### Error messages for the spellings that fail today
 
 | Written | Now | Proposed |
