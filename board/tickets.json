@@ -22520,17 +22520,22 @@
     {
       "id": 4986,
       "title": "Refold proofs by type, stage 1 (docs/proposals/refold-proofs-by-type.md): refold's hook compares with matching::same_shifted_but_proofs; ctor_type_fixed stops counting proof fields; then retry SW-4905's skip of proof-valued lets' read-backs; measure %equal size and derive_cost steps",
-      "status": "review",
+      "status": "done",
       "agent": "Opus",
       "where": "",
       "labels": [
         "perf"
       ],
       "epic": "performance",
-      "body": "From SW-4983's note (28 Nov), recommended yes. Hashes of proof declarations change (migration cost: fine; re-record hash_stability prelude/examples/projects). Messages must not change. Orchestrator's call to proceed (term-changing implementation detail; D2303). Kernel terms generated: Opus review of the diff. Update same_shifted_but_proofs' doc (now two users).\n\nLane (Opus, 28 Nov): all three steps done on lane/SW-4986 (55766f1f1 steps 1+2, 2000d8534 step 3 + perf log). Measured: steps 1 and 2 change no %equal term (byte-identical) and no derive_cost step count; step 3 saves 1.2% on 16x3 (2,581,024 -> 2,549,810), +0.05% on records; without step 1 the skip triples %equal (1,395 -> 4,065 nodes), reproducing SW-4905. task snap:hashes moved no hash. Example kinds, pinned_hashes::, std_library:: pass. New unit test unify::tests::a_let_folds_back_an_occurrence_with_a_different_proof fails without step 1.",
+      "body": "From SW-4983's note (28 Nov), recommended yes. Hashes of proof declarations change (migration cost: fine; re-record hash_stability prelude/examples/projects). Messages must not change. Orchestrator's call to proceed (term-changing implementation detail; D2303). Kernel terms generated: Opus review of the diff. Update same_shifted_but_proofs' doc (now two users).\n\nLane (Opus, 28 Nov): all three steps done on lane/SW-4986 (55766f1f1 steps 1+2, 2000d8534 step 3 + perf log). Measured: steps 1 and 2 change no %equal term (byte-identical) and no derive_cost step count; step 3 saves 1.2% on 16x3 (2,581,024 -> 2,549,810), +0.05% on records; without step 1 the skip triples %equal (1,395 -> 4,065 nodes), reproducing SW-4905. task snap:hashes moved no hash. Example kinds, pinned_hashes::, std_library:: pass. New unit test unify::tests::a_let_folds_back_an_occurrence_with_a_different_proof fails without step 1.\n\nDone (Opus): all three stage-1 steps kept. Steps 1+2 changed no measured term or step count; step 3 (proof lets as-written only) 2,581,024 -> 2,549,810 steps (16x3), 19.94 M -> 19.72 M (94x3); %equal nodes unchanged (1,395 / 717 / 1,111), and the skip without step 1 reproduces SW-4905's growth (4,065 / 2,349 / 6,829), so step 1 is what makes it safe. No hash moved. Orchestrator review (Opus, D2364): data args still compared so the head fixes proof positions' types; ctor_type_fixed gap closed; mark_of_type fresh level as check.rs:722. Orchestrator checks: tools/fmt, aoc, rogue, sf, book check --no-cache clean; hash_stability + soundness 15 pass. Stage 2 not needed on these examples. Model result: opus, worked, 39 min (est. 40).",
       "created": "2026-11-28",
       "updated": "2026-11-28",
-      "commits": []
+      "commits": [
+        "55766f1f1",
+        "2000d8534",
+        "dee6196de",
+        "0d2c325e1"
+      ]
     }
   ]
 }
