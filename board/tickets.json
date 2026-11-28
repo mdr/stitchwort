@@ -22251,7 +22251,7 @@
     {
       "id": 4975,
       "title": "Live answers per key: index_data_of in LiveProject::answers (crates/driver/src/live.rs) costs ~134 ms a key and make_plan re-analyses all 726 AoC files on every key: most of the ~300 ms left per key after SW-4928",
-      "status": "backlog",
+      "status": "doing",
       "agent": "",
       "where": "",
       "labels": [
@@ -22266,7 +22266,7 @@
     {
       "id": 4976,
       "title": "Language server goal search starts with ~2.4 s of cold put-off equation generation per session: SW-4954's equations cache isn't kept by its LayeredStore (Store::keeps, Fable finding 1); measure the cost in a real editor session and decide whether the server should keep eqs.std entries",
-      "status": "backlog",
+      "status": "doing",
       "agent": "",
       "where": "",
       "labels": [
