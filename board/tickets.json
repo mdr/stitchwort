@@ -22406,15 +22406,19 @@
     {
       "id": 4981,
       "title": "E-MUTUAL-SIGNATURE goes through a kernel refusal first: a match whose annotated type mentions another match that calls the owner or local function records a kernel E-MALFORMED before the elaborator reports; refuse before declaring the helper",
-      "status": "review",
+      "status": "done",
       "agent": "",
       "where": "",
       "labels": [],
       "epic": "elaborator-kernel",
-      "body": "[Sonnet] From SW-4913 (28 Nov): probe shapes a1, a3, r4, r5, r8; oracle 3 misses it because the messages differ. Also fix Draft::span's comment (for a local def it is only the signature; LocalDraft::whole is the definition).\n\nFixed on lane/SW-4981: early E-MUTUAL-SIGNATURE check in lift.rs resolve_batch; test oracle_3_match_type_mentions_unfinished_match.",
+      "body": "[Sonnet] From SW-4913 (28 Nov): probe shapes a1, a3, r4, r5, r8; oracle 3 misses it because the messages differ. Also fix Draft::span's comment (for a local def it is only the signature; LocalDraft::whole is the definition).\n\nFixed on lane/SW-4981: early E-MUTUAL-SIGNATURE check in lift.rs resolve_batch; test oracle_3_match_type_mentions_unfinished_match.\n\nDone (Sonnet): resolve_batch checks a helper's type for a Pending def before declare_helper and raises E-MUTUAL-SIGNATURE (shared mutual_signature, note wording unchanged). Orchestrator review: declare_def calls admissible(.., None), which refuses every Pending def reference at once, so the new check refuses exactly what the kernel did (no narrowing). Test oracle_3_match_type_mentions_unfinished_match; repro docs/reviews/repros/sw-4981-*.sw. Orchestrator checks: tools/fmt, aoc, rogue check --no-cache clean; 62 example/hash tests. Model result: sonnet, worked, 8 min (est. 35).",
       "created": "2026-11-28",
       "updated": "2026-11-28",
-      "commits": []
+      "commits": [
+        "1e8183bfc",
+        "1c14525a4",
+        "bae0e6280"
+      ]
     },
     {
       "id": 4982,
