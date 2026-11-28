@@ -1,5 +1,5 @@
 {
-  "next": 4977,
+  "next": 4978,
   "tickets": [
     {
       "id": 47,
@@ -22280,6 +22280,19 @@
       ],
       "epic": "proof-search",
       "body": "[Sonnet] From SW-4974 (28 Nov): equation_hits 0 / misses 0 before generation in features::a_code_action...; ~2.4 s cold, ~2x under load. Check with the installed bundle (SW-2163/SW-4960) too.",
+      "created": "2026-11-28",
+      "updated": "2026-11-28",
+      "commits": []
+    },
+    {
+      "id": 4977,
+      "title": "search: the open-abilities fallback lists generic-parser lemmas (() → {Parse t} a premises, absorbed 1) for thunk patterns: 68 of 76 results for () → Nat, most of 42 for () → Bool, ranked below the real matches",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "epic": "proof-search",
+      "body": "[Sonnet] From SW-4973 (28 Nov): consider the same unit-absorption rule in the open-abilities tier, comparing the usual queries before/after.",
       "created": "2026-11-28",
       "updated": "2026-11-28",
       "commits": []
