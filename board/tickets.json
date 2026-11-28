@@ -11271,7 +11271,7 @@
     {
       "id": 2888,
       "title": "[Sonnet] Split from a ?: offered only on a ? that is a whole body (after := or =>, or alone on its line), not a ? inside an expression (SW-2885)",
-      "status": "doing",
+      "status": "review",
       "agent": "Sonnet",
       "where": "",
       "labels": [],
