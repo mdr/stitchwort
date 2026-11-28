@@ -81,6 +81,8 @@ pub fn all_names() -> Vec<String> {
             projects
                 .map(|entry| entry.expect("readable directory entry").path())
                 .filter(|path| path.is_dir())
+                // `.stitchwort/` (the cache `stitchwort check` keeps) is not a project.
+                .filter(|path| !path.file_name().unwrap().to_string_lossy().starts_with('.'))
                 .map(|path| path.file_name().unwrap().to_string_lossy().into_owned()),
         );
     }

@@ -641,6 +641,8 @@ fn projects(dir: &str) -> Vec<(String, PathBuf)> {
     let mut found: Vec<(String, PathBuf)> = entries
         .map(|entry| entry.expect("readable directory entry").path())
         .filter(|path| path.is_dir())
+        // `.stitchwort/` (the cache `stitchwort check` keeps) is not a project.
+        .filter(|path| !path.file_name().unwrap().to_string_lossy().starts_with('.'))
         .filter(|path| wanted(&path.file_name().unwrap().to_string_lossy()))
         .map(|path| {
             (
