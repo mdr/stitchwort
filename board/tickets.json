@@ -22886,7 +22886,7 @@
       "where": "",
       "labels": [],
       "epic": "test-infra",
-      "body": "From SW-5003: the namespace now takes over 170 s.",
+      "body": "From SW-5003: the namespace now takes over 170 s.\n\nOrchestrator, 28 Nov: on main after the merge the whole Stream namespace ran 24 of 24 in 19.8 s (STITCHWORT_JOBS=3, load ~5), not 170+ s as the lane saw. Reproduce the slowness before shrinking anything.",
       "created": "2026-11-28",
       "updated": "2026-11-28",
       "commits": []
