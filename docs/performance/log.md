@@ -46,6 +46,24 @@ in [../proposals/README.md](../proposals/README.md).
 
 ## 28 Nov 2026
 
+### SW-4997, SW-5000, SW-5003: streams, head/tail reading and one-walk folds
+
+`Std.Stream` keeps a reader's place behind a quotient (option E, docs/proposals/streams-head-tail.md), so a loop
+recursing on `s.tail` is linear.
+
+- **Head/tail sum, 20,000 values** (`Stream.Tests.sumFirst`): 0.13 s, against 33.24 s on the earlier three-field
+  design (quadratic). 2,000,000 values: 2.19 s at 80 MB.
+- **`fold`, `find`, `findIndex`, `foldUntil` and `findRepeat` read `base.walk n` once** (SW-5003). A head/tail loop pays
+  option E's re-walk (the walk restarts from the origin for twice the distance read, about 2n calls of the step to read
+  n values); the cells of a walk call the step once per value, lazily, so `find` still stops early. On the reference
+  evaluator (`stitchwort test --std`, the check's 3 s included), `iterate` of a step of 100 additions, 20,000 values:
+  `fold` 5.0 s, the head/tail loop 11.4 s (about 2.0 s against 8.4 s without the check); with a step of 1,000 additions
+  `fold` took 45 s and the loop was cut off at 120 s.
+- **`findRepeat` on a cycle of 100,000 states** (`iterate (n => (n + 1) % 100000) 0`, limit 200,000, one walk with a
+  `Map` of what was seen): 4.1 s on the fast runtime (`stitchwort test` in a probe project, including start-up), 52 s
+  on the reference evaluator. Not quadratic: each value is one map lookup and one insert.
+- Unchanged by this: `take` already read the walk; `at` still takes `n` steps.
+
 ### SW-4986: refold compares up to proofs, and a proof `let` gets one form
 
 - **Problem.** SW-4905's skip of a proof-valued `let`'s folded and

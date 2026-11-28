@@ -33,6 +33,16 @@ test "take and find" :=
     ∧ powers.fold 4 0 (+) == 15
 -- end take-find
 
+-- begin find-repeat
+def squares: Stream Nat := Stream.iterate (n => (n * n + 1) % 7) 0
+
+test "find a repeat" :=
+  squares.take 6 == [0, 1, 2, 5, 5, 5]
+    ∧ squares.findRepeat 100 == Some (3, 4)
+    ∧ (Stream.iterate (+ 1) 0).findRepeat 100 == None
+    ∧ (Stream.iterate (+ 1) 1).foldUntil 100 0 (+) (total => total > 20) == (21, 6)
+-- end find-repeat
+
 -- begin proof
 theorem mapMap ∀ (s: Stream a) (f: a → b) (g: b → c): (s.map f).map g = s.map (x => g (f x)) :=
   Stream.ext ((s.map f).map g) (s.map (x => g (f x))) (n => byComputing)
