@@ -694,9 +694,9 @@ impl Session {
         // The core's equations, put off until now (`equations.rs`): search
         // lists them like any theorem.
         self.elab.generate_deferred_equations()?;
-        if let Some(d) = self.import_library_namespaces().into_iter().next() {
-            return Err(d);
-        }
+        // The project's names first: the library's line then leaves out
+        // what they already name, so a pattern means what the same text
+        // means in the project's code (SW-4951).
         if let Scope::Project(namespaces) = scope
             && !namespaces.is_empty()
         {
@@ -704,6 +704,9 @@ impl Session {
                 .map(|ns| format!("import {ns} (..)\n"))
                 .collect();
             self.add_imports("<search imports>", &imports);
+        }
+        if let Some(d) = self.import_library_namespaces().into_iter().next() {
+            return Err(d);
         }
         // What the names on their own name.
         let mut mentions_defs = BTreeSet::new();
@@ -927,14 +930,22 @@ impl Session {
             .collect();
         namespaces.sort();
         namespaces.dedup();
+        // A name the file or the project's imports already give a meaning
+        // (a project's own `Pair`) keeps it: an `import Std (Pair)` would
+        // outrank an `import Probe (..)`, and the pattern would name what
+        // the project's code doesn't. `Std.Pair` still names the library's.
+        namespaces.retain(|top| {
+            let here = self.elab.brought_here(top);
+            here.is_empty() || here.iter().all(|k| *k == format!("Std.{top}"))
+        });
         if namespaces.is_empty() {
             return Vec::new();
         }
         let imports = format!("import Std ({})\n", namespaces.join(", "));
         // A file that imports a namespace itself gets a warning that it is
-        // imported twice: harmless here. A file that defines a name the
-        // library also has (`Pair`) keeps its own: the clash skips just that
-        // import, and the rest are in scope.
+        // imported twice: harmless here. A module with its own namespace of
+        // a library namespace's name (`def List.f`) keeps its own: the clash
+        // skips just that import, and the rest are in scope.
         let mut diagnostics = self.add_imports("<search imports>", &imports);
         diagnostics.retain(|d| {
             d.severity == stitchwort_syntax::Severity::Error && d.code != "E-IMPORT-CLASH"
