@@ -1497,11 +1497,18 @@ impl<'g> Printer<'g> {
     /// [`Printer::go_node`] of a function type.
     #[inline(never)]
     fn go_pi(&self, names: &mut Vec<Name>, term: &Term) -> (String, Prec) {
+        let Term::Pi(x, icit, a, b, _) = term else {
+            unreachable!("`go_node` sends only pi forms here")
+        };
+        // Whether the result mentions the binder walks all of it, which
+        // for a long chain of arrows is quadratic if asked at every link,
+        // so it is asked once.
+        let uses = b.mentions(0);
         match term {
             // `p -> Void` is how `Not p` computes; print it the way it's written.
             Term::Pi(_, Icit::Explicit, a, b, _)
                 if !self.unfold_not.get()
-                    && !b.mentions(0)
+                    && !uses
                     && matches!(b.strip_loc(), Term::Data(d, _) if is(self.g, Builtin::Void, *d)) =>
             {
                 self.not(names, a)
@@ -1510,13 +1517,12 @@ impl<'g> Printer<'g> {
             // variable the result uses (or an implicit one), as the
             // quantifier: `∀ (n: Nat) => n + 0 = n` (D3458).
             Term::Pi(_, icit, _, b, _)
-                if (icit.is_implicit() || b.mentions(0)) && self.is_proposition(names, b) =>
+                if (icit.is_implicit() || uses) && self.is_proposition(names, b) =>
             {
                 self.forall(names, term)
             }
-            Term::Pi(x, icit, a, b, _) => {
+            Term::Pi(..) => {
                 self.unfold_not.set(false);
-                let uses = b.mentions(0);
                 let dom = if icit.is_implicit() || uses {
                     self.print(names, a, Prec::Arrow)
                 } else {
@@ -3386,10 +3392,22 @@ fn binder(x: &Name, names: &[Name], body: &Term) -> Name {
     let x = readable(x, names);
     // Whether `body`, under the binder, mentions a variable of `names`
     // called `candidate`.
+    // One walk of `body` for all the variables called `candidate`, not one
+    // per variable: a chain of arrows names every binder alike, and a walk
+    // each would make printing it cubic (SW-4969).
     let captures = |candidate: &str| {
         names.iter().any(|n| **n == *candidate)
-            && (names.iter().rev().enumerate())
-                .any(|(j, n)| **n == *candidate && body.mentions(j + 1))
+            && body.subterms().any(|(t, binders)| match t {
+                Term::Var(i) | Term::Case(i, ..) | Term::NumCase(i, ..) => {
+                    i.checked_sub(binders + 1).is_some_and(|j| {
+                        names
+                            .len()
+                            .checked_sub(j + 1)
+                            .is_some_and(|at| *names[at] == *candidate)
+                    })
+                }
+                _ => false,
+            })
     };
     if !captures(&x) {
         return x;
