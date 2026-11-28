@@ -2083,6 +2083,35 @@ fn go_to_definition_on_a_declaration_with_an_error_goes_to_its_name() {
     });
 }
 
+/// Cmd-click on a standard library type (`Bool`) is answered at once and
+/// goes to its declaration in the core (SW-2931). The library is read from
+/// the source tree here, so the answer is the real file, at the line
+/// `type Bool` is declared on.
+#[test]
+fn go_to_definition_on_a_standard_library_type_goes_to_its_declaration() {
+    big_stack(|| {
+        let text = "namespace Demo\n\ndef flip (b: Bool): Bool := if b then False else True\n";
+        let mut s = Session::open(text);
+        assert!(s.diagnostics.is_empty(), "{:?}", s.diagnostics);
+        let at = json!({"line": 2, "character": "def flip (b: ".len()});
+        let found = s.request(
+            "textDocument/definition",
+            json!({"textDocument": {"uri": URI}, "position": at}),
+        );
+        let uri = found["uri"]
+            .as_str()
+            .unwrap_or_else(|| panic!("not a location: {found}"));
+        let path = uri
+            .strip_prefix("file://")
+            .unwrap_or_else(|| panic!("not a file: {found}"));
+        assert!(path.ends_with("std/core/Data.sw"), "{found}");
+        let start = &found["range"]["start"];
+        // `type Bool` is line 43 (index 42), the name at `type`.
+        assert_eq!(start["line"], 42, "{found}");
+        assert_eq!(start["character"], "type ".len(), "{found}");
+    });
+}
+
 /// "Expand rewrite repeatedly" on a call replaces it with the `rewrite`
 /// steps it made (SW-3655, the editor's form of `check --expand-repeatedly`);
 /// a line with no such call is offered nothing.
