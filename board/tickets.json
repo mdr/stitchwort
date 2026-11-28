@@ -23048,12 +23048,12 @@
     {
       "id": 5019,
       "title": "Stream.cycle (xs: NonEmptyList a): Stream a, constant time per value, with (Stream.cycle xs).at n tied to xs at n % xs.length",
-      "status": "backlog",
+      "status": "doing",
       "agent": "Sonnet",
       "where": "",
       "labels": [],
       "epic": "std-library",
-      "body": "Matt, 28 Nov: 'Add Stream.cycle to std' for AoC 2018 day 1 part 2 (cycle the changes, scan, findRepeat). Type: NonEmptyList (orchestrator's call; Matt left it to me): total, no fallback, nothing to repeat in an empty list. Held for load (5-min load 23.7 at 11:45).\n\nWith SW-5020 in the same lane.",
+      "body": "Matt, 28 Nov: 'Add Stream.cycle to std' for AoC 2018 day 1 part 2 (cycle the changes, scan, findRepeat). Type: NonEmptyList (orchestrator's call; Matt left it to me): total, no fallback, nothing to repeat in an empty list. Held for load (5-min load 23.7 at 11:45).\n\nWith SW-5020 in the same lane.\n\nStarted 11:49 on Sonnet with SW-5020, est. 25 min; Matt: 'Build both of those 2 requested stream changes now' (started at 5-min load ~18, above the hold of 15, on his word).",
       "created": "2026-11-28",
       "updated": "2026-11-28",
       "commits": []
@@ -23061,7 +23061,7 @@
     {
       "id": 5020,
       "title": "Stream.findRepeat returns Option (Stream.Repeat a) = { value, first, again }; findRepeatSome gains r.value = s.at r.again; tests and guide updated",
-      "status": "backlog",
+      "status": "doing",
       "agent": "Sonnet",
       "where": "",
       "labels": [],
