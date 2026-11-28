@@ -989,10 +989,14 @@ pub type StoreLog = std::sync::Arc<std::sync::Mutex<Vec<(String, StoreEvent)>>>;
 /// namespace after the edited one (the session rewinds to the edit), because
 /// nothing the check wrote could be read back (SW-2919).
 ///
-/// - **Only `ns.` units are written.** Library entries come from the bundle,
-///   which was made by a session with the same limits; one a session wrote
-///   itself would only duplicate it or, for a file the bundle `left_out`,
-///   hold what the session chose not to load.
+/// - **Only `ns.` and `eqs.` units are written.** Library entries come from
+///   the bundle, which was made by a session with the same limits; one a
+///   session wrote itself would only duplicate it or, for a file the bundle
+///   `left_out`, hold what the session chose not to load. The put-off
+///   equations (`eqs.`, SW-4954) are in no bundle: seconds to make, a few
+///   MB for the whole library, and a search session is rewound after each
+///   search, which forgets them, so the store is what spares the next
+///   search making them again (SW-4976).
 /// - **No disk gate.** A native server writes only while every file matches
 ///   disk, so unsaved text doesn't fill the cache directory. Nothing here
 ///   outlives the tab, and an entry for unsaved text is found again by its
@@ -1011,6 +1015,9 @@ pub struct LayeredStore {
     log: Option<StoreLog>,
     budget: LayerBudget,
     sink: Option<(String, EntrySink)>,
+    /// Keeps `eqs.` units alone: for a search session, whose namespaces a
+    /// suggestion's check would otherwise churn.
+    equations_only: bool,
 }
 
 /// Told each namespace entry a [`LayeredStore`] writes (its project's
@@ -1101,7 +1108,17 @@ impl LayeredStore {
             log: None,
             budget,
             sink: None,
+            equations_only: false,
         }
+    }
+
+    /// A store that keeps only the library's put-off equations (`eqs.`
+    /// units): what a proof search's session needs kept between searches
+    /// (SW-4976).
+    pub fn for_equations(bundle: std::sync::Arc<LibraryBundle>) -> Self {
+        let mut store = Self::new(bundle);
+        store.equations_only = true;
+        store
     }
 
     /// Tells `sink` of every namespace entry written from now on, as the
@@ -1188,7 +1205,7 @@ impl Store for LayeredStore {
     }
 
     fn keeps(&self, unit: &str) -> bool {
-        unit.starts_with("ns.")
+        unit.starts_with("eqs.") || (!self.equations_only && unit.starts_with("ns."))
     }
 
     fn write(&self, unit: &str, key: &Key, entry: &[u8]) {
@@ -1196,7 +1213,9 @@ impl Store for LayeredStore {
             return;
         }
         self.note(unit, StoreEvent::Wrote);
-        if let Some((root, sink)) = &self.sink {
+        // The sink is for the project's namespaces: a new worker's check
+        // starts from them; the equations are made by searches.
+        if let (Some((root, sink)), true) = (&self.sink, unit.starts_with("ns.")) {
             (sink.0)(root, unit, key, entry);
         }
         self.insert(unit, key, entry);
