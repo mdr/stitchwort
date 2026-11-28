@@ -4571,7 +4571,7 @@
     {
       "id": 1877,
       "title": "[DeepSeek] Parse message sweep: labels that add information, 'a pattern or =' per call site, BOM skipped, U+XXXX for invisible characters, 'the end of the input' for expressions, E-RESOURCE past u32::MAX bytes",
-      "status": "backlog",
+      "status": "doing",
       "agent": "",
       "where": "",
       "labels": [
@@ -4580,7 +4580,7 @@
       "epic": "diagnostics",
       "body": "From the syntax code review (docs/reviews/code-review-syntax.md, tickets to file, 5; F6, F9, F10). 60 min.\n\nAudit note (22 Nov): Audit 22 Nov: no commit touches it; part of it (BOM, invisible characters as U+XXXX) is in crates/syntax/src/lexer.rs:1478 (invisible()); recheck which items remain.\n",
       "created": "2026-11-07",
-      "updated": "2026-11-22",
+      "updated": "2026-11-28",
       "commits": []
     },
     {
@@ -5013,7 +5013,7 @@
     {
       "id": 1927,
       "title": "[DeepSeek] Small row and instance robustness",
-      "status": "backlog",
+      "status": "doing",
       "agent": "",
       "where": "",
       "labels": [
@@ -5022,7 +5022,7 @@
       "epic": "effects-native",
       "body": "From docs/reviews/code-review-elab-rest.md (ticket 3). F8, F9, F15, F17. 40 min.\n\nAudit note (22 Nov): Audit 22 Nov: all four findings still true: rows::retry (crates/elab/src/rows.rs:284) unchanged shape (F8); debug_assert at effects.rs:390 (F15); the unify bool is ignored in close_inferred_row (effects.rs:1685) and the other sites (F9); `last.tree = ob.tree` at interfaces.rs:1072 (F17). Line numbers in the body have drifted.\n",
       "created": "2026-11-07",
-      "updated": "2026-11-22",
+      "updated": "2026-11-28",
       "commits": []
     },
     {
