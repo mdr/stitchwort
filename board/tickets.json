@@ -21436,7 +21436,7 @@
     {
       "id": 4927,
       "title": "Playground: the outline re-parses all 726 AoC files on every pause (~400 ms), only to find the day's tabs: keep each file's parse, or ask again only when a namespace or import line changes",
-      "status": "backlog",
+      "status": "doing",
       "agent": "",
       "where": "",
       "labels": [
@@ -21445,13 +21445,13 @@
       "epic": "editor-playground",
       "body": "[Sonnet] From SW-4925 (27 Nov): outline_project -> analyse parses the whole project on every pause in typing. crates/web and the driver.",
       "created": "2026-11-27",
-      "updated": "2026-11-27",
+      "updated": "2026-11-28",
       "commits": []
     },
     {
       "id": 4928,
       "title": "Playground: the language server re-checks the AoC day on every key and holds a core busy while typing: try a short wait before re-checking in a project",
-      "status": "backlog",
+      "status": "doing",
       "agent": "",
       "where": "",
       "labels": [
@@ -21460,7 +21460,7 @@
       "epic": "editor-playground",
       "body": "[Sonnet] From SW-4925 (27 Nov): during 20 keys 400 ms apart in 2021 day 18, the language server worker ran 11.7 of 11.8 s. Measure before and after.",
       "created": "2026-11-27",
-      "updated": "2026-11-27",
+      "updated": "2026-11-28",
       "commits": []
     },
     {
