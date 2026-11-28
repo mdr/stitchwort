@@ -1,5 +1,5 @@
 {
-  "next": 4986,
+  "next": 4987,
   "tickets": [
     {
       "id": 47,
@@ -22450,17 +22450,21 @@
     {
       "id": 4983,
       "title": "refold folds proofs only by shape, so a data let mentioning a proof let depends on the proof's exact read-back; folding a proof by its type (rule I) might shrink derived terms such as derived Ord's %equal (its %e spelled out). Design note first",
-      "status": "review",
+      "status": "done",
       "agent": "Opus",
       "where": "",
       "labels": [
         "perf"
       ],
       "epic": "elaborator-kernel",
-      "body": "From SW-4905 (28 Nov): skipping proof lets' unfolded forms grew derive-ord-data's %equal from ~28 K to ~42 K chars because %b0 := T.%C%0%at %s %e stopped folding. A note in docs/proposals/ on refolding proofs by type; then measure on derive-ord-data, eqeq-proof-fields, update-identity.\n\nLane 28 Nov 04:17-04:30 (Opus, paper): docs/proposals/refold-proofs-by-type.md. Rec yes, narrower: stage 1 = refold's hook uses matching::same_shifted_but_proofs (exists, SW-4674) + ctor_type_fixed ignores proof fields, then retry SW-4905's proof-let skip; stage 2 (fold whole proofs by computed type) deferred until stage 1 is measured. Sizes estimated only: the kernel dump prints case trees as 'case r of …', so %equal can't be measured without a build (stage 1 lane to make the dump print in full). No Matt decision in the author's view; changes hashes, so not strictly D3447.\n",
+      "body": "From SW-4905 (28 Nov): skipping proof lets' unfolded forms grew derive-ord-data's %equal from ~28 K to ~42 K chars because %b0 := T.%C%0%at %s %e stopped folding. A note in docs/proposals/ on refolding proofs by type; then measure on derive-ord-data, eqeq-proof-fields, update-identity.\n\nLane 28 Nov 04:17-04:30 (Opus, paper): docs/proposals/refold-proofs-by-type.md. Rec yes, narrower: stage 1 = refold's hook uses matching::same_shifted_but_proofs (exists, SW-4674) + ctor_type_fixed ignores proof fields, then retry SW-4905's proof-let skip; stage 2 (fold whole proofs by computed type) deferred until stage 1 is measured. Sizes estimated only: the kernel dump prints case trees as 'case r of …', so %equal can't be measured without a build (stage 1 lane to make the dump print in full). No Matt decision in the author's view; changes hashes, so not strictly D3447.\n\nDone (Opus paper): recommends stage 1 now (SW-4986), stage 2 (whole proof to a proof let by type) only if stage 1's measurements show unfolded proofs left. Sizes estimated (dump elides case trees; SW-4984 adds a full dump).",
       "created": "2026-11-28",
       "updated": "2026-11-28",
-      "commits": []
+      "commits": [
+        "3d16e9295",
+        "2a436d92f",
+        "4075c2169"
+      ]
     },
     {
       "id": 4984,
@@ -22490,6 +22494,21 @@
         "9b879c2ae",
         "67dbfa5a7"
       ]
+    },
+    {
+      "id": 4986,
+      "title": "Refold proofs by type, stage 1 (docs/proposals/refold-proofs-by-type.md): refold's hook compares with matching::same_shifted_but_proofs; ctor_type_fixed stops counting proof fields; then retry SW-4905's skip of proof-valued lets' read-backs; measure %equal size and derive_cost steps",
+      "status": "backlog",
+      "agent": "Opus",
+      "where": "",
+      "labels": [
+        "perf"
+      ],
+      "epic": "performance",
+      "body": "From SW-4983's note (28 Nov), recommended yes. Hashes of proof declarations change (migration cost: fine; re-record hash_stability prelude/examples/projects). Messages must not change. Orchestrator's call to proceed (term-changing implementation detail; D2303). Kernel terms generated: Opus review of the diff. Update same_shifted_but_proofs' doc (now two users).",
+      "created": "2026-11-28",
+      "updated": "2026-11-28",
+      "commits": []
     }
   ]
 }
