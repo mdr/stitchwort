@@ -148,14 +148,18 @@ pub struct Goal {
     pub goal_computed: Option<String>,
     pub context: Vec<Local>,
     /// What the arms above the goal know, listed between the context and
-    /// the goal (the `≠` lines of a `match`).
+    /// the goal (the `≠` lines of a `match`). For hover; the protocol
+    /// carries them in `text`.
+    #[serde(skip)]
     pub facts: Vec<String>,
     /// Whether the goal is a proposition (a proof goal), if its sort was
     /// known when the hole was checked.
     #[serde(skip)]
     pub prop: Option<bool>,
     /// The notes the command line prints after the goal (why it may look
-    /// odd, which case of an arm it is, and so on).
+    /// odd, which case of an arm it is, and so on). For hover; the protocol
+    /// carries them in `text`.
+    #[serde(skip)]
     pub notes: Vec<String>,
     /// The goal as the command line prints it (the label, then the notes).
     pub text: String,
