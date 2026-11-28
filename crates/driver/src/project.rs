@@ -1156,6 +1156,53 @@ pub fn analyse_parsed(
     )
 }
 
+thread_local! {
+    /// How many files this thread has read a [`FileSketch`] from syntax of.
+    static SKETCHES_MADE: std::cell::Cell<usize> = const { std::cell::Cell::new(0) };
+}
+
+/// What the analysis reads of `module`.
+pub fn sketch_of(module: &Module) -> FileSketch {
+    SKETCHES_MADE.with(|n| n.set(n.get() + 1));
+    FileSketch::of(module)
+}
+
+/// How many files' syntax this thread has read a sketch from so far, for a
+/// test to see that an edit reads only the files that changed.
+pub fn sketches_made() -> usize {
+    SKETCHES_MADE.with(std::cell::Cell::get)
+}
+
+/// [`analyse_parsed`], for a caller that keeps its files between analyses
+/// and each error-free file's sketch with them (`None` where it hasn't
+/// one): neither the syntax nor the sketch of a file is copied or read
+/// again, and the syntax is parsed again only for a namespace that is
+/// checked. The result is the same.
+pub fn analyse_kept<'a>(
+    elab: &mut stitchwort_elab::Elaborator,
+    project: &str,
+    files: impl IntoIterator<Item = (&'a ParsedFile, Option<&'a FileSketch>)>,
+) -> Analysis {
+    let stack = elab.options.limits.stack;
+    let units = files
+        .into_iter()
+        .map(|(f, sketch)| Unit {
+            path: f.path.clone(),
+            display: f.display.clone(),
+            id: f.id,
+            text: f.text.clone(),
+            read: match sketch {
+                Some(sketch) if f.errors.is_empty() => Read::Sketched(sketch.clone()),
+                _ => Read::Parsed {
+                    module: f.module.clone(),
+                    errors: f.errors.clone(),
+                },
+            },
+        })
+        .collect();
+    analyse_units(elab, project, stack, units)
+}
+
 /// A file of a project, as the analysis reads it.
 struct Unit {
     path: String,
@@ -1325,7 +1372,7 @@ impl Scan {
                             parse_module_recovering(FileId::SCRATCH, &text, stack);
                         errors.is_empty().then(|| {
                             let mut out = Vec::new();
-                            FileSketch::of(&module).encode(&mut out);
+                            sketch_of(&module).encode(&mut out);
                             out
                         })
                     }
@@ -1523,7 +1570,7 @@ fn analyse_units(
                         }
                     }
                 };
-                let sketch = FileSketch::of(&module);
+                let sketch = sketch_of(&module);
                 (namespace, errors, sketch, LazyModule::parsed(id, module))
             }
         };

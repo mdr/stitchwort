@@ -23,7 +23,7 @@ use std::rc::Rc;
 use stitchwort_core::budget::Instant;
 
 pub use stitchwort_elab::ScopeName;
-use stitchwort_elab::project::{IncludeFiles, NamespaceSyntax, SourceUnit};
+use stitchwort_elab::project::{FileSketch, IncludeFiles, NamespaceSyntax, SourceUnit};
 use stitchwort_syntax::{
     Diagnostic, GoalData, MissingCases, Severity, SourceMap, Span, SuggestedImport,
     parse_module_recovering, parse_namespace_line,
@@ -32,8 +32,8 @@ use stitchwort_syntax::{
 use crate::driver::Session;
 use crate::nav::{Index, Range, RefTarget, index_data, index_data_of};
 use crate::project::{
-    Analysis, Namespace, NamespaceOutcome, NamespaceSources, ParsedFile, analyse, analyse_parsed,
-    canonical_order, closure, cycle_diagnostic, dependents, namespace_keys,
+    Analysis, Namespace, NamespaceOutcome, NamespaceSources, ParsedFile, analyse, analyse_kept,
+    canonical_order, closure, cycle_diagnostic, dependents, namespace_keys, sketch_of,
 };
 use crate::rewind::{Cancelled, Mark};
 
@@ -572,6 +572,11 @@ pub struct LiveProject {
     /// later answers leave them out, which halves their cost.
     library_answered: bool,
     parsed: BTreeMap<String, ParsedFile>,
+    /// What the project analysis reads of each of `parsed`'s files that has
+    /// no syntax errors, made when it was parsed.
+    sketches: BTreeMap<String, FileSketch>,
+    /// The syntactic outline of each of `parsed`'s files.
+    outlines: BTreeMap<String, Vec<OutlineItem>>,
     /// Whether the files were read again since [`LiveProject::take_outlines`].
     outlines_stale: bool,
     /// The top-level declarations of every namespace, by name, each with
@@ -720,6 +725,8 @@ impl LiveProject {
             scratch: SourceMap::new(),
             library_answered: false,
             parsed: BTreeMap::new(),
+            sketches: BTreeMap::new(),
+            outlines: BTreeMap::new(),
             outlines_stale: true,
             declared: None,
             names: BTreeMap::new(),
@@ -1079,12 +1086,12 @@ impl LiveProject {
             return;
         }
         let mut declared: BTreeMap<String, Vec<Declared>> = BTreeMap::new();
-        for parsed in self.parsed.values() {
+        for (path, parsed) in &self.parsed {
             let Some(namespace) = &parsed.module.namespace else {
                 continue;
             };
             let namespace = namespace.path.text.as_str();
-            for item in syntactic_outline(parsed, None) {
+            for item in self.outlines[path].iter().cloned() {
                 let Some(name) = item
                     .name
                     .strip_prefix(namespace)
@@ -1115,9 +1122,9 @@ impl LiveProject {
             return None;
         }
         Some(
-            self.parsed
+            self.outlines
                 .iter()
-                .map(|(path, file)| (path.clone(), syntactic_outline(file, None)))
+                .map(|(path, items)| (path.clone(), items.clone()))
                 .collect(),
         )
     }
@@ -1167,8 +1174,15 @@ impl LiveProject {
         plan
     }
 
-    /// Rewinds to the steps that are still good, and plans the rest.
+    /// [`LiveProject::plan_steps`], timed as the phase `plan`.
     fn make_plan(&mut self) {
+        let began = Instant::now();
+        self.plan_steps();
+        phases::add("plan", began.elapsed());
+    }
+
+    /// Rewinds to the steps that are still good, and plans the rest.
+    fn plan_steps(&mut self) {
         self.dirty = false;
         self.parse_scratch();
         self.outlines_stale = true;
@@ -1218,8 +1232,8 @@ impl LiveProject {
         self.namespace_files = namespace_files;
         self.rewind_to(keep);
         let analysis = loop {
-            let parsed: Vec<ParsedFile> = self.parsed.values().cloned().collect();
-            let analysis = analyse_parsed(&mut self.session.elab, &self.project, parsed);
+            let files = (self.parsed.iter()).map(|(path, f)| (f, self.sketches.get(path)));
+            let analysis = analyse_kept(&mut self.session.elab, &self.project, files);
             if !analysis.diagnostics.is_empty() {
                 return self.fail();
             }
@@ -1378,6 +1392,10 @@ impl LiveProject {
         }
         self.parsed
             .retain(|path, p| self.texts.get(path) == Some(&p.text));
+        self.sketches
+            .retain(|path, _| self.parsed.contains_key(path));
+        self.outlines
+            .retain(|path, _| self.parsed.contains_key(path));
         let stack = self.session.elab.options.limits.stack;
         for (path, text) in &self.texts {
             if self.parsed.contains_key(path) {
@@ -1386,17 +1404,20 @@ impl LiveProject {
             let display = format!("{}/{path}", self.project);
             let id = self.scratch.add(display.clone(), text.clone());
             let (module, errors) = parse_module_recovering(id, text, stack);
-            self.parsed.insert(
-                path.clone(),
-                ParsedFile {
-                    path: path.clone(),
-                    display,
-                    id,
-                    text: text.clone(),
-                    module,
-                    errors,
-                },
-            );
+            if errors.is_empty() {
+                self.sketches.insert(path.clone(), sketch_of(&module));
+            }
+            let file = ParsedFile {
+                path: path.clone(),
+                display,
+                id,
+                text: text.clone(),
+                module,
+                errors,
+            };
+            self.outlines
+                .insert(path.clone(), syntactic_outline(&file, None));
+            self.parsed.insert(path.clone(), file);
         }
     }
 }

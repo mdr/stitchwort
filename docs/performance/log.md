@@ -272,6 +272,29 @@ in [../proposals/README.md](../proposals/README.md).
 - **Not reproduced, so no change.** What differs on Matt's machine: Firefox 160.0.1, a real
   window, his profile's extensions, and his foreground priority against the lanes.
 
+### SW-4975: a key's answers and plan no longer copy the library's locals or re-read every file
+
+- **Problem.** After SW-4928 each key in 2021 day 18 still cost about 300 ms of the worker
+  (20 keys 400 ms apart: 5.9 s busy of 8.1 s), 160 ms of it in the answers and 60 ms in the plan.
+- **Cause (measured, native, `sw4928_typing`, per key).** The answers: `navigation_index` copied
+  the library's 125,000 local variables and 50,000 binders (and, in a copy of the type of each,
+  268,000 expressions) into the index, for `index_data_of` and `answers_from` to walk and throw
+  away: about 70 ms in the elaborator and 45 in the driver. `declared_names` made the syntactic
+  outline of all 726 files again (17 ms). The plan: `analyse_parsed` cloned every file's syntax and
+  read its sketch again (33 ms of 62).
+- **Change.** `navigation_index_for` takes the files whose locals, binders and expression types
+  are wanted (the program's, after the first answer); each file's sketch and outline are kept
+  with its syntax until its text changes, and `analyse_kept` reads the analysis from the kept
+  sketches without copying syntax (parsed again, lazily, only for a namespace that is checked).
+  The plan is now a `plan` phase of the stats.
+- **Measured (native, one run each, 20 keys 400 ms apart, `SW4928_QUIET` default).** Answers
+  161 to 23 ms a key (3219 to 461 ms in all), plan about 62 to 28 ms, busy 5.9 s to 2.3 s of
+  8.1 s. The answers to a document-symbol request and 60 hovers are the same before and after
+  (hash printed by the test). What remains per key: the Day18 check (80 ms warm), and in the
+  plan the edges of all 726 namespaces and the copies of the texts.
+- Test: `a_key_reads_only_the_changed_file_for_the_project_analysis` (memory.rs): 4 sketches for 4
+  keys, 28 before.
+
 ### SW-4928: typing no longer re-checks the rest of the project on every key
 
 - **Problem.** SW-4925 found the language server's worker running 11.7 of 11.8 s while 20
