@@ -21213,7 +21213,7 @@
     {
       "id": 4913,
       "title": "[Sonnet] SW-4910 follow-up: a comparison kept for lifted helpers inside a joined group (a helper calling the pending owner) still reaches the kernel before the elaborator compares it; check with a repro whether oracle 3 can see it, fix if so",
-      "status": "backlog",
+      "status": "doing",
       "agent": "",
       "where": "",
       "labels": [
@@ -21222,7 +21222,7 @@
       "epic": "audit-fuzzing",
       "body": "From SW-4910's report: lift::resolve_batch now redoes kept comparisons once their helpers are defined, but a joined group (join && pending) still defines the owner with the comparison pending. No test for that shape yet.\nSW-4910 round 2 (27 Nov): a second shape of the same kind: an arm comparison that mentions a helper of the group being defined (a recursive helper) also still waits for finish, so the kernel can see it first. Cover both here. Note: lift::check_settled_awaiting (68d29bdaa) checks only settled comparisons (no unsolved unknown, no Pending def) before each group; extend that rather than unifying early (round one broke 6 theorems by solving unknowns of matches not yet lifted).\n",
       "created": "2026-11-27",
-      "updated": "2026-11-27",
+      "updated": "2026-11-28",
       "commits": []
     },
     {
