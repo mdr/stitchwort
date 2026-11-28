@@ -21915,14 +21915,14 @@
     {
       "id": 4956,
       "title": "search cache stage 3: memoise type_index's folded read-back by content hash and save it with the equations entry",
-      "status": "doing",
+      "status": "review",
       "agent": "",
       "where": "",
       "labels": [
         "perf"
       ],
       "epic": "proof-search",
-      "body": "[Sonnet] After SW-4954. Est. 30 min.",
+      "body": "[Sonnet] After SW-4954. Est. 30 min.\n\nProgress (lane): type_index was 0.19 s of a 0.81 s warm std search; per-file type index entry (names only, untrusted, filtering/ranking data) built; warm 0.82 -> 0.62 s (root), 0.85 -> 0.70 s (aoc/); 7 queries byte-identical. Tests: check_cache::type_indexes_* (2 new), equations/digest, search_match, server search::. Commit 8c2acfb0f.",
       "created": "2026-11-27",
       "updated": "2026-11-28",
       "commits": []
