@@ -1,5 +1,5 @@
 {
-  "next": 4973,
+  "next": 4974,
   "tickets": [
     {
       "id": 47,
@@ -22199,6 +22199,19 @@
       "labels": [],
       "epic": "proof-search",
       "body": "[Sonnet] From SW-4957 (28 Nov).",
+      "created": "2026-11-28",
+      "updated": "2026-11-28",
+      "commits": []
+    },
+    {
+      "id": 4973,
+      "title": "search: () → Bool (7) and () → Nat (3) list premise matches made only through variables (symbol: a → t with a := ()); try rejecting a premise matched only through variables",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "epic": "proof-search",
+      "body": "[Sonnet] From SW-4941 (28 Nov): filtered pass, not relaxed; such a rule might hide wanted results, so compare before/after for the usual queries.",
       "created": "2026-11-28",
       "updated": "2026-11-28",
       "commits": []
