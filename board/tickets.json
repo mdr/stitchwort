@@ -1,5 +1,5 @@
 {
-  "next": 5033,
+  "next": 5035,
   "tickets": [
     {
       "id": 47,
@@ -23253,6 +23253,32 @@
       "labels": [],
       "epic": "dev-loop-speed",
       "body": "Matt, 28 Nov: 'Making the worktree still seems super slow, do we have an issue still?'",
+      "created": "2026-11-28",
+      "updated": "2026-11-28",
+      "commits": []
+    },
+    {
+      "id": 5033,
+      "title": "2021 day 11 peak heap tripled (363 kB to 1.1 MB, bench run-machine-aoc-2021-11) since SW-5005: flashesIn does afterSteps.take steps |> .sumBy .zeros, holding 100 caverns at once; read it with Stream.fold instead, keep the theorems, bench back under threshold",
+      "status": "backlog",
+      "agent": "Sonnet",
+      "where": "",
+      "labels": [],
+      "epic": "aoc-older",
+      "body": "Overmind's bench at 6e77918e9: peak heap +198.3%, allocations +0.8%, instructions +0.2%. Don't re-record the baseline unless the fold version can't get it back.",
+      "created": "2026-11-28",
+      "updated": "2026-11-28",
+      "commits": []
+    },
+    {
+      "id": 5034,
+      "title": "Overmind (machine): one flipped bit in a cached test binary (mov 0x30(%rsp),%rdi became %rsi in proof_chain::warnings) gave 20 SIGSEGVs at 6e77918e9; file mtime unchanged; RAM or storage suspected; memtest is Matt's call",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "epic": "test-infra",
+      "body": "Overmind's analysis, 28 Nov; evidence in Overmind's scratchpad segv/. Possibly related: two mold 'undefined symbol anon…llvm' link errors on 27 Nov.",
       "created": "2026-11-28",
       "updated": "2026-11-28",
       "commits": []
