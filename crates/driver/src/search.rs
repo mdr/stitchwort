@@ -965,7 +965,7 @@ impl Session {
         };
         let first = self
             .elab
-            .search_passes(&patterns, candidates, opts, keep, false);
+            .search_passes(&patterns, candidates, opts, keep, false, false);
         if !(first.hits.is_empty() && first.tier == SearchTier::Filtered) {
             return Ok(first);
         }
@@ -974,7 +974,7 @@ impl Session {
         if let Ok(opened) = self.elab.search_pattern(&open, named) {
             let found = self
                 .elab
-                .search_passes(&opened, candidates, opts, keep, false);
+                .search_passes(&opened, candidates, opts, keep, false, true);
             if !found.hits.is_empty() {
                 let g = &self.elab.ev();
                 warnings.push(format!(

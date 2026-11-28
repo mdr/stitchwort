@@ -1827,12 +1827,16 @@ impl Elaborator {
         opts: &Opts,
         keep: &dyn Fn(&Candidate) -> bool,
     ) -> Found {
-        self.search_passes(patterns, candidates, opts, keep, true)
+        self.search_passes(patterns, candidates, opts, keep, true, false)
     }
 
     /// [`Elaborator::search`], with the relaxed pass only if `relax`: a
     /// caller with another pass to try first (`search`'s fallback with
     /// abilities left open) gets back an empty filtered result instead.
+    /// `opened` says the patterns are that fallback's: their abilities are
+    /// open, so a premise or subterm matched by a variable of the candidate
+    /// taking part of the pattern is no match (`() → {Parse t} a` for
+    /// `() → {_} Nat`, SW-4977).
     pub fn search_passes(
         &self,
         patterns: &[Pattern],
@@ -1840,6 +1844,7 @@ impl Elaborator {
         opts: &Opts,
         keep: &dyn Fn(&Candidate) -> bool,
         relax: bool,
+        opened: bool,
     ) -> Found {
         let g = &self.ev();
         let names_something = patterns
@@ -1891,7 +1896,7 @@ impl Elaborator {
                         continue;
                     }
                     let attempt = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
-                        self.search_one(pattern, candidate, opts, filtered, &mut stats)
+                        self.search_one(pattern, candidate, opts, filtered, opened, &mut stats)
                     }));
                     let hit = attempt.unwrap_or_else(|payload| {
                         stats.internal_errors += 1;
@@ -1943,6 +1948,7 @@ impl Elaborator {
         candidate: &Candidate,
         opts: &Opts,
         filtered: bool,
+        opened_abilities: bool,
         stats: &mut Stats,
     ) -> Option<Hit> {
         if filtered && !passes(pattern, &candidate.index) {
@@ -2130,6 +2136,21 @@ impl Elaborator {
                             && matches!(place, Place::Premise | Place::Subterm)
                             && pattern.head == HeadKey::Pi
                             && takes_unit(&g.ev, &opened)? =>
+                    {
+                        None
+                    }
+                    m => m,
+                };
+                // With abilities left open (the fallback tier), a function type met
+                // in a premise or subterm through a variable of the candidate taking
+                // part of the pattern is a generic one, not a match (SW-4977).
+                let measured = match measured {
+                    Some((absorbed, ..))
+                        if opened_abilities
+                            && filtered
+                            && absorbed > 0
+                            && matches!(place, Place::Premise | Place::Subterm)
+                            && pattern.head == HeadKey::Pi =>
                     {
                         None
                     }
