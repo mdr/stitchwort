@@ -22206,12 +22206,12 @@
     {
       "id": 4972,
       "title": "Generated declarations: a marker set by the elaborator instead of inferring from names (% convention) and spans (SW-4957's partial helpers) in search's hidden()",
-      "status": "doing",
+      "status": "backlog",
       "agent": "",
       "where": "",
       "labels": [],
       "epic": "proof-search",
-      "body": "[Sonnet] From SW-4957 (28 Nov).",
+      "body": "[Sonnet] From SW-4957 (28 Nov).\n\nDropped, not merged (orchestrator's call, 28 Nov): first version set marks for every %-named declaration; its rows made the cache hash thousands of %match helpers the digest leaves out: tools/fmt check --no-cache 42 -> 99 s (measured, alternating). The fix narrowed the marker to partial helpers (which SW-4957's name+span rule already hides correctly) for a FORMAT bump, a new table and +5% (42.4/42.5 vs 45.7/44.6 s, unexplained). Not worth it. A real marker needs a flag on the declaration itself that the cache's hashed references don't include. Branch lane/SW-4972 deleted (9dc4d3f6f, 9f8f6f04e). Model result: sonnet, failed (regression; reduced fix not worth merging), 47 min (est. 40).",
       "created": "2026-11-28",
       "updated": "2026-11-28",
       "commits": []
