@@ -10634,15 +10634,18 @@
     {
       "id": 2784,
       "title": "stitchwort/contextAt returns null while the first check is still running (seen by SW-2715's probe client; unconfirmed): answer after the check, or say it's pending",
-      "status": "doing",
+      "status": "done",
       "agent": "DeepSeek",
       "where": "",
       "labels": [],
       "epic": "editor-playground",
-      "body": "\n\nAudit note (22 Nov): Audit 22 Nov: unconfirmed still; contextAt is queued as a search (crates/lsp/src/lib.rs:1856-1873) and answers null when search_target is None; no test pins the first-check case.\n",
+      "body": "\n\nAudit note (22 Nov): Audit 22 Nov: unconfirmed still; contextAt is queued as a search (crates/lsp/src/lib.rs:1856-1873) and answers null when search_target is None; no test pins the first-check case.\n\nDone (DeepSeek): reproduced: a project file's contextAt before the first publish returned null (the server didn't yet know the file's project). search_target falls back to source_project (find_project + sources_hold, as the checker finds a file's home). Test features::a_context_at_asked_as_a_projects_file_opens_answers_from_the_project, failing first, 3 passing runs. Orchestrator checks: lsp search/context/goal tests 21 pass; wasm clean. Model result: deepseek, worked, ~15 min (est. 20).",
       "created": "2026-11-11",
       "updated": "2026-11-28",
-      "commits": []
+      "commits": [
+        "d2ff8311d",
+        "544689a1b"
+      ]
     },
     {
       "id": 2785,
