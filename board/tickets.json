@@ -22834,7 +22834,7 @@
       "where": "",
       "labels": [],
       "epic": "std-library",
-      "body": "Matt, 28 Nov: 'Proceed with S2-S4 - I'm interested in which AoC days might genuinely benefit from streams'. Plan: docs/proposals/streams-head-tail.md §6.",
+      "body": "Matt, 28 Nov: 'Proceed with S2-S4 - I'm interested in which AoC days might genuinely benefit from streams'. Plan: docs/proposals/streams-head-tail.md §6.\n\nPhase 1 (Opus, 28 Nov): survey in docs/reviews/SW-5005-aoc-streams-survey.md. Picks: 2021 day 11, then 2024 day 22; neither needs findRepeat. Waiting for the orchestrator's go-ahead for phase 2.",
       "created": "2026-11-28",
       "updated": "2026-11-28",
       "commits": []
