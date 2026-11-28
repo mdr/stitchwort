@@ -1,5 +1,5 @@
 {
-  "next": 5021,
+  "next": 5023,
   "tickets": [
     {
       "id": 47,
@@ -23048,32 +23048,62 @@
     {
       "id": 5019,
       "title": "Stream.cycle (xs: NonEmptyList a): Stream a, constant time per value, with (Stream.cycle xs).at n tied to xs at n % xs.length",
-      "status": "review",
+      "status": "done",
       "agent": "Sonnet",
       "where": "",
       "labels": [],
       "epic": "std-library",
-      "body": "Matt, 28 Nov: 'Add Stream.cycle to std' for AoC 2018 day 1 part 2 (cycle the changes, scan, findRepeat). Type: NonEmptyList (orchestrator's call; Matt left it to me): total, no fallback, nothing to repeat in an empty list. Held for load (5-min load 23.7 at 11:45).\n\nWith SW-5020 in the same lane.\n\nStarted 11:49 on Sonnet with SW-5020, est. 25 min; Matt: 'Build both of those 2 requested stream changes now' (started at 5-min load ~18, above the hold of 15, on his word).\n\nStream.cycle (NonEmptyList, unfold over remaining suffix) and laws cycleHead, cycleTail, cycleDrop, cycleAtLap, cycleAt; guide + syntax updated. Commit 965deef72.",
+      "body": "Matt, 28 Nov: 'Add Stream.cycle to std' for AoC 2018 day 1 part 2 (cycle the changes, scan, findRepeat). Type: NonEmptyList (orchestrator's call; Matt left it to me): total, no fallback, nothing to repeat in an empty list. Held for load (5-min load 23.7 at 11:45).\n\nWith SW-5020 in the same lane.\n\nStarted 11:49 on Sonnet with SW-5020, est. 25 min; Matt: 'Build both of those 2 requested stream changes now' (started at 5-min load ~18, above the hold of 15, on his word).\n\nStream.cycle (NonEmptyList, unfold over remaining suffix) and laws cycleHead, cycleTail, cycleDrop, cycleAtLap, cycleAt; guide + syntax updated. Commit 965deef72.\n\nDone (Sonnet, with SW-5020): cycle via unfold over the remaining suffix; cycleHead, cycleTail, cycleDrop, cycleAtLap, cycleAt (xs.get (n % xs.length) = Some ((cycle xs).at n)). Orchestrator checked statements (D2436). Model result: sonnet, worked, 9 min (est. 25).",
       "created": "2026-11-28",
       "updated": "2026-11-28",
       "commits": [
-        "965deef72"
+        "965deef72",
+        "57796c6ca",
+        "8fa8e14ee"
       ]
     },
     {
       "id": 5020,
       "title": "Stream.findRepeat returns Option (Stream.Repeat a) = { value, first, again }; findRepeatSome gains r.value = s.at r.again; tests and guide updated",
-      "status": "review",
+      "status": "done",
       "agent": "Sonnet",
       "where": "",
       "labels": [],
       "epic": "std-library",
-      "body": "Matt, 28 Nov (pasted spec): so 2018 day 1 part 2 reads Stream.cycle changes |> .scan 0 (+) |> .findRepeat bound |> .map .value. Spec's example says value = 2 for the (n*n+1)%7 stream; it is 5 (0, 1, 2, 5, 5): use 5. Runs in SW-5019's lane (same file).\n\nfindRepeat returns Stream.Repeat {value, first, again}; findRepeatSome gains r.value = s.at r.again; callers updated. Commit 965deef72.",
+      "body": "Matt, 28 Nov (pasted spec): so 2018 day 1 part 2 reads Stream.cycle changes |> .scan 0 (+) |> .findRepeat bound |> .map .value. Spec's example says value = 2 for the (n*n+1)%7 stream; it is 5 (0, 1, 2, 5, 5): use 5. Runs in SW-5019's lane (same file).\n\nfindRepeat returns Stream.Repeat {value, first, again}; findRepeatSome gains r.value = s.at r.again; callers updated. Commit 965deef72.\n\nDone in SW-5019's lane: Stream.Repeat { value, first, again }; findRepeatSome keeps every conclusion and adds r.value = s.at r.again.",
       "created": "2026-11-28",
       "updated": "2026-11-28",
       "commits": [
-        "965deef72"
+        "965deef72",
+        "57796c6ca",
+        "8fa8e14ee"
       ]
+    },
+    {
+      "id": 5021,
+      "title": "List.scanLeft returns NonEmptyList b, initial value as head (D3778, Matt: yes); update all 63 uses in 22 files and its lemmas; .drop 1 becomes .tail",
+      "status": "doing",
+      "agent": "Sonnet",
+      "where": "",
+      "labels": [],
+      "epic": "std-library",
+      "body": "D3778, Matt 28 Nov: 'D3778 yes, kick that specific change off now.' Restated lemmas keep their meaning (orchestrator checks each).",
+      "created": "2026-11-28",
+      "updated": "2026-11-28",
+      "commits": []
+    },
+    {
+      "id": 5022,
+      "title": "Survey: which other std functions would be better returning NonEmptyList than List (or taking one instead of returning Option), for type safety; ranked recommendations",
+      "status": "doing",
+      "agent": "Opus",
+      "where": "",
+      "labels": [],
+      "epic": "std-library",
+      "body": "Matt, 28 Nov: 'we should also consider if any other stdlib functions would be better off returning NEL rather than List for better type safety'. Paper lane.",
+      "created": "2026-11-28",
+      "updated": "2026-11-28",
+      "commits": []
     }
   ]
 }
