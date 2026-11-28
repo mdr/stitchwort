@@ -22184,7 +22184,7 @@
     {
       "id": 4972,
       "title": "Generated declarations: a marker set by the elaborator instead of inferring from names (% convention) and spans (SW-4957's partial helpers) in search's hidden()",
-      "status": "backlog",
+      "status": "doing",
       "agent": "",
       "where": "",
       "labels": [],
