@@ -22472,15 +22472,18 @@
     {
       "id": 4984,
       "title": "A documented way to dump a declaration's full kernel term (no case-tree elision, no Loc wrappers), for comparing two elaborations: STITCHWORT_DUMP_KERNEL prints case trees as 'case r of …'",
-      "status": "doing",
+      "status": "done",
       "agent": "DeepSeek",
       "where": "",
       "labels": [],
       "epic": "dev-loop-speed",
-      "body": "From SW-4905 (28 Nov): the lane patched in a Debug dump and wrote a Loc-stripping script (~8 min).",
+      "body": "From SW-4905 (28 Nov): the lane patched in a Debug dump and wrote a Loc-stripping script (~8 min).\n\nDone (DeepSeek): pretty::term_with_cases (Printer.show_cases; ctor_text extracted unchanged) prints 'case x of { C a => … | … }' and NumCase arms; kernel.rs dump uses it under STITCHWORT_DUMP_KERNEL_FULL; test kernel_dump::dumps_case_tree_arms_only_in_full_mode; workflow.md line. Orchestrator checks: example kinds, kernel_dump (13 pass); tools/fmt, aoc, rogue check --no-cache clean; wasm clean. Model result: deepseek, worked, ~12 min (est. 20).",
       "created": "2026-11-28",
       "updated": "2026-11-28",
-      "commits": []
+      "commits": [
+        "1fcfd7f82",
+        "0f2421116"
+      ]
     },
     {
       "id": 4985,
