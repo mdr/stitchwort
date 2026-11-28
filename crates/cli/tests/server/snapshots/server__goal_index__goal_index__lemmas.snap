@@ -2,7 +2,7 @@
 source: crates/cli/tests/server/goal_index.rs
 expression: "format!(\"{made} lemmas, {} goals without one\\n\\n{}\", summary.len() - made,\nsummary.join(\"\\n\"))"
 ---
-177 lemmas, 51 goals without one
+177 lemmas, 52 goals without one
 
 arm-as-written-computes goal 1: no lemma
 arm-as-written-computes goal 2: theorem stepsGoal2: f "" ≠ 0 ∨ "" = "" := ?
@@ -150,6 +150,7 @@ lambda-propagated-alias goal 1: def withGoalGoal1 (n: Nat) (counts: Counts): Nat
 large-hypothesis-goal goal 1: no lemma
 lemma-used-later goal 1: theorem addZeroGoal1 (n: Nat): n + 0 = n := ?
 let-match-partial-unfold goal 1: no lemma
+let-name-in-hypotheses goal 1: no lemma
 let-proofs goal 1: no lemma
 let-values goal 1: no lemma
 lifted-match goal 1: theorem followsConsGoal1 (x: Nat) (rest: List Nat) (flag: Bool): Follows [x, ..rest] flag := ?

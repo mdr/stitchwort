@@ -141,6 +141,9 @@ struct Entry {
     ty: Value,
     /// For a `let` of data, its value.
     value: Option<Value>,
+    /// For a `let` whose written type names an earlier `let`: that type as
+    /// written, in the context before it, which `ty` has unfolded.
+    written: Option<Term>,
     /// Its level in the context.
     level: usize,
 }
@@ -905,10 +908,21 @@ fn scope_entries(
             name,
             ty,
             value: shows_value.then(|| value.clone()),
+            written: names_a_let(cx, level),
             level,
         });
     }
     (context, hidden)
+}
+
+/// The type of the `let` at `level` as written, if it names an earlier
+/// `let`: the value's type has the `let`'s value in its place, so a goal
+/// would show `n + n = n + n` for `twice = n + n`.
+fn names_a_let(cx: &Ctx, level: usize) -> Option<Term> {
+    let def = cx.lets[level].as_ref()?;
+    (0..level)
+        .any(|earlier| cx.lets[earlier].is_some() && def.ty.mentions(level - 1 - earlier))
+        .then(|| def.ty.clone())
 }
 
 /// Whether the `let` at `level` is the one a text prefix pattern's `rest`
@@ -1452,12 +1466,23 @@ impl Elaborator {
             .iter()
             .map(|e| Hypothesis {
                 name: e.name.clone(),
-                ty: show(
-                    &(crate::dot::meta_name_in(self, names.len(), &e.ty)
-                        .ok()
-                        .flatten())
-                    .unwrap_or_else(|| e.ty.clone()),
-                ),
+                ty: if let Some(term) = &e.written {
+                    let before = e.level.min(names.len());
+                    pretty::term_for_goal_in(
+                        g,
+                        scope,
+                        &names[..before],
+                        &predicates[..before.min(predicates.len())],
+                        term,
+                    )
+                } else {
+                    show(
+                        &(crate::dot::meta_name_in(self, names.len(), &e.ty)
+                            .ok()
+                            .flatten())
+                        .unwrap_or_else(|| e.ty.clone()),
+                    )
+                },
                 value: e.value.as_ref().map(show),
                 splits: self
                     .split_patterns_of(&e.ty)

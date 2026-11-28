@@ -1,0 +1,54 @@
+---
+source: crates/cli/tests/server/goal_index.rs
+expression: json
+---
+[
+  {
+    "code": "GOAL",
+    "file": 0,
+    "fixes": [],
+    "goal": {
+      "hypotheses": [
+        {
+          "name": "n",
+          "type": "Nat"
+        },
+        {
+          "name": "twice",
+          "type": "Nat",
+          "value": "n + n"
+        },
+        {
+          "name": "fact",
+          "type": "twice = n + n"
+        },
+        {
+          "name": "same",
+          "type": "twice = twice"
+        }
+      ],
+      "target": "n + n = n + n"
+    },
+    "labels": [
+      {
+        "file": 0,
+        "message": "n: Nat\ntwice: Nat := n + n\nfact: twice = n + n\nsame: twice = twice\n⊢ n + n = n + n",
+        "range": [
+          8,
+          2,
+          8,
+          3
+        ]
+      }
+    ],
+    "message": "in `doubled`",
+    "notes": [],
+    "range": [
+      8,
+      2,
+      8,
+      3
+    ],
+    "severity": "goal"
+  }
+]

@@ -1,0 +1,15 @@
+---
+source: crates/cli/tests/running/examples.rs
+expression: output
+---
+[GOAL] Goal: in `doubled`
+   ╭─[ goals/let-name-in-hypotheses.sw:9:3 ]
+   │
+ 9 │   ?
+   │   ┬  
+   │   ╰── n: Nat
+   │       twice: Nat := n + n
+   │       fact: twice = n + n
+   │       same: twice = twice
+   │       ⊢ n + n = n + n
+───╯
