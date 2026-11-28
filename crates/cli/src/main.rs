@@ -1167,6 +1167,33 @@ fn exit_quietly_on_broken_pipe() {
     }));
 }
 
+/// Runs a check, and if it panics (on this thread, or on a worker thread
+/// of `--jobs`, whose panic the fill or the check after it meets again
+/// here) reports `E-INTERNAL` naming the namespace being checked and the
+/// panic's message, and fails as a check with errors does. The default panic
+/// hook has already printed the panic's location.
+fn internal_error_on_panic(run: impl FnOnce() -> ExitCode) -> ExitCode {
+    let payload = match std::panic::catch_unwind(std::panic::AssertUnwindSafe(run)) {
+        Ok(code) => return code,
+        Err(payload) => payload,
+    };
+    let message = (payload.downcast_ref::<String>().map(String::as_str))
+        .or_else(|| payload.downcast_ref::<&str>().copied())
+        .unwrap_or("(a panic with no message)");
+    let message = match stitchwort_driver::project::namespace_being_checked() {
+        Some(namespace) => format!("while checking namespace `{namespace}`: {message}"),
+        None => format!("while checking: {message}"),
+    };
+    report(
+        &SourceMap::new(),
+        &[Diagnostic::error(
+            "E-INTERNAL",
+            format!("the checker panicked {message}"),
+        )],
+    );
+    ExitCode::FAILURE
+}
+
 /// `--timings`' value: a count of declarations, or `all`.
 fn parse_timings(value: &str) -> Result<usize, String> {
     if value == "all" {
@@ -1313,17 +1340,19 @@ fn run(cli: Cli) -> ExitCode {
             recheck,
             timings: _,
             jobs,
-        } => check(
-            &targets,
-            project.as_deref(),
-            index.as_deref(),
-            &only,
-            (expand_repeatedly, expand_walk, expand_facts, stdout),
-            &counterexamples,
-            &cache,
-            (carry_over || carry_over_from_environment(), recheck),
-            jobs_asked(jobs),
-        ),
+        } => internal_error_on_panic(|| {
+            check(
+                &targets,
+                project.as_deref(),
+                index.as_deref(),
+                &only,
+                (expand_repeatedly, expand_walk, expand_facts, stdout),
+                &counterexamples,
+                &cache,
+                (carry_over || carry_over_from_environment(), recheck),
+                jobs_asked(jobs),
+            )
+        }),
         Command::StdSource { path } => match stitchwort_cli::nav::std_source(&path, STACK) {
             Some(text) => {
                 print!("{text}");

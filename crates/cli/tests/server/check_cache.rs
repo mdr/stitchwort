@@ -1626,3 +1626,51 @@ fn check_std_checks_the_named_library_file_in_full() {
     let _ = std::fs::remove_dir_all(&std_dir);
     let _ = std::fs::remove_dir_all(&cache);
 }
+
+/// A panic while checking a namespace, in a worker or in the check after
+/// the fill, ends `check` with an `E-INTERNAL` error naming the namespace
+/// and giving the panic's message, and the exit status of any other failed
+/// check, not the 101 of an uncaught panic (SW-4918). The variable is read
+/// only in dev and test builds (`test-bypass`).
+#[test]
+fn a_panic_while_checking_is_reported_as_an_internal_error_naming_the_namespace() {
+    let project = temp_dir("panic-internal");
+    for (path, text) in [
+        ("stitchwort.yaml", "sources: [src]\n"),
+        ("src/A.sw", "namespace A\n\ndef one: Nat := 1\n"),
+        ("src/B.sw", "namespace B\n\ndef two: Nat := 2\n"),
+    ] {
+        let full = project.join(path);
+        std::fs::create_dir_all(full.parent().unwrap()).unwrap();
+        std::fs::write(full, text).unwrap();
+    }
+    for jobs in ["1", "2"] {
+        let cache = temp_dir("panic-internal-cache");
+        let output = stitchwort(
+            &[
+                "check",
+                "--project",
+                project.to_str().unwrap(),
+                "--cache-dir",
+                cache.to_str().unwrap(),
+            ],
+            &[("STITCHWORT_JOBS", jobs), ("STITCHWORT_TEST_PANIC_IN", "B")],
+        );
+        let stderr = String::from_utf8_lossy(&output.stderr);
+        assert_eq!(
+            output.status.code(),
+            Some(1),
+            "jobs {jobs}: {}",
+            shown(&output)
+        );
+        assert!(
+            stderr.contains("E-INTERNAL")
+                && stderr.contains("namespace `B`")
+                && stderr.contains("test panic while checking `B`"),
+            "jobs {jobs}: {}",
+            shown(&output)
+        );
+        let _ = std::fs::remove_dir_all(&cache);
+    }
+    let _ = std::fs::remove_dir_all(&project);
+}
