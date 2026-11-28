@@ -1240,3 +1240,65 @@ fn oracle_3_let_bound_value_in_match_arms() {
         bad_kernel_rejections(&report)
     );
 }
+
+/// The report of checking `text`, which must finish.
+fn report_of(text: &str) -> Report {
+    match run_watched(text, &CacheUse::SharedLibrary) {
+        Ran::Done(report) => *report,
+        Ran::Panicked(message) => panic!("check panicked: {message}"),
+        Ran::OverMemory => panic!("check held too much memory"),
+        Ran::Hung => panic!("check hung"),
+    }
+}
+
+/// That the elaborator refused `text` with `E-REFL` and the kernel saw
+/// nothing it refused (oracle 3).
+fn assert_elaborator_refl(text: &str) {
+    let report = report_of(text);
+    assert!(
+        report
+            .messages
+            .iter()
+            .any(|message| message.code == "E-REFL"),
+        "the elaborator's E-REFL is missing: {:?}",
+        report.messages
+    );
+    assert!(
+        report.rejections.is_empty(),
+        "the kernel refused something first: {:?}",
+        report.rejections
+    );
+}
+
+/// SW-4913: a `match` that calls the local definition it is in is one group
+/// with it, and an equation about the `match` later in the definition is
+/// checked in that group's bodies: the elaborator refuses a false
+/// `byComputing` there before the group goes to the kernel. So it does a
+/// true one that needs the `match` unfolded, which the kernel, checking
+/// the group with its members pending, can't do either.
+#[test]
+fn oracle_3_comparison_in_a_recursive_helpers_group() {
+    let text = include_str!("../../../docs/reviews/repros/sw-4913-recursive-helper.sw");
+    assert_elaborator_refl(text);
+    assert_elaborator_refl(&text.replace("pick = 0", "pick = go k"));
+}
+
+/// SW-4913: a comparison in a `match` admitted with its owner (it calls the
+/// owner) is made when the owner's body is finished, before the kernel sees
+/// either: the elaborator refuses it.
+#[test]
+fn oracle_3_comparison_in_a_joined_group() {
+    assert_elaborator_refl(include_str!(
+        "../../../docs/reviews/repros/sw-4913-joined-group.sw"
+    ));
+}
+
+/// SW-4913: an equation about a local definition written after it, in the
+/// owner, waits for the definition to be final, and holds.
+#[test]
+fn comparison_after_a_recursive_local_waits_for_it() {
+    let report = report_of(include_str!(
+        "../../../docs/reviews/repros/sw-4913-lemma-after-local.sw"
+    ));
+    assert!(report.verdict.accepted, "refused: {:?}", report.messages);
+}

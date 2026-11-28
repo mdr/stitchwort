@@ -315,6 +315,26 @@ pub(crate) fn mentions_draft(cx: &Ctx, term: &Term) -> bool {
             .any(|(t, _)| matches!(t, Term::Meta(m) if drafts.iter().any(|d| d.meta == *m)))
 }
 
+/// The draft whose body `span` is in, if any: the smallest whose source (a
+/// local definition's whole text, a `match`'s) holds it. Only strictly
+/// inside: a comparison spanning the whole `match` may be its call's, in
+/// the context around it.
+fn innermost_draft(drafts: &[Draft], span: Span) -> Option<usize> {
+    drafts
+        .iter()
+        .enumerate()
+        .filter_map(|(i, d)| {
+            let outer = d.local.as_ref().map_or(d.span, |l| l.whole);
+            let inside = outer.file == span.file
+                && outer.start <= span.start
+                && span.end <= outer.end
+                && outer != span;
+            inside.then_some((outer.end - outer.start, i))
+        })
+        .min()
+        .map(|(_, i)| i)
+}
+
 impl Elaborator {
     /// Makes again the comparisons [`await_helpers`] kept, now that the
     /// helpers are lifted: one that fails is an error.
@@ -337,7 +357,20 @@ impl Elaborator {
     /// for [`Elaborator::compare_awaiting_helpers`], since solving it now,
     /// before the rest of the declaration is elaborated, could solve it
     /// wrongly (with a `match` not lifted yet taken as anything, say).
-    fn check_settled_awaiting(&self) -> Result<()> {
+    ///
+    /// A comparison written in the bodies of the group itself (`in_group`
+    /// of its span) may also mention the group's members, `group`: the
+    /// kernel checks those bodies with the members pending, so not
+    /// unfolding, as they are here, and a comparison that fails here fails
+    /// there too (SW-4913: a `match` that calls the local definition it is
+    /// in, and an equation about it later in that definition). One written
+    /// elsewhere, in the owner say, is checked once the members are
+    /// defined.
+    fn check_settled_awaiting(
+        &self,
+        group: &HashSet<DefId>,
+        in_group: &dyn Fn(Span) -> bool,
+    ) -> Result<()> {
         let awaiting = std::mem::take(&mut *self.attempt.awaiting_helpers.borrow_mut());
         let mut kept = Vec::new();
         for item in awaiting {
@@ -348,13 +381,17 @@ impl Elaborator {
                 item.names.clone(),
                 item.span,
             );
+            let here = in_group(item.span);
             let mut settled = true;
             for side in [&item.found, &item.expected] {
                 let term = cx.quote_folded(side)?;
                 let term = self.zonk_keeping(&term, cx.level(), &|_| true)?;
                 settled &= !term.subterms().any(|(t, _)| match t {
                     Term::Meta(m) => *m != ELIDED && cx.g().meta_solution(*m).is_none(),
-                    Term::Def(d) => self.kernel.def(*d).state() == State::Pending,
+                    Term::Def(d) => {
+                        self.kernel.def(*d).state() == State::Pending
+                            && !(here && group.contains(d))
+                    }
                     _ => false,
                 });
             }
@@ -991,7 +1028,10 @@ impl Elaborator {
                 joined_ids.extend(ids);
                 joined.extend(bodies);
             } else {
-                self.check_settled_awaiting()?;
+                let in_group = |span: Span| {
+                    innermost_draft(&drafts, span).is_some_and(|i| component.contains(&i))
+                };
+                self.check_settled_awaiting(&ids, &in_group)?;
                 kernel::define_group(&mut self.kernel, &self.tables, &bodies)
                     .map_err(|d| self.explain_lifted(d))?;
                 for (_, id) in &members {
