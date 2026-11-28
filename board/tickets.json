@@ -21155,15 +21155,18 @@
     {
       "id": 4909,
       "title": "[DeepSeek] Tier reports list only the 15 slowest tests; record every test's time per run (e.g. a JSON beside target/tier-report/*.md) and say in docs/testing.md where per-test all-tier times live (SW-4902 finding)",
-      "status": "doing",
+      "status": "done",
       "agent": "",
       "where": "",
       "labels": [],
       "epic": "test-infra",
-      "body": "",
+      "body": "Done (DeepSeek): dev/tier-report writes TIER-TIMESTAMP-tests.json and latest-TIER-tests.json ([{name, binary, seconds, status}]) from the JUnit data; testing doc says where. tier-report_test.py 10 pass (orchestrator ran). Model result: deepseek, worked, ~8 min (est. 15).",
       "created": "2026-11-27",
       "updated": "2026-11-28",
-      "commits": []
+      "commits": [
+        "3f3a3181b",
+        "dc84a9525"
+      ]
     },
     {
       "id": 4910,
