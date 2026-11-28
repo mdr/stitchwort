@@ -147,10 +147,20 @@ pub struct Goal {
     #[serde(rename = "goalComputed")]
     pub goal_computed: Option<String>,
     pub context: Vec<Local>,
+    /// What the arms above the goal know, listed between the context and
+    /// the goal (the `≠` lines of a `match`). For hover; the protocol
+    /// carries them in `text`.
+    #[serde(skip)]
+    pub facts: Vec<String>,
     /// Whether the goal is a proposition (a proof goal), if its sort was
     /// known when the hole was checked.
     #[serde(skip)]
     pub prop: Option<bool>,
+    /// The notes the command line prints after the goal (why it may look
+    /// odd, which case of an arm it is, and so on). For hover; the protocol
+    /// carries them in `text`.
+    #[serde(skip)]
+    pub notes: Vec<String>,
     /// The goal as the command line prints it (the label, then the notes).
     pub text: String,
 }
@@ -162,6 +172,7 @@ pub fn goals_of(file: &FileAnswers) -> Vec<Goal> {
         .filter(|d| d.severity == Severity::Goal)
         .filter_map(|d| {
             let data = d.goal.as_ref()?;
+            let notes = note_lines(&d.notes);
             let mut body: Vec<String> = Vec::new();
             if let Some((_, first)) = d.labels.first()
                 && !first.is_empty()
@@ -169,7 +180,7 @@ pub fn goals_of(file: &FileAnswers) -> Vec<Goal> {
             {
                 body.push(first.clone());
             }
-            body.extend(note_lines(&d.notes));
+            body.extend(notes.iter().cloned());
             Some(Goal {
                 range: d.range,
                 owner: d
@@ -187,7 +198,9 @@ pub fn goals_of(file: &FileAnswers) -> Vec<Goal> {
                         splits: h.splits.clone(),
                     })
                     .collect(),
+                facts: data.facts.clone(),
                 prop: data.prop,
+                notes,
                 text: body.join("\n"),
             })
         })
@@ -342,9 +355,17 @@ pub fn hover_at(
     for local in &goal.context {
         markdown.push_str(&format!("{}: {}\n", local.name, local.ty));
     }
+    for fact in &goal.facts {
+        markdown.push_str(&format!("{fact}\n"));
+    }
     markdown.push_str(&format!("⊢ {}\n```", goal.goal));
-    if !goal.text.is_empty() {
-        markdown.push_str(&format!("\n\n{}", goal.text));
+    // The goal is in the code block: only what it doesn't show (what it
+    // computes to, and the notes) follows, so it isn't repeated.
+    if let Some(computed) = &goal.goal_computed {
+        markdown.push_str(&format!("\n\n  computes to {computed}"));
+    }
+    if !goal.notes.is_empty() {
+        markdown.push_str(&format!("\n\n{}", goal.notes.join("\n")));
     }
     Some(Hover {
         range: goal.range,

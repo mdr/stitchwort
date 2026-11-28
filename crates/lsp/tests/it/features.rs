@@ -540,6 +540,23 @@ fn hover_and_semantic_tokens_work_outside_a_declaration_with_an_unclosed_string(
 }
 
 #[test]
+fn hover_on_an_open_goal_shows_the_goal_once() {
+    big_stack(|| {
+        let text = "namespace Demo\n\ntheorem t (n: Nat): n + 0 = n := ?\n";
+        let mut s = Session::open(text);
+        let hover = hover_at(&mut s, text, "?");
+        println!("HOVER CONTENTS: {hover}");
+        let shown = hover["contents"]["value"].as_str().unwrap_or_default();
+        assert_eq!(shown.matches("n + 0 = n").count(), 1, "{hover}");
+        assert!(
+            shown.contains("```stitchwort\nn: Nat\n⊢ n + 0 = n\n```"),
+            "{hover}"
+        );
+        assert!(shown.contains("computes to n = n"), "{hover}");
+    });
+}
+
+#[test]
 fn hover_unfolds_the_outermost_not_once() {
     big_stack(|| {
         let text = "namespace Demo\n\
