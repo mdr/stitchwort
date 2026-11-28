@@ -230,6 +230,11 @@ theorem Stream.iterateTakeSucc ∀ (f: a → a) (x: a) (n: Nat):
     (Stream.iterate f x).take (Succ n) = [x, ..(Stream.iterate f (f x)).take n] :=
   byComputing
 
+--| `Stream.iterate f x` at position `n + 1` is the stream iterated from `f x`, at position `n`. It does not compute `f`.
+theorem Stream.iterateAtSucc ∀ (f: a → a) (x: a) (n: Nat):
+    (Stream.iterate f x).at (Succ n) = (Stream.iterate f (f x)).at n :=
+  byComputing
+
 --| `take n` has `n` values.
 theorem Stream.takeLength ∀ (s: Stream a) (n: Nat): (s.take n).length = n := match n with
   | Zero => Eq.cong (xs => xs.length) (Stream.takeZero s)
@@ -251,6 +256,19 @@ def Stream.drop (s: Stream a) (n: Nat): Stream a := Nat.iterate n Stream.tail s
 
 --| `drop` by one more is `drop` of the tail.
 theorem Stream.dropSucc ∀ (s: Stream a) (n: Nat): s.drop (Succ n) = s.tail.drop n := byComputing
+
+--| Dropping `n` values from an iterated stream iterates from `f` applied `n` times to the seed. By induction on `n`,
+--| for every seed, since each drop is a `tail`, which iterates from the next value.
+theorem Stream.iterateDrop ∀ (f: a → a) (x: a) (n: Nat):
+    (Stream.iterate f x).drop n = Stream.iterate f (Nat.iterate n f x) :=
+  match n with
+    | Zero => byComputing
+    | Succ m =>
+      calc (Stream.iterate f x).drop (Succ m)
+        _ = (Stream.iterate f x).tail.drop m := Stream.dropSucc (Stream.iterate f x) m
+        _ = (Stream.iterate f (f x)).drop m := Eq.cong (t => t.drop m) (Stream.iterateTail f x)
+        _ = Stream.iterate f (Nat.iterate m f (f x)) := Stream.iterateDrop f (f x) m
+        _ = Stream.iterate f (Nat.iterate (Succ m) f x) := byComputing
 
 --| Dropping `n` values moves every position on by `n`.
 theorem Stream.dropAt ∀ (s: Stream a) (n k: Nat): (s.drop n).at k = s.at (n + k) := match n with
@@ -544,6 +562,53 @@ theorem Stream.findIndexNone ∀ (s: Stream a) (n: Nat) (p: a → Bool):
         arithmetic
         arithmetic)
 
+--| Counting from one more position finds one more.
+theorem Stream.Cells.findIndexShift ∀ (g: Nat → a) (p: a → Bool) (n j i: Nat):
+    Stream.Cells.findIndex (Stream.Cells.fromAt g j n) (i + 1) p
+      = (Stream.Cells.findIndex (Stream.Cells.fromAt g j n) i p).map (k => k + 1) :=
+  match n with
+    | Zero => byComputing
+    | Succ m =>
+      match e: p (g j) with
+        | True => byComputing
+        | False => Stream.Cells.findIndexShift g p m (j + 1) (i + 1)
+
+--| `findIndex` with one more position of limit is 0 if the head satisfies `p`, and otherwise one more than the tail's.
+theorem Stream.findIndexSucc ∀ (s: Stream a) (n: Nat) (p: a → Bool):
+    s.findIndex (Succ n) p = if p s.head then Some 0 else (s.tail.findIndex n p).map (j => j + 1) :=
+  calc s.findIndex (Succ n) p
+    _ = Stream.Cells.findIndex (Stream.Cells.fromAt s.at 0 (Succ n)) 0 p :=
+      Eq.cong (c => Stream.Cells.findIndex c 0 p) (s.base.agrees (Succ n))
+    _ = (if p (s.at 0) then Some 0 else Stream.Cells.findIndex (Stream.Cells.fromAt s.at 1 n) 1 p) := byComputing
+    _ = (if p (s.at 0) then Some 0 else (Stream.Cells.findIndex (Stream.Cells.fromAt s.at 1 n) 0 p).map (k => k + 1)) :=
+      Eq.cong (r => if p (s.at 0) then Some 0 else r) (Stream.Cells.findIndexShift s.at p n 1 0)
+    _ = (if p (s.at 0) then Some 0
+         else (Stream.Cells.findIndex (Stream.Cells.fromAt (j => s.at (Succ j)) 0 n) 0 p).map (k => k + 1)) :=
+      Eq.cong
+        (c => if p (s.at 0) then Some 0 else (Stream.Cells.findIndex c 0 p).map (k => k + 1))
+        (Stream.Cells.fromAtShift s.at n 0)
+    _ = (if p (s.at 0) then Some 0
+         else (Stream.Cells.findIndex (Stream.Cells.fromAt s.tail.at 0 n) 0 p).map (k => k + 1)) :=
+      Eq.cong
+        (g => if p (s.at 0) then Some 0 else (Stream.Cells.findIndex (Stream.Cells.fromAt g 0 n) 0 p).map (k => k + 1))
+        (Quot.funext Nat (j => a) (j => s.at (Succ j)) s.tail.at (j => (Stream.tailAt s j).flipped))
+    _ = (if p s.head then Some 0 else (s.tail.findIndex n p).map (k => k + 1)) :=
+      rewrite Stream.headIs s then
+        Eq.cong
+          (c => if p (s.at 0) then Some 0 else (Stream.Cells.findIndex c 0 p).map (k => k + 1))
+          (s.tail.base.agrees n).flipped
+
+--| The first position below `n + 1` of an iterated stream whose value satisfies `p` is 0 if the seed does, and
+--| otherwise one more than the first position below `n` of the stream iterated from the next value.
+theorem Stream.iterateFindIndexSucc ∀ (f: a → a) (x: a) (n: Nat) (p: a → Bool):
+    (Stream.iterate f x).findIndex (Succ n) p
+      = if p x then Some 0 else ((Stream.iterate f (f x)).findIndex n p).map (j => j + 1) :=
+  calc (Stream.iterate f x).findIndex (Succ n) p
+    _ = (if p (Stream.iterate f x).head then Some 0 else ((Stream.iterate f x).tail.findIndex n p).map (j => j + 1)) :=
+      Stream.findIndexSucc (Stream.iterate f x) n p
+    _ = (if p x then Some 0 else ((Stream.iterate f (f x)).findIndex n p).map (j => j + 1)) :=
+      rewrite Stream.iterateTail f x
+
 --| The cells' fold until the accumulator satisfies `stop`, from position `i`: the accumulator and the position
 --| it stopped at.
 @[tailrec]
@@ -621,30 +686,103 @@ theorem Stream.seenInsert ∀ [auto ord: Ord a] (g: Nat → a) (i: Nat) (x: a) (
         (rewrite Map.getInsert x i seen at got then (rewrite <- Option.someInjective got then Both arithmetic here))))
   else (rewrite Map.getInsertOther x i y h seen at got then (let r := inv y j got; Both arithmetic r.right))
 
+--| What the seen-map of `findRepeat` holds before position `i`: each value in it is at the position it maps to, which
+--| is its first; every value at a position below `i` is in it; and no two positions below `i` hold the same value.
+def Stream.SeenOk [auto ord: Ord a] (g: Nat → a) (i: Nat) (seen: Map a Nat): Prop :=
+  (∀ (y: a) (j: Nat) => Map.get seen y = Some j → j < i ∧ g j = y)
+    ∧ (∀ (y: a) (j: Nat) => Map.get seen y = Some j → ∀ (k: Nat) => k < j → g k ≠ y)
+    ∧ (∀ (k: Nat) => k < i → ∃ (m: Nat) => Map.get seen (g k) = Some m)
+    ∧ (∀ (x y: Nat) => x < y → y < i → g x ≠ g y)
+
+--| The empty map is `SeenOk` before position 0.
+theorem Stream.seenOkEmpty ∀ [auto ord: Ord a] (g: Nat → a): Stream.SeenOk g 0 Map.empty :=
+  Both
+    (y j got => (Option.noneNotSome j ((Map.getEmpty y).flipped.trans got)).impossible)
+    (Both
+      (y j got => (Option.noneNotSome j ((Map.getEmpty y).flipped.trans got)).impossible)
+      (Both (k h => (Nat.lessIrrefl 0 arithmetic).impossible) (x y h1 h2 => (Nat.lessIrrefl 0 arithmetic).impossible)))
+
+--| Adding the value at position `i`, which the map lacks, keeps `SeenOk`, now before `i + 1`.
+theorem Stream.seenOkInsert ∀ [auto ord: Ord a] (g: Nat → a) (i: Nat) (seen: Map a Nat)
+    (ok: Stream.SeenOk g i seen)
+    (miss: Map.get seen (g i) = None):
+    Stream.SeenOk g (i + 1) (Map.insert seen (g i) i) :=
+  Both
+    (Stream.seenInsert g i (g i) seen byComputing ok.left)
+    (Both
+      (y j got k hk =>
+        if h: y = g i then
+          (rewrite h at got then
+            (rewrite Map.getInsert (g i) i seen at got then
+              (rewrite <- Option.someInjective got at hk then
+                (h2 =>
+                  (let c := ok.right.right.left k hk;
+                   Exists.elim c (m cm =>
+                     Option.noneNotSome m
+                       (miss.flipped.trans (rewrite h at h2 then (rewrite h2 at cm then cm))))).impossible))))
+        else (rewrite Map.getInsertOther (g i) i y h seen at got then ok.right.left y j got k hk))
+      (Both
+        (k hk =>
+          if h: g k = g i then (rewrite h then Witness i (Map.getInsert (g i) i seen))
+          else
+            Exists.elim (ok.right.right.left k (if hh: k = i then (h (rewrite hh)).impossible else arithmetic)) (m cm =>
+              Witness m ((Map.getInsertOther (g i) i (g k) h seen).trans cm)))
+        (x y hxy hy h2 =>
+          if h: y = i then
+            (let hx: x < i := arithmetic;
+             Exists.elim (ok.right.right.left x hx) (m cm =>
+               Option.noneNotSome m (miss.flipped.trans (rewrite h at h2 then (rewrite h2 at cm then cm)))))
+          else ok.right.right.right x y hxy arithmetic h2)))
+
 --| A repeat found among the `n` cells of `g` from position `i` is a first position before the second, which is within the
---| `n` cells, holding the same value. `seen` has each earlier value at the position it holds. By induction on `n`: a hit
---| in the map is `seenInsert`'s invariant at the head; a miss adds the head and goes on.
+--| `n` cells, holding the same value; no two positions before the second hold the same value, and no position before the
+--| first holds it. `seen` is `SeenOk`. By induction on `n`: a hit in the map is `SeenOk`'s facts at the head; a miss
+--| adds the head and goes on.
 theorem Stream.Cells.findRepeatSome ∀ [auto ord: Ord a] (g: Nat → a) (n i: Nat) (seen: Map a Nat)
-    (inv: ∀ (y: a) (j: Nat) => Map.get seen y = Some j → j < i ∧ g j = y) (p q: Nat):
-    Stream.Cells.findRepeat (Stream.Cells.fromAt g i n) i seen = Some (p, q) → p < q ∧ q < i + n ∧ g p = g q :=
+    (ok: Stream.SeenOk g i seen) (p q: Nat):
+    Stream.Cells.findRepeat (Stream.Cells.fromAt g i n) i seen = Some (p, q)
+      → p < q ∧ q < i + n ∧ g p = g q ∧ (∀ (x y: Nat) => x < y → y < q → g x ≠ g y) ∧ ∀ (k: Nat) => k < p → g k ≠ g q :=
   match n with
     | Zero => found => (Option.noneNotSome (p, q) found).impossible
     | Succ k =>
       match e: Map.get seen (g i) with
         | Some j => found =>
-          (let r := inv (g i) j e;
+          (let r := ok.left (g i) j e;
            let jp: j = p := Eq.cong (x => x.fst) (Option.someInjective found);
            let iq: i = q := Eq.cong (x => x.snd) (Option.someInjective found);
-           rewrite <- jp, <- iq then Both r.left (Both arithmetic r.right))
+           rewrite <- jp, <- iq then
+             Both r.left (Both arithmetic (Both r.right (Both ok.right.right.right (ok.right.left (g i) j e)))))
         | None => found =>
           (let r := Stream.Cells.findRepeatSome g k
              (i + 1)
              (Map.insert seen (g i) i)
-             (Stream.seenInsert g i (g i) seen byComputing inv)
+             (Stream.seenOkInsert g i seen ok e)
              p
              q
              found;
            Both r.left (Both arithmetic r.right.right))
+
+--| When no repeat is found among the `n` cells of `g` from position `i`, no two positions below `i + n` hold the same
+--| value. `seen` is `SeenOk`.
+theorem Stream.Cells.findRepeatNone ∀ [auto ord: Ord a] (g: Nat → a) (n i: Nat) (seen: Map a Nat)
+    (ok: Stream.SeenOk g i seen):
+    Stream.Cells.findRepeat (Stream.Cells.fromAt g i n) i seen = None → ∀ (x y: Nat) => x < y → y < i + n → g x ≠ g y :=
+  match n with
+    | Zero => found => (x y h1 h2 => ok.right.right.right x y h1 arithmetic)
+    | Succ k =>
+      match e: Map.get seen (g i) with
+        | Some j => found => (Option.noneNotSome (j, i) found.flipped).impossible
+        | None => found =>
+          (x y h1 h2 =>
+            Stream.Cells.findRepeatNone g k
+              (i + 1)
+              (Map.insert seen (g i) i)
+              (Stream.seenOkInsert g i seen ok e)
+              found
+              x
+              y
+              h1
+              arithmetic)
 
 --| The first repeated value among the first `n` values, as the position it was first at and the position it
 --| repeats at, or `None`: `(Stream.iterate (n => (n * n + 1) % 7) 0).findRepeat 100` is `Some (3, 4)`. It reads the
@@ -653,16 +791,35 @@ def Stream.findRepeat [auto ord: Ord a] (s: Stream a) (n: Nat): Option (Nat, Nat
   Stream.Cells.findRepeat (s.base.walk n) 0 Map.empty
 
 --| A repeat found in the first `n` values: the first position is before the second, which is within the `n`, and the
---| two positions hold the same value.
+--| two positions hold the same value. It is the first repeat: no two positions before the second hold the same value, and
+--| no position before the first holds that value.
 theorem Stream.findRepeatSome ∀ [auto ord: Ord a] (s: Stream a) (n p q: Nat):
-    s.findRepeat n = Some (p, q) → p < q ∧ q < n ∧ s.at p = s.at q :=
+    s.findRepeat n = Some (p, q)
+      → p < q
+        ∧ q < n
+        ∧ s.at p = s.at q
+        ∧ (∀ (x y: Nat) => x < y → y < q → s.at x ≠ s.at y)
+        ∧ ∀ (k: Nat) => k < p → s.at k ≠ s.at q :=
   found =>
     (let r := Stream.Cells.findRepeatSome s.at n 0 Map.empty
-       (y j got => (Option.noneNotSome j ((Map.getEmpty y).flipped.trans got)).impossible)
+       (Stream.seenOkEmpty s.at)
        p
        q
        ((Eq.cong (c => Stream.Cells.findRepeat c 0 Map.empty) (s.base.agrees n)).flipped.trans found);
      Both r.left (Both (arithmetic: q < n) r.right.right))
+
+--| When no repeat is found in the first `n` values, no two of those positions hold the same value.
+theorem Stream.findRepeatNone ∀ [auto ord: Ord a] (s: Stream a) (n: Nat):
+    s.findRepeat n = None → ∀ (x y: Nat) => x < y → y < n → s.at x ≠ s.at y :=
+  found =>
+    (x y h1 h2 =>
+      Stream.Cells.findRepeatNone s.at n 0 Map.empty
+        (Stream.seenOkEmpty s.at)
+        ((Eq.cong (c => Stream.Cells.findRepeat c 0 Map.empty) (s.base.agrees n)).flipped.trans found)
+        x
+        y
+        h1
+        arithmetic)
 
 --| Steps that agree everywhere give the same stream.
 theorem Stream.iterateCongr ∀ (f g: a → a) (h: ∀ (x: a) => f x = g x) (x: a): Stream.iterate f x = Stream.iterate g x :=
