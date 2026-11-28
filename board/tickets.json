@@ -22478,15 +22478,18 @@
     {
       "id": 4985,
       "title": "stitchwort check DIR fails with a bare 'Is a directory': check a project directory (its stitchwort.yaml) or say how to",
-      "status": "doing",
+      "status": "done",
       "agent": "DeepSeek",
       "where": "",
       "labels": [],
       "epic": "diagnostics",
-      "body": "From SW-2903 (28 Nov). Check what check does with a directory argument; either treat a folder holding stitchwort.yaml as the project, or give a plain message naming the fix.",
+      "body": "From SW-2903 (28 Nov). Check what check does with a directory argument; either treat a folder holding stitchwort.yaml as the project, or give a plain message naming the fix.\n\nDone (DeepSeek): load_file_into (cli main.rs, shared by check/test/run/build/audit/eval) tests is_dir first; a project folder gets 'to check the whole project, run stitchwort check --project DIR' (command follows the verb; all four take --project, orchestrator checked), else 'name the .sw files ... or a project's namespaces'. Exit 1 as before. Test project::check_a_folder_target, shown failing first. Model result: deepseek, worked, ~8 min (est. 15).",
       "created": "2026-11-28",
       "updated": "2026-11-28",
-      "commits": []
+      "commits": [
+        "9b879c2ae",
+        "67dbfa5a7"
+      ]
     }
   ]
 }
