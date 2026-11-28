@@ -11396,14 +11396,14 @@
     {
       "id": 2906,
       "title": "[DeepSeek] Taskfile sf:check and book:check tasks (check with open goals allowed), and add them to the merge or daily tier (SW-2892, SW-2723)",
-      "status": "backlog",
+      "status": "doing",
       "agent": "DeepSeek",
       "where": "",
       "labels": [],
       "epic": "editor-playground",
       "body": "\n\nAudit note (22 Nov): Audit 22 Nov: still open; no commit besides board edits mentions it and no later ticket covers it.\n",
       "created": "2026-11-11",
-      "updated": "2026-11-22",
+      "updated": "2026-11-28",
       "commits": []
     },
     {
