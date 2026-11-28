@@ -1,0 +1,16 @@
+---
+source: crates/cli/tests/running/examples.rs
+expression: output
+---
+[E-FACTS] Error: `byFacts` left a part of the goal open
+   ╭─[ reject/facts-binder-data.sw:6:66 ]
+   │
+ 6 │ theorem dataHyp ∀ (h: ∀ (t: Type) => t) (a b: Prop) (x: a): b := byFacts
+   │                                                                  ───┬───  
+   │                                                                     ╰───── not proved from the facts in scope
+   │ 
+   │ Note 1: left open: `b`
+   │         no fact or listed term concludes something of its form
+   │ 
+   │ Note 2: `byFacts then ?` shows each part left open as a goal; `byFacts [lemma]` adds a lemma to apply
+───╯
