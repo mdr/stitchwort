@@ -194,3 +194,38 @@ fn no_project_cache_checks_the_project_afresh_without_touching_its_entry() {
     // The project's entry is untouched: the next plain check still hits it.
     assert!(check(&[]).contains("A (cached)"));
 }
+
+/// `STITCHWORT_KERNEL_DEBUG` prints a kernel refusal as it happens, and
+/// nothing for a check the kernel accepts (SW-4982). `E-TERMINATION` is the
+/// kernel's own.
+#[test]
+fn prints_each_kernel_refusal_under_kernel_debug() {
+    let dir = std::env::temp_dir().join(format!("stitchwort-kernel-debug-{}", std::process::id()));
+    std::fs::create_dir_all(&dir).expect("create temp dir");
+    let bad = dir.join("bad.sw");
+    std::fs::write(&bad, "def forever: Nat := forever\n").expect("write source");
+    let good = dir.join("good.sw");
+    std::fs::write(&good, "def double (n: Nat): Nat := n\n").expect("write source");
+    let run = |path: &std::path::Path, debug: Option<&str>| {
+        let mut command = Command::new(env!("CARGO_BIN_EXE_stitchwort"));
+        command.args(["check", "--no-cache"]).arg(path);
+        if let Some(value) = debug {
+            command.env("STITCHWORT_KERNEL_DEBUG", value);
+        }
+        let out = command.output().expect("run stitchwort");
+        String::from_utf8_lossy(&out.stderr).into_owned()
+    };
+
+    let on = run(&bad, Some("1"));
+    let line = on
+        .lines()
+        .find(|line| line.starts_with("kernel refused "))
+        .unwrap_or_else(|| panic!("no kernel line:\n{on}"));
+    assert!(line.contains("Main.forever"), "{line}");
+    assert!(line.contains("E-TERMINATION"), "{line}");
+    assert!(line.contains("file"), "{line}");
+
+    assert!(!run(&bad, None).contains("kernel refused"));
+    assert!(!run(&bad, Some("0")).contains("kernel refused"));
+    assert!(!run(&good, Some("1")).contains("kernel refused"));
+}

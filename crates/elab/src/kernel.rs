@@ -53,21 +53,56 @@ fn timed<T>(
 ) -> Result<T> {
     let out = kernel_call(|| f(g));
     if let Err(d) = &out
-        && RECORDING.get()
+        && (RECORDING.get() || debug_wanted())
     {
         let location = match d.labels.first().map(|label| label.span) {
             Some(span) if span != Span::NOWHERE => RejectionLocation::Span(span),
             _ => RejectionLocation::Declaration(declaration),
         };
-        REJECTIONS.with(|r| {
-            r.borrow_mut().push(Rejection {
-                code: d.code,
-                message: d.message.clone(),
-                location,
-            })
-        });
+        let rejection = Rejection {
+            code: d.code,
+            message: d.message.clone(),
+            location,
+        };
+        if debug_wanted() {
+            print_rejection(g, declaration, &rejection);
+        }
+        if RECORDING.get() {
+            REJECTIONS.with(|r| r.borrow_mut().push(rejection));
+        }
     }
     out
+}
+
+/// Whether `STITCHWORT_KERNEL_DEBUG` is on. Read once.
+fn debug_wanted() -> bool {
+    static WANTED: std::sync::OnceLock<bool> = std::sync::OnceLock::new();
+    *WANTED.get_or_init(|| stitchwort_core::env_flag::env_flag("STITCHWORT_KERNEL_DEBUG"))
+}
+
+/// Under `STITCHWORT_KERNEL_DEBUG`, prints a kernel refusal to stderr as it
+/// happens, before the elaborator rewords or drops it: the declaration's
+/// name (when the kernel already holds it; a refused `declare` has none),
+/// the code, the message and the span (file id and byte range).
+fn print_rejection(g: &Kernel, declaration: Span, rejection: &Rejection) {
+    let name = g
+        .env
+        .defs()
+        .iter()
+        .rev()
+        .find(|def| def.span() == declaration)
+        .map_or_else(
+            || "(not yet declared)".to_string(),
+            |def| def.path().to_string(),
+        );
+    let (kind, span) = match rejection.location {
+        RejectionLocation::Span(span) => ("span", span),
+        RejectionLocation::Declaration(span) => ("declaration span", span),
+    };
+    eprintln!(
+        "kernel refused {name}: {}: {} ({kind} file {:?} {}..{})",
+        rejection.code, rejection.message, span.file, span.start, span.end
+    );
 }
 
 thread_local! {
