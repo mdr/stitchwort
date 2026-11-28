@@ -936,8 +936,26 @@ theorem Parse.readsSpanNonEmpty ∀ [inv: Parse.Invariant t] (passes: t → Bool
 --| `span1` reads a run that isn't empty, all of whose items pass, and gives it.
 theorem Parse.readsSpan1 ∀ [inv: Parse.Invariant t] (what: Text) (passes: t → Bool):
     Parse.ReadsIn inv (() => Parse.span1 what passes) (read items =>
-      read ≠ [] ∧ read.all passes = True ∧ items = read) :=
-  Parse.readsSpanNonEmpty passes what (items => items)
+      read ≠ [] ∧ read.all passes = True ∧ items.toList = read) :=
+  Parse.readsWeaken
+    (Parse.readsBind
+      (() => Parse.span passes)
+      (taken =>
+        match taken with
+          | [] => Parse.expected what
+          | [first, ..rest] => ([first, ..rest]: NonEmptyList t)) _
+      (taken read (value: NonEmptyList t) => read = [] ∧ taken ≠ [] ∧ value.toList = taken)
+      (Parse.readsSpan passes)
+      (taken =>
+        match taken with
+          | [] => Parse.readsExpected what
+          | [c, ..cs] => Parse.readsWeaken (Parse.readsPure ([c, ..cs]: NonEmptyList t)) (read value both =>
+            Both both.left (Both (List.consNotNil c cs) (Eq.cong NonEmptyList.toList both.right)))))
+    (read value h =>
+      match h with
+        | Witness firstRead
+            (Witness nextRead (Witness taken (Both split (Both (Both same all) (Both none (Both some made)))))) =>
+          rewrite split, none, List.appendNil firstRead, same then Both some (Both all made))
 
 theorem Parse.readsNeed ∀ [inv: Parse.Invariant t] (found: Option a) (message: Text):
     Parse.ReadsIn inv (() => Parse.need found message) ((read: List t) value => read = [] ∧ found = Some value) :=
@@ -1667,12 +1685,11 @@ theorem Parse.readsOneOfFrom ∀ [inv: Parse.Invariant t] (spec: List t → a �
                 (Witness nextRead (Witness found (Both split (Both maybe (Inr (Both isNone holds)))))) =>
               rewrite split, (rewrite isNone at maybe then maybe: firstRead = []) then holds)
 
-theorem Parse.readsOneOf ∀ [inv: Parse.Invariant t] (spec: List t → a → Prop) (alternatives: List (() → {Parse t} a))
-    (all: List.All (p => Parse.ReadsIn inv p spec) alternatives):
+theorem Parse.readsOneOf ∀ [inv: Parse.Invariant t]
+    (spec: List t → a → Prop) (alternatives: NonEmptyList (() → {Parse t} a))
+    (all: List.All (p => Parse.ReadsIn inv p spec) alternatives.toList):
     Parse.ReadsIn inv (() => Parse.oneOf alternatives) spec :=
-  match alternatives with
-    | [] => Parse.readsFail _ spec
-    | [first, ..rest] => Parse.readsOneOfFrom spec first all.left rest all.right
+  match alternatives with | [first, ..rest] => Parse.readsOneOfFrom spec first all.left rest all.right
 
 -- Sections and blank lines (SW-1002).
 

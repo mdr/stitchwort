@@ -263,11 +263,11 @@ def Parse.one (what: Text) (select: t → Option a): {Parse t} a :=
     | Some value => value
     | None => Parse.expected what
 
---| The longest run of items that pass `passes`, at least one, else
+--| The longest run of items that pass `passes`, at least one (a `NonEmptyList`), else
 --| "expected `what`": `takeWhile1` for any items.
-def Parse.span1 (what: Text) (passes: t → Bool): {Parse t} List t := match Parse.span passes with
+def Parse.span1 (what: Text) (passes: t → Bool): {Parse t} NonEmptyList t := match Parse.span passes with
   | [] => Parse.expected what
-  | items => items
+  | [first, ..rest] => [first, ..rest]
 
 --| The end of the input, else "expected the end".
 def Parse.end(): {Parse t} () := if Parse.mark().left == 0 then () else Parse.expected "the end"
@@ -310,9 +310,7 @@ def Parse.oneOfFrom (first: () → {Parse t} a): (rest: List (() → {Parse t} a
 
 --| The value of the first alternative that succeeds; if none does, the
 --| failure that got furthest.
-def Parse.oneOf: (parsers: List (() → {Parse t} a)) → {Parse t} a
-  | [] => Parse.fail "`oneOf`: no alternatives"
-  | [first, ..rest] => Parse.oneOfFrom first rest
+def Parse.oneOf (parsers: NonEmptyList (() → {Parse t} a)): {Parse t} a := Parse.oneOfFrom parsers.head parsers.tail
 
 --| `parser` while it succeeds, at most `fuel` times, from `before`, the mark
 --| at the start of the round. `found` is newest first.

@@ -195,7 +195,7 @@ test "Parse.one: wrong kind" :=
 
 test "Parse.span1: a run of numbers" :=
   match Parse.run [1, 2, 3, 0, 5] (() => Parse.span1 "a small number" (number => number < 4)) with
-    | Ok run => run == [1, 2, 3, 0]
+    | Ok run => run.toList == [1, 2, 3, 0]
     | Err failure => False
 
 test "Parse.span1: nothing to take" :=

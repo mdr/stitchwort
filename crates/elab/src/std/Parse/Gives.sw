@@ -178,8 +178,8 @@ theorem Parse.givesSepBy ∀ [inv: Parse.Invariant t] [p: () → {Parse t} a] [s
                   proved)))
 
 --| `oneOf alternatives` gives what every alternative gives.
-theorem Parse.givesOneOf ∀ [inv: Parse.Invariant t] [holds: a → Prop] (alternatives: List (() → {Parse t} a))
-    (all: List.All (p => Parse.Gives inv p holds) alternatives):
+theorem Parse.givesOneOf ∀ [inv: Parse.Invariant t] [holds: a → Prop] (alternatives: NonEmptyList (() → {Parse t} a))
+    (all: List.All (p => Parse.Gives inv p holds) alternatives.toList):
     Parse.Gives inv (() => Parse.oneOf alternatives) holds :=
   Parse.readsOneOf _ alternatives all
 
