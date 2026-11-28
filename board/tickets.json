@@ -21667,15 +21667,19 @@
     {
       "id": 4941,
       "title": "search: a pattern like () → Int falls into the relaxed pass and lists 11 unrelated premise matches (theorems with a premise symbol: a → t)",
-      "status": "review",
+      "status": "done",
       "agent": "",
       "where": "",
       "labels": [],
       "epic": "proof-search",
-      "body": "[Sonnet] From SW-4937 (27 Nov): relaxed-pass noise, whatever happens to abilities.",
+      "body": "[Sonnet] From SW-4937 (27 Nov): relaxed-pass noise, whatever happens to abilities.\n\nDone (Sonnet): () → Int no longer reproduced on main (SW-4937's open-abilities pass finds Std.Parse.int); same noise fixed for () → Float: the relaxed pass's overlaps ignores the unit type unless the pattern names only (). Removes 10 Std.Parse premise matches; six usual queries byte-identical. Follow-up SW-4973. On main: 45 search tests. Model result: sonnet, worked, 14 min (est. 30).",
       "created": "2026-11-27",
       "updated": "2026-11-28",
-      "commits": []
+      "commits": [
+        "320fb3af5",
+        "29078950a",
+        "848e2c169"
+      ]
     },
     {
       "id": 4942,
