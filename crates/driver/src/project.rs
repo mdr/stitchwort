@@ -1196,6 +1196,60 @@ struct ScanFile {
     sketch: Option<Vec<u8>>,
 }
 
+/// A scan's entry kept in memory, for a long-lived process that reads the
+/// same project again and again (the playground's outline after each pause
+/// in typing): a file whose text is unchanged is not parsed again. It has
+/// no clock or randomness, so it works in WebAssembly.
+/// Each entry of a [`ScanMemory`], by unit and key.
+type ScanMemoryEntries = BTreeMap<(String, [u8; 32]), Vec<u8>>;
+
+#[derive(Default)]
+pub struct ScanMemory {
+    entries: std::cell::RefCell<ScanMemoryEntries>,
+    /// How many files [`Scan::new`] parsed through this store.
+    parsed: std::cell::Cell<usize>,
+}
+
+impl ScanMemory {
+    /// How many files were parsed through this store so far.
+    pub fn parsed(&self) -> usize {
+        self.parsed.get()
+    }
+
+    /// [`analyse`], without parsing the files whose text this store has seen.
+    pub fn analyse(
+        &self,
+        session: &mut Session,
+        project: &str,
+        files: Vec<(String, String)>,
+    ) -> Analysis {
+        let stack = session.elab.options.limits.stack;
+        let scan = Scan::new_counting(files, stack, project, Some(self), Some(&self.parsed));
+        analyse_scan(session, project, &scan)
+    }
+}
+
+impl Store for ScanMemory {
+    fn compiler(&self) -> &str {
+        "scan-memory"
+    }
+
+    fn salt(&self) -> [u8; 16] {
+        [0; 16]
+    }
+
+    fn read(&self, unit: &str, key: &stitchwort_elab::cache::Key) -> Option<Vec<u8>> {
+        self.entries
+            .borrow()
+            .get(&(unit.to_string(), *key))
+            .cloned()
+    }
+
+    fn write(&self, unit: &str, key: &stitchwort_elab::cache::Key, entry: &[u8]) {
+        (self.entries.borrow_mut()).insert((unit.to_string(), *key), entry.to_vec());
+    }
+}
+
 /// What the scan cache's entry for a project starts with.
 const SCAN_MAGIC: &[u8; 8] = b"SWSCAN\x03\0";
 
@@ -1216,10 +1270,21 @@ impl Scan {
     /// the entry is read at all. Nothing but a file's text is looked at to
     /// reuse its sketch.
     pub fn new(
+        files: Vec<(String, String)>,
+        stack: usize,
+        project: &str,
+        cache: Option<&dyn Store>,
+    ) -> Scan {
+        Scan::new_counting(files, stack, project, cache, None)
+    }
+
+    /// [`Scan::new`], adding to `parsed` each file it parses.
+    fn new_counting(
         mut files: Vec<(String, String)>,
         stack: usize,
         project: &str,
         cache: Option<&dyn Store>,
+        parsed: Option<&std::cell::Cell<usize>>,
     ) -> Scan {
         files.sort();
         let (unit, key) = scan_unit(project);
@@ -1244,6 +1309,9 @@ impl Scan {
                         Some(sketch)
                     }
                     _ => {
+                        if let Some(parsed) = parsed {
+                            parsed.set(parsed.get() + 1);
+                        }
                         let (module, errors) =
                             parse_module_recovering(FileId::SCRATCH, &text, stack);
                         errors.is_empty().then(|| {

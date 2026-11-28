@@ -46,6 +46,9 @@ thread_local! {
     /// The most recent shared load, as for single files (`load_shared`).
     static LAST: RefCell<Option<(Key, Shared)>> =
         const { RefCell::new(None) };
+    /// What the outline has read of each file, so a request parses only the
+    /// files whose text changed since the last (typing changes one).
+    static OUTLINES: stitchwort_driver::project::ScanMemory = Default::default();
 }
 
 /// The project's source files as (path, text) pairs. Unequal arrays use the
@@ -239,10 +242,15 @@ fn load_shared(
 /// errors that stop that (a file with no namespace, a clash).
 #[wasm_bindgen]
 pub fn outline_project(project: &str, paths: Vec<String>, texts: Vec<String>) -> String {
-    let mut session = new_session(&paths, &texts);
-    let analysis = analyse(&mut session, project, pairs(&paths, &texts));
+    let mut session = super::SHARED.with(|options| Session::reading_for_stack(options.stack));
+    let analysis = OUTLINES.with(|seen| seen.analyse(&mut session, project, pairs(&paths, &texts)));
+    outline_json(project, &session, analysis)
+}
+
+/// [`outline_project`]'s answer for the analysis of the project's files.
+fn outline_json(project: &str, session: &Session, analysis: Analysis) -> String {
     if !analysis.diagnostics.is_empty() {
-        return failed(project, &session, analysis.diagnostics);
+        return failed(project, session, analysis.diagnostics);
     }
     let each: Vec<String> = analysis
         .namespaces
@@ -512,6 +520,43 @@ mod tests {
             }
         }
         targets.join(",")
+    }
+
+    /// The outline after each pause in typing parses only the file typed in:
+    /// the answer is the same as for a first request, whichever files changed.
+    #[test]
+    fn outline_reparses_only_changed_files() {
+        big(|| {
+            let (paths, mut texts) = aoc_files();
+            let sw = paths.iter().filter(|p| p.ends_with(".sw")).count();
+            let parsed = || OUTLINES.with(|seen| seen.parsed());
+            let first = outline_project(PROJECT, paths.clone(), texts.clone());
+            assert_eq!(parsed(), sw, "the first request parses every file");
+            // The answer of reading every file afresh, in a session with the library.
+            let mut fresh = new_session(&paths, &texts);
+            let whole = analyse(&mut fresh, PROJECT, pairs(&paths, &texts));
+            assert_eq!(outline_json(PROJECT, &fresh, whole), first);
+            let again = outline_project(PROJECT, paths.clone(), texts.clone());
+            assert_eq!(again, first);
+            assert_eq!(parsed(), sw, "an unchanged project parses nothing");
+            let day = paths
+                .iter()
+                .position(|p| p.ends_with("Year2025/Day02/Day02.sw"))
+                .expect("a day");
+            texts[day].push_str("\n-- typed\n");
+            let typed = outline_project(PROJECT, paths.clone(), texts.clone());
+            assert_eq!(typed, first, "a comment changes no namespace or use");
+            assert_eq!(parsed(), sw + 1, "only the typed-in file is parsed");
+            // A change that does show: the file now uses another namespace.
+            texts[day] = texts[day].replacen(
+                "import Aoc.Common (Range, range)",
+                "import Aoc.Year2025.Day01 (x)\nimport Aoc.Common (Range, range)",
+                1,
+            );
+            let changed = outline_project(PROJECT, paths.clone(), texts.clone());
+            assert_eq!(parsed(), sw + 2);
+            assert_ne!(changed, first);
+        });
     }
 
     #[test]
