@@ -1852,6 +1852,17 @@ for (const [how, patch] of [
   });
 }
 
+// SW-4926: the in-page compiler is given the project's name, as the worker is, so a project's
+// outline, check and tests work in it.
+test("the compiler runs in the page for a project too", async (page) => {
+  await page.open({ hash: "#aoc/2025/day02", patch: `window.Worker = function () { throw new Error("workers are blocked"); };` });
+  await page.untilStatus(dayStatus(2), 120000);
+  assert.ok(page.console.some((m) => m.startsWith("warning: The playground's worker didn't start")), page.console.join("\n"));
+  await page.tab("tests");
+  await page.runTests(120000);
+  await page.until(`/\\d+ tests: \\d+ passed/.test(document.querySelector(".summary")?.textContent ?? "")`, 120000, "the project's tests");
+}, { ms: 360000 });
+
 test("syntax colouring stays aligned with the text", async (page) => {
   await page.open();
   await page.untilChecked();

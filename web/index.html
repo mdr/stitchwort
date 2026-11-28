@@ -1004,14 +1004,14 @@ export def area: Shape -> Nat
         // As in playground-worker.js: a request with `paths` is for a project.
         if (request.action === "stdsource") return { out: { text: compiler.std_source(request.path) } };
         const answer = request.paths ? {
-          outline: () => compiler.outline_project(request.paths, request.texts),
-          check: () => compiler.check_project(request.paths, request.texts, request.targets),
-          checkall: () => compiler.check_project(request.paths, request.texts, ""),
-          test: () => compiler.test_project(request.paths, request.texts, request.targets, request.known ?? "", request.run !== false),
-          evaluate: () => compiler.evaluate_project(request.paths, request.texts, request.targets, request.imports ?? "", request.expr),
-          extract: () => compiler.extract_project(request.paths, request.texts, request.namespace),
+          outline: () => compiler.outline_project(request.project, request.paths, request.texts),
+          check: () => compiler.check_project(request.project, request.paths, request.texts, request.targets),
+          checkall: () => compiler.check_project(request.project, request.paths, request.texts, ""),
+          test: () => compiler.test_project(request.project, request.paths, request.texts, request.targets, request.known ?? "", request.run !== false),
+          evaluate: () => compiler.evaluate_project(request.project, request.paths, request.texts, request.targets, request.imports ?? "", request.expr),
+          extract: () => compiler.extract_project(request.project, request.paths, request.texts, request.namespace),
           format: () => compiler.format(request.source),
-          run: () => compiler.run_project_streaming(request.paths, request.texts, request.name, request.input, request.maxOutput, sink),
+          run: () => compiler.run_project_streaming(request.project, request.paths, request.texts, request.name, request.input, request.maxOutput, sink),
         }[request.action] : {
           check: () => compiler.check(request.source),
           test: () => compiler.test(request.source, request.known ?? "", request.run !== false),
