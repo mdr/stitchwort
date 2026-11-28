@@ -1198,7 +1198,7 @@ fn expand_action(
             let name = root
                 .file_name()
                 .map_or("project".to_string(), |n| n.to_string_lossy().into_owned());
-            with_project_session(server, None, cancel, |session| {
+            with_project_session(server, None, false, cancel, |session| {
                 session.expansion_at_project(&name, &files, &relative, at)
             })
             .flatten()
@@ -1261,7 +1261,7 @@ impl Searcher {
     /// `Options::library`, which is where this load would look anyway.
     pub fn warm(&self) {
         let cancel = Arc::new(AtomicBool::new(false));
-        let _ = with_project_session(&self.options, None, cancel, |_| ());
+        let _ = with_project_session(&self.options, None, false, cancel, |_| ());
     }
 }
 
@@ -5351,7 +5351,7 @@ fn with_context<R>(
                 .file_name()
                 .map_or("project".to_string(), |n| n.to_string_lossy().into_owned());
             let cache = source.project_cache(&root);
-            with_project_session(server, cache.as_deref(), cancel, |session| {
+            with_project_session(server, cache.as_deref(), false, cancel, |session| {
                 let found = session.context_at_project(
                     &name,
                     &files,
@@ -5417,6 +5417,10 @@ struct Warm {
     /// the layer every search of a host with no cache folder makes them
     /// again (seconds natively, SW-4976).
     store: Option<Rc<LayeredStore>>,
+    /// Whether the library's put-off equations are made before `mark`, so
+    /// that a rewind keeps them (SW-4978). Only a search needs them, so the
+    /// first search makes them, not the load.
+    equations: bool,
 }
 
 thread_local! {
@@ -5436,6 +5440,52 @@ pub fn warm_search_equation_counts() -> Option<(usize, usize)> {
     })
 }
 
+/// Makes the library's put-off equations in the warm session, with the cache
+/// a search would read them from, and moves the session's mark after them:
+/// the rewind after each search then keeps them, where it forgot them and the
+/// next search replayed 895 segments from the cache (0.5 s) or made them
+/// (seconds). They are std's only (`eqs.std.`; a project's are made on demand,
+/// after the mark), and std can't change in a running server, so what is kept
+/// can't go stale. A cancelled or failed generation is rewound away.
+fn keep_equations(mut warm: Warm, cache: Option<&Path>) -> Warm {
+    warm.session.elab.clear_check_cache();
+    if let Some(store) = &warm.store {
+        warm.session.elab.set_check_cache(store.clone());
+    }
+    if let Some(dir) = cache {
+        warm.session.use_check_cache(dir);
+    }
+    let made = warm.session.elab.generate_deferred_equations().is_ok()
+        && !warm.session.elab.kernel.machine.budget.cancelled();
+    if made {
+        // Only the newest mark can be released: the old one goes before the
+        // new one is made.
+        let Warm {
+            key,
+            mut session,
+            mark,
+            store,
+            ..
+        } = warm;
+        session.release(mark);
+        let mark = session.mark();
+        warm = Warm {
+            key,
+            session,
+            mark,
+            store,
+            equations: true,
+        };
+    } else {
+        warm.session.rewind(&warm.mark);
+    }
+    warm.session.elab.clear_check_cache();
+    if let Some(store) = &warm.store {
+        warm.session.elab.set_check_cache(store.clone());
+    }
+    warm
+}
+
 /// Runs `f` on a session for a search of a project's file, set up as
 /// [`search_session`] makes one except that the library is loaded already:
 /// from the project's check cache `cache` (the first time, or when the
@@ -5446,6 +5496,7 @@ pub fn warm_search_equation_counts() -> Option<(usize, usize)> {
 fn with_project_session<T>(
     server: &Options,
     cache: Option<&Path>,
+    equations: bool,
     cancel: Arc<AtomicBool>,
     f: impl FnOnce(&mut Session) -> T,
 ) -> Option<T> {
@@ -5473,6 +5524,7 @@ fn with_project_session<T>(
                     session,
                     mark,
                     store,
+                    equations: false,
                 }
             }
         };
@@ -5483,6 +5535,9 @@ fn with_project_session<T>(
             warm.session.elab.set_check_cache(store.clone());
         }
         watch_cancel(&mut warm.session, cancel);
+        if equations && !warm.equations {
+            warm = keep_equations(warm, cache);
+        }
         let found = f(&mut warm.session);
         warm.session.elab.kernel.machine.budget.watch_cancel(false);
         warm.session.rewind(&warm.mark);
@@ -5524,9 +5579,21 @@ fn members_at(
                         .file_name()
                         .map_or("project".to_string(), |n| n.to_string_lossy().into_owned());
                     let cache = source.project_cache(&root);
-                    with_project_session(server, cache.as_deref(), cancel.clone(), |session| {
-                        session.members_at_project(&name, &files, &relative, cache.as_deref(), dot)
-                    })
+                    with_project_session(
+                        server,
+                        cache.as_deref(),
+                        false,
+                        cancel.clone(),
+                        |session| {
+                            session.members_at_project(
+                                &name,
+                                &files,
+                                &relative,
+                                cache.as_deref(),
+                                dot,
+                            )
+                        },
+                    )
                     .flatten()
                 }
                 None => {
@@ -5692,7 +5759,7 @@ fn project_closing_actions(
         .file_name()
         .map_or("project".to_string(), |n| n.to_string_lossy().into_owned());
     let cache = source.project_cache(root);
-    with_project_session(server, cache.as_deref(), cancel, |session| {
+    with_project_session(server, cache.as_deref(), true, cancel, |session| {
         session.actions_at_project(
             &name,
             &files,

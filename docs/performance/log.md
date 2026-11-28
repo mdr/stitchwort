@@ -46,6 +46,25 @@ in [../proposals/README.md](../proposals/README.md).
 
 ## 28 Nov 2026
 
+### SW-4978: the warm search session keeps std's put-off equations
+
+Every search in the native server replayed std's 895 equation segments from
+the check cache (0.5 s), because the warm session is rewound after each
+search and the rewind forgot them. The first search that needs them (a proof
+search, a type search; not a context or members request) now makes or
+replays them before the session's rewind mark is moved past them, so the
+rewind keeps them. They are std's only (`generate_deferred_equations` walks
+the core and the library files; a project's equations are made on demand,
+after the mark), and std can't change in a running server.
+
+Measured (release, loaded machine, `features::a_second_search_with_a_cache_folder_replays_no_equations`,
+one session): second search 0.546 s with 895 more hits before, 0.058 s with
+none after; first search unchanged (1.1-1.3 s, 895 hits). Without a cache
+folder the second search was 0.054 s already (SW-4976's layer). `actions_at_text`
+(a file on its own) still makes a fresh session per search and regenerates
+them: it loads the file before the library into two sessions (the second a
+checker), which a rewound warm session can't reproduce; not changed.
+
 ### SW-4956: `search` keeps each candidate's folded type index in the check cache
 
 - **Problem.** Stage 3 of [../proposals/search-cache.md](../proposals/search-cache.md)
