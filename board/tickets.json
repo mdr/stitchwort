@@ -11517,15 +11517,19 @@
     {
       "id": 2946,
       "title": "[DeepSeek] web/bundle-projects.sh (rm -rf then copy) can interleave when two playground builds overlap in one checkout, as bundle-std.sh did (corrupt std.bundle broke the browser suite, SW-2940); write to a temp dir and rename",
-      "status": "doing",
+      "status": "done",
       "agent": "DeepSeek",
       "where": "",
       "labels": [],
       "epic": "editor-playground",
-      "body": "\n\nAudit note (22 Nov): Audit 22 Nov: still true: web/bundle-projects.sh does rm -rf of its destinations (:61, :141, :206).\n",
+      "body": "\n\nAudit note (22 Nov): Audit 22 Nov: still true: web/bundle-projects.sh does rm -rf of its destinations (:61, :141, :206).\n\nDone (DeepSeek): each of aoc, rogue, sf, book built in mktemp -d beside the final path and swapped in by replace_dir (old moved aside, new renamed in, old removed); EXIT trap removes the temp. Output diff -r identical to the old script, fresh and over an existing tree. Orchestrator fixup dc7db8c8c: chmod 755 the temp dirs (mktemp -d makes 700). Model result: deepseek, needed fixes (temp dir mode 700), ~10 min (est. 15).",
       "created": "2026-11-11",
       "updated": "2026-11-28",
-      "commits": []
+      "commits": [
+        "e53f0bce9",
+        "dc7db8c8c",
+        "9dc28ee50"
+      ]
     },
     {
       "id": 2947,
