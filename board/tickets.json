@@ -11451,15 +11451,20 @@
     {
       "id": 2923,
       "title": "[Sonnet] Inside a match arm, rfl's error shows the statement before the arm's substitution ('beats m m and True aren't equal' in the Rock arm; should say beats Rock Rock) (SW-2921)",
-      "status": "review",
+      "status": "done",
       "agent": "Sonnet",
       "where": "",
       "labels": [],
       "epic": "diagnostics",
-      "body": "\n\nAudit note (22 Nov): Audit 22 Nov: no commit touches it; not re-run.\n\nBacklog grooming 27 Nov 2026: \"rfl's error\" → \"`byComputing`'s error (E-REFL)\".\n",
+      "body": "\n\nAudit note (22 Nov): Audit 22 Nov: no commit touches it; not re-run.\n\nBacklog grooming 27 Nov 2026: \"rfl's error\" → \"`byComputing`'s error (E-REFL)\".\n\nDone (Sonnet): written_sides (elab check.rs) prints the evaluated sides with show_as_written when a variable the goal names is refined to a non-neutral value by an arm (not a let: cx.lets excluded, review fix f0e2ee803). Example reject/byComputing-in-arm-shows-refined-goal.sw. Orchestrator checks: tools/fmt, aoc, rogue, sf, book check --no-cache clean; example kinds + hashes 21 pass. Model result: sonnet, needed fixes (let-bound names), 27 min (est. 30).",
       "created": "2026-11-11",
       "updated": "2026-11-28",
-      "commits": []
+      "commits": [
+        "2e3796bd7",
+        "7810f8d67",
+        "f0e2ee803",
+        "01e0ff1af"
+      ]
     },
     {
       "id": 2925,
