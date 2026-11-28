@@ -554,9 +554,17 @@ impl Session {
         analysis: &Analysis,
         ns: &Namespace,
     ) -> (Vec<Diagnostic>, NamespaceOutcome) {
-        stitchwort_core::budget::within(self, |session| {
+        CHECKING.with(|c| *c.borrow_mut() = Some(ns.name.clone()));
+        #[cfg(feature = "test-bypass")]
+        if std::env::var("STITCHWORT_TEST_PANIC_IN").is_ok_and(|n| n == ns.name) {
+            panic!("test panic while checking `{}`", ns.name);
+        }
+        let checked = stitchwort_core::budget::within(self, |session| {
             session.check_project_namespace_inner(analysis, ns)
-        })
+        });
+        // Left set by a panic, which is how the caller learns where.
+        CHECKING.with(|c| *c.borrow_mut() = None);
+        checked
     }
 
     fn check_project_namespace_inner(
@@ -829,6 +837,19 @@ pub struct GoalLoad {
     pub outcomes: BTreeMap<String, NamespaceOutcome>,
     /// Just before the goal's namespace was checked.
     pub mark: crate::rewind::Mark,
+}
+
+thread_local! {
+    /// The namespace this thread is checking in [`Session::check_project_namespace`]:
+    /// still set when a panic unwinds out of it.
+    static CHECKING: std::cell::RefCell<Option<String>> = const { std::cell::RefCell::new(None) };
+}
+
+/// The namespace this thread was checking when it last panicked (or is
+/// checking now), for reporting the panic: `None` if its last check ended
+/// normally.
+pub fn namespace_being_checked() -> Option<String> {
+    CHECKING.with(|c| c.borrow().clone())
 }
 
 /// How checking one namespace of a project went.

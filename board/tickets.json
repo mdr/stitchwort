@@ -21295,7 +21295,7 @@
     {
       "id": 4918,
       "title": "[Sonnet] check: a panic in a worker thread is re-raised (crates/driver/src/parallel.rs) and ends the CLI with exit 101 and a Rust panic message; report it as E-INTERNAL naming the namespace and declaration instead, with a test (SW-3593 finding)",
-      "status": "doing",
+      "status": "review",
       "agent": "",
       "where": "",
       "labels": [
