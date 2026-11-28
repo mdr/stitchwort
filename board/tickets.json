@@ -22065,7 +22065,7 @@
     {
       "id": 4965,
       "title": "A self-recursive record (type Co (a: Type) = { head: a, tail: Co a }) is accepted silently though it has no values: warn",
-      "status": "doing",
+      "status": "review",
       "agent": "",
       "where": "",
       "labels": [],
