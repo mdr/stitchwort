@@ -547,6 +547,15 @@ mod tests {
             let typed = outline_project(PROJECT, paths.clone(), texts.clone());
             assert_eq!(typed, first, "a comment changes no namespace or use");
             assert_eq!(parsed(), sw + 1, "only the typed-in file is parsed");
+            for n in 0..3 {
+                texts[day].push_str(&format!("\n-- typed again {n}\n"));
+                outline_project(PROJECT, paths.clone(), texts.clone());
+            }
+            assert_eq!(
+                OUTLINES.with(|seen| seen.len()),
+                1,
+                "one entry for the project"
+            );
             // A change that does show: the file now uses another namespace.
             texts[day] = texts[day].replacen(
                 "import Aoc.Common (Range, range)",
@@ -554,7 +563,7 @@ mod tests {
                 1,
             );
             let changed = outline_project(PROJECT, paths.clone(), texts.clone());
-            assert_eq!(parsed(), sw + 2);
+            assert_eq!(parsed(), sw + 5);
             assert_ne!(changed, first);
         });
     }

@@ -1211,6 +1211,15 @@ pub struct ScanMemory {
 }
 
 impl ScanMemory {
+    /// How many entries it holds: one per project, however often it is read.
+    pub fn len(&self) -> usize {
+        self.entries.borrow().len()
+    }
+
+    pub fn is_empty(&self) -> bool {
+        self.len() == 0
+    }
+
     /// How many files were parsed through this store so far.
     pub fn parsed(&self) -> usize {
         self.parsed.get()
