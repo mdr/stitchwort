@@ -21402,14 +21402,14 @@
     {
       "id": 4920,
       "title": "[Sonnet] SW-4914 follow-ups (Fable review): check_levels::below remembers spines and shared cells by address as identical_within does (else doubled sharing walks as a tree, unbudgeted) and walks Value::Resumption frames; tests pinning invariant points 2 and 3 (a fresh_past that sets instead of raises fails; a cast with w free at RESERVED_LEVELS compared at +1 with no binder) and the other four fresh-variable sites (codomains, both etas, shared case fields); then STITCHWORT_CHECK_TEST_LEVELS=1 in the fuzz tasks",
-      "status": "doing",
+      "status": "review",
       "agent": "",
       "where": "",
       "labels": [
         "core"
       ],
       "epic": "elaborator-kernel",
-      "body": "From docs/reviews/SW-4914-fable-review.md, suggestions 1, 2, 3, 6.",
+      "body": "From docs/reviews/SW-4914-fable-review.md, suggestions 1, 2, 3, 6.\n\nLane (Sonnet): done in 07ca946a0. check_levels::below walks spines, shared values and resumption frames once by address; 8 new rule_k tests (points 2 and 3, codomain, both etas, case fields), each shown failing against a temporary break of its site; fuzz:elab, fuzz:soundness and fuzz:kernel set STITCHWORT_CHECK_TEST_LEVELS=1. Soundness set passes. Model result: Sonnet, worked, 18 min (est. 40).",
       "created": "2026-11-27",
       "updated": "2026-11-28",
       "commits": []
