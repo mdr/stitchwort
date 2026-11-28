@@ -3036,7 +3036,8 @@ fn comp_check_in(
             let mut missing = false;
             let (term, ty, effectful) = if may_perform(cx, first)? {
                 let pure = crate::no_effect::pure_as_plain_calls(cx, first)?;
-                let (c, ty) = comp_infer(cx, first, row)?;
+                let (c, ty) = comp_infer(cx, first, row)
+                    .map_err(|d| crate::rewrite::note_statement(d, first))?;
                 if let Some(pure) = pure {
                     missing = crate::no_effect::missing_arguments(cx, first, &pure)?;
                     crate::no_effect::warn(cx, first, &pure)?;
@@ -3049,7 +3050,8 @@ fn comp_check_in(
                 }
                 (c, ty, true)
             } else {
-                let (term, ty) = infer(cx, first)?;
+                let (term, ty) =
+                    infer(cx, first).map_err(|d| crate::rewrite::note_statement(d, first))?;
                 let (term, ty) = insert(cx, term, ty)?;
                 missing = crate::no_effect::missing_arguments(cx, first, &ty)?;
                 crate::no_effect::check_value(cx, first, &term, &ty)?;

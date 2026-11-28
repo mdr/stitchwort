@@ -22108,12 +22108,12 @@
     {
       "id": 4967,
       "title": "E-REWRITE-NO-GOAL for rewrite hs, ht on its own block line before the result: the notes should suggest rewrite … then",
-      "status": "doing",
+      "status": "review",
       "agent": "",
       "where": "",
       "labels": [],
       "epic": "diagnostics",
-      "body": "[Sonnet] From SW-4962 (27 Nov).",
+      "body": "[Sonnet] From SW-4962 (27 Nov).\n\nLane: a note on E-REWRITE-NO-GOAL when the rewrite is a block line above the result (rewrite.rs note_statement, called from effects.rs Seq); example examples/reject/rewrite-no-goal-statement.sw; docs/syntax.md and proving-guide updated. Pre-fix output had no Note 4 (seen on the release CLI).",
       "created": "2026-11-27",
       "updated": "2026-11-28",
       "commits": []
