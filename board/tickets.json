@@ -22223,16 +22223,18 @@
     {
       "id": 4973,
       "title": "search: () → Bool (7) and () → Nat (3) list premise matches made only through variables (symbol: a → t with a := ()); try rejecting a premise matched only through variables",
-      "status": "review",
+      "status": "done",
       "agent": "",
       "where": "",
       "labels": [],
       "epic": "proof-search",
-      "body": "[Sonnet] From SW-4941 (28 Nov): filtered pass, not relaxed; such a rule might hide wanted results, so compare before/after for the usual queries.\n\n\nLane note (SW-4973): rule in 4f0062078: filtered pass, Pi pattern, premise/subterm target, candidate variable := (): no match. Removed 7 + 3 hits (all through variables). Side effect: with filtered empty, the search falls to the openAbilities tier (() → Bool 42 results, () → Nat 76, of which 8 real parser thunks at the top). Other queries unchanged. Tests: search_match:: 25 pass, server search:: 21 pass.\n",
+      "body": "[Sonnet] From SW-4941 (28 Nov): filtered pass, not relaxed; such a rule might hide wanted results, so compare before/after for the usual queries.\n\n\nLane note (SW-4973): rule in 4f0062078: filtered pass, Pi pattern, premise/subterm target, candidate variable := (): no match. Removed 7 + 3 hits (all through variables). Side effect: with filtered empty, the search falls to the openAbilities tier (() → Bool 42 results, () → Nat 76, of which 8 real parser thunks at the top). Other queries unchanged. Tests: search_match:: 25 pass, server search:: 21 pass.\n\nDone (Sonnet): takes_unit in search_one drops a filtered-pass premise/subterm match where a candidate variable became exactly (). Removes 7 (() → Bool) and 3 (() → Nat) noise results; those queries now fall through to openAbilities (42 / 76: () → Nat's first 8 are real parsers such as Parse.nat, then 68 generic-parser lemmas, SW-4977). Six other queries identical. Merged as orchestrator's call (no wanted result lost). On main: search tests pass. Model result: sonnet, worked, 15 min (est. 30).",
       "created": "2026-11-28",
       "updated": "2026-11-28",
       "commits": [
-        "4f0062078"
+        "4f0062078",
+        "b6043a47a",
+        "a1917074d"
       ]
     },
     {
