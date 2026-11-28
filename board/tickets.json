@@ -5013,17 +5013,21 @@
     {
       "id": 1927,
       "title": "[DeepSeek] Small row and instance robustness",
-      "status": "review",
+      "status": "done",
       "agent": "",
       "where": "",
       "labels": [
         "elab"
       ],
       "epic": "effects-native",
-      "body": "From docs/reviews/code-review-elab-rest.md (ticket 3). F8, F9, F15, F17. 40 min.\n\nAudit note (22 Nov): Audit 22 Nov: all four findings still true: rows::retry (crates/elab/src/rows.rs:284) unchanged shape (F8); debug_assert at effects.rs:390 (F15); the unify bool is ignored in close_inferred_row (effects.rs:1685) and the other sites (F9); `last.tree = ob.tree` at interfaces.rs:1072 (F17). Line numbers in the body have drifted.\n",
+      "body": "From docs/reviews/code-review-elab-rest.md (ticket 3). F8, F9, F15, F17. 40 min.\n\nAudit note (22 Nov): Audit 22 Nov: all four findings still true: rows::retry (crates/elab/src/rows.rs:284) unchanged shape (F8); debug_assert at effects.rs:390 (F15); the unify bool is ignored in close_inferred_row (effects.rs:1685) and the other sites (F9); `last.tree = ob.tree` at interfaces.rs:1072 (F17). Line numbers in the body have drifted.\n\nDone (Sonnet): F8 retry_one puts back kept and unvisited comparisons (and the failing one) on every exit; F9 Ctx::unify #[must_use], unify_settling makes false a mismatch at the effects.rs/rows.rs settle sites; F15 the remaining debug_assert is E-INTERNAL; F17 check::prerequisite_arg sets the obligation tree. No new tests (paths not reachable from a program; said per finding). Orchestrator checks: tools/fmt, aoc, rogue, sf, book check --no-cache clean; example kinds, hash_stability, std_library 62 pass. Model result: sonnet, worked, 5 min (est. 35).",
       "created": "2026-11-07",
       "updated": "2026-11-28",
-      "commits": []
+      "commits": [
+        "dc9bb4b2a",
+        "fd998bab1",
+        "f8dd255b0"
+      ]
     },
     {
       "id": 1928,
