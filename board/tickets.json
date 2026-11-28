@@ -22913,12 +22913,12 @@
     {
       "id": 5010,
       "title": "rewrite/byComputing on a stream of an expensive step unfold into the step's heavy closed term (W-REWRITE-UNCONFIRMED, E-REWRITE-BUDGET; 2021 day 11 flashesInSucc took 12M steps); stop at the stream's structure",
-      "status": "doing",
+      "status": "review",
       "agent": "Opus",
       "where": "",
       "labels": [],
       "epic": "elaborator-kernel",
-      "body": "From SW-5005: the main thing to fix before recommending streams widely.",
+      "body": "From SW-5005: the main thing to fix before recommending streams widely.\n\nLane (Opus, 28 Nov): reproduced in a scratch copy of day 11's proofs. `rewrite <- stepCorrect` in programRun: W-REWRITE-UNCONFIRMED, 254 ms / 4.3M steps. Cause (profiled): the search's carrier test (test 4) ran kernel infer on each candidate, checking every argument; the unfolded `cavern.step` candidate is 70,949 nodes and its check cost 908k of the 1M budget, three copies. Unification itself was cheap. Fix (81f44eeac): read a candidate's type off its head (Var/Def type applied to args, param-less ctor), kernel infer only as fallback. Now 47 ms / 885k steps, no warning. Test: proofs rewrite::a_large_part_of_the_goal_is_typed_by_its_head (fails without the fix with W-REWRITE-UNCONFIRMED). Not fixed: a rewrite chain through takeSucc/headIs/iterateTail, which now finishes its completeness check, finds copies of `afterSteps.head` hidden in the unfolded `.tail`, rewrites unfolded and so fails the next rule (accepted before only with the warning); the calc/byComputing flashesInSucc variants all take ~87 ms (dictionary search reading back `cavern.step`), not the 533 ms first seen. On check's path: needs the orchestrator's whole-project checks.",
       "created": "2026-11-28",
       "updated": "2026-11-28",
       "commits": []
