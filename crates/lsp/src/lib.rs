@@ -2213,6 +2213,7 @@ impl Main {
     /// text (by path in the project). None for a document that isn't a
     /// file open in the editor.
     fn search_target(&self, uri: &Url) -> Option<SearchTarget> {
+        let path = uri.to_file_path().ok()?;
         let project = {
             let nav = self.nav.read().unwrap_or_else(|e| e.into_inner());
             // A project's file: its folder and its path in it.
@@ -2220,9 +2221,13 @@ impl Main {
                 Place::Program(relative) if ws.project => Some((root.to_path_buf(), relative)),
                 _ => None,
             })
-        };
+        }
+        // Before the file's first check is published, the answers `locate`
+        // reads aren't there yet: find its project as the checker will, so
+        // that a search uses the project's other files rather than checking
+        // the file on its own (SW-2784).
+        .or_else(|| self.source_project(&path));
         let text = self.texts.borrow().get(uri).cloned()?;
-        let path = uri.to_file_path().ok()?;
         let project = project.map(|(root, path_in)| {
             let open: BTreeMap<String, String> = (self.texts.borrow().iter())
                 .filter_map(|(u, t)| {
@@ -2237,6 +2242,16 @@ impl Main {
             path,
             project,
         })
+    }
+
+    /// The project holding `path`, found from the source as the checker
+    /// finds a file's home ([`Checker::home_of`]): its folder and the
+    /// file's path in it, when it is one of the project's sources.
+    fn source_project(&self, path: &Path) -> Option<(PathBuf, String)> {
+        let root = self.source.find_project(path.parent()?)?;
+        let relative = relative(&root, path)?;
+        let sources = self.source.sources(&root)?;
+        sources_hold(&sources, &relative).then_some((root, relative))
     }
 
     /// Queues a search for request `id` about `uri`, to a worker. A newer

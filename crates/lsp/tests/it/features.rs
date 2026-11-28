@@ -76,6 +76,13 @@ impl Session {
     }
 
     fn open_in(text: &str, capabilities: Value, options: Options, memory: Arc<Memory>) -> Session {
+        let mut s = Session::start_in(text, capabilities, options, memory);
+        s.settle();
+        s
+    }
+
+    /// [`Session::open_in`] with the file opened but not checked yet.
+    fn start_in(text: &str, capabilities: Value, options: Options, memory: Arc<Memory>) -> Session {
         let mut s = Session {
             server: Inline::new(options, memory.clone()).unwrap(),
             next_id: 1,
@@ -93,15 +100,6 @@ impl Session {
             "textDocument/didOpen",
             json!({"textDocument": {"uri": URI, "languageId": "stitchwort", "version": 1, "text": text}}),
         );
-        loop {
-            let (out, more) = s.server.tick();
-            for m in out {
-                s.note(serde_json::from_str(&m).unwrap());
-            }
-            if !more {
-                break;
-            }
-        }
         s
     }
 
@@ -2411,6 +2409,55 @@ fn two_searches(memory: Arc<Memory>) -> [(usize, usize, f64); 2] {
     let second = search(&mut s);
     eprintln!("searches: {first:?} then {second:?}");
     [first, second]
+}
+
+/// `stitchwort/contextAt` asked as a project's file opens, before its first
+/// check has published, answers from the project: checked on its own, the
+/// file's imports fail and an expression that uses them has no answer
+/// (SW-2784).
+#[test]
+fn a_context_at_asked_as_a_projects_file_opens_answers_from_the_project() {
+    big_stack(|| {
+        let helper = "namespace Helper\n\ndef one: Nat := 1\n";
+        let text = "namespace Demo\nimport Helper (one)\n\n\
+            theorem t1: one = 1 := byComputing\n\
+            theorem t2 (n: Nat): one + n = n + 1 := byComputing\n\
+            theorem t3 (n: Nat): one + n = 1 + n := byComputing\n\n\
+            def f (n: Nat): Nat := one + n\n";
+        let memory = cached_memory();
+        memory.add(MemoryProject {
+            root: "/memory/proj".into(),
+            sources: vec!["src".into()],
+            files: Arc::new(
+                [
+                    ("src/Helper.sw".to_string(), helper.to_string()),
+                    ("src/Demo.sw".to_string(), text.to_string()),
+                ]
+                .into(),
+            ),
+        });
+        let mut s = Session::start_in(
+            text,
+            json!({"workspace": {"workspaceEdit": {"documentChanges": true}}}),
+            Options::new(STACK),
+            memory,
+        );
+        assert!(
+            s.diagnostics.is_empty(),
+            "the file was checked before the request"
+        );
+        let at = json!({"textDocument": {"uri": URI},
+                        "position": {"line": 3, "character": 10}});
+        let early = s.request_searched("stitchwort/contextAt", at.clone());
+        println!("CONTEXT AS THE FILE OPENS: {early}");
+        assert_eq!(early["declaration"], "t1", "{early}");
+        assert_eq!(early["kind"], "proof", "{early}");
+        assert_eq!(early["type"], "one = 1", "{early}");
+        // The check that was still to run gives the same answer.
+        s.settle();
+        let late = s.request_searched("stitchwort/contextAt", at);
+        assert_eq!(early, late);
+    });
 }
 
 /// A host with no cache folder (the playground) keeps the library's put-off
