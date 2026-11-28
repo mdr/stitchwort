@@ -56,6 +56,36 @@ test "NonEmptyList.flatMap" := NonEmptyList.example.flatMap (x => [x, x * 10]) =
 
 test "NonEmptyList.sumBy" := NonEmptyList.example.sumBy (x => x * 2) == 28
 
+test "NonEmptyList.sum, product" := NonEmptyList.example.sum == 14 ∧ NonEmptyList.example.product == 60
+
+test "NonEmptyList.filter, filterMap, take, drop" :=
+  NonEmptyList.example.filter (x => x > 2) == [3, 4, 5]
+    ∧ NonEmptyList.example.filter (x => x > 9) == []
+    ∧ NonEmptyList.example.filterMap (x => if x > 3 then Some (x * 2) else None) == [8, 10]
+    ∧ NonEmptyList.example.take 2 == [3, 1]
+    ∧ NonEmptyList.example.take 0 == []
+    ∧ NonEmptyList.example.drop 3 == [1, 5]
+    ∧ NonEmptyList.example.drop 9 == []
+
+test "NonEmptyList.dedup" :=
+  ({ head = 1, tail = [1, 2, 2, 1] }: NonEmptyList Nat).dedup.toList == [1, 2, 1]
+    ∧ (NonEmptyList.singleton 4).dedup.toList == [4]
+
+test "NonEmptyList.withIndex, mapWithIndex" :=
+  NonEmptyList.example.withIndex.toList.map (.fst) == [0, 1, 2, 3, 4]
+    ∧ NonEmptyList.example.mapWithIndex (i x => i * x) |> .toList == [0, 1, 8, 3, 20]
+
+test "NonEmptyList.toSet" := NonEmptyList.example.toSet.toList == [1, 3, 4, 5]
+
+test "NonEmptyList.findMap" :=
+  NonEmptyList.example.findMap (x => if x > 3 then Some (x * 2) else None) == Some 8
+    ∧ NonEmptyList.example.findMap (x => if x > 9 then Some x else None) == None
+
+test "NonEmptyList.join, joinWith" :=
+  ({ head = "a", tail = ["b", "c"] }: NonEmptyList Text).join ',' == "a,b,c"
+    ∧ ({ head = "a", tail = ["b", "c"] }: NonEmptyList Text).joinWith ", " == "a, b, c"
+    ∧ (NonEmptyList.singleton "a").joinWith ", " == "a"
+
 test "NonEmptyList.reverse" :=
   NonEmptyList.example.reverse.toList == [5, 1, 4, 1, 3] ∧ (NonEmptyList.singleton 1).reverse.toList == [1]
 

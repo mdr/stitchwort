@@ -59,6 +59,11 @@ theorem NonEmptyList.sumByToList ∀ [auto add: Add b] (xs: NonEmptyList a) (f: 
     xs.sumBy f = List.sumBy xs.toList f :=
   byComputing
 
+theorem NonEmptyList.sumToList ∀ [auto add: Add a] (xs: NonEmptyList a): xs.sum = List.sum xs.toList := byComputing
+
+theorem NonEmptyList.productToList ∀ [auto mul: Mul a] (xs: NonEmptyList a): xs.product = List.product xs.toList :=
+  byComputing
+
 theorem NonEmptyList.foldLeftToList ∀ (xs: NonEmptyList a) (initial: b) (f: b → a → b):
     xs.foldLeft initial f = List.foldLeft xs.toList initial f :=
   byComputing
@@ -212,3 +217,37 @@ theorem NonEmptyList.minimumLe ∀ [auto ord: Ord a] (xs: NonEmptyList a) (x: a)
     (m: NonEmptyList.Mem x xs):
     xs.minimum <= x :=
   (List.minimumSome xs.toList xs.minimum (NonEmptyList.minimumToList xs)).right x m
+
+theorem NonEmptyList.filterToList ∀ (xs: NonEmptyList a) (p: a → Bool): xs.filter p = List.filter xs.toList p :=
+  byComputing
+
+theorem NonEmptyList.filterMapToList ∀ (xs: NonEmptyList a) (f: a → Option b):
+    xs.filterMap f = List.filterMap xs.toList f :=
+  byComputing
+
+theorem NonEmptyList.takeToList ∀ (xs: NonEmptyList a) (count: Nat): xs.take count = List.take xs.toList count :=
+  byComputing
+
+theorem NonEmptyList.dropToList ∀ (xs: NonEmptyList a) (count: Nat): xs.drop count = List.drop xs.toList count :=
+  byComputing
+
+theorem NonEmptyList.dedupToList ∀ [auto eq: DecEq a] (xs: NonEmptyList a): xs.dedup.toList = List.dedup xs.toList :=
+  byComputing
+
+theorem NonEmptyList.withIndexToList ∀ (xs: NonEmptyList a): xs.withIndex.toList = List.withIndex xs.toList :=
+  byComputing
+
+theorem NonEmptyList.mapWithIndexToList ∀ (xs: NonEmptyList a) (f: Nat → a → b):
+    (xs.mapWithIndex f).toList = List.mapWithIndex xs.toList f :=
+  byComputing
+
+theorem NonEmptyList.findMapToList ∀ (xs: NonEmptyList a) (f: a → Option b): xs.findMap f = List.findMap xs.toList f :=
+  byComputing
+
+theorem NonEmptyList.joinToList ∀ (texts: NonEmptyList Text) (separator: Char):
+    texts.join separator = Text.join texts.toList separator :=
+  byComputing
+
+theorem NonEmptyList.joinWithToList ∀ (texts: NonEmptyList Text) (separator: Text):
+    texts.joinWith separator = List.joinWith texts.toList separator :=
+  byComputing

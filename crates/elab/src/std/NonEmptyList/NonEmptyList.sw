@@ -56,6 +56,12 @@ def NonEmptyList.count (xs: NonEmptyList a) (p: a → {e} Bool): {e} Nat := List
 --| perform abilities, which run in list order.
 def NonEmptyList.sumBy [auto add: Add b] (xs: NonEmptyList a) (f: a → {e} b): {e} b := List.sumBy xs.toList f
 
+--| The sum of the elements ([`NonEmptyList.sumToList`]).
+def NonEmptyList.sum [auto add: Add a] (xs: NonEmptyList a): a := List.sum xs.toList
+
+--| The product of the elements ([`NonEmptyList.productToList`]).
+def NonEmptyList.product [auto mul: Mul a] (xs: NonEmptyList a): a := List.product xs.toList
+
 --| Left fold: `xs.foldLeft z f` is `xs.toList.foldLeft z f`. `f` may perform abilities, which run in list order.
 def NonEmptyList.foldLeft (xs: NonEmptyList a) (initial: b) (f: b → a → {e} b): {e} b :=
   List.foldLeft xs.toList initial f
@@ -152,6 +158,43 @@ def NonEmptyList.appendList (xs: NonEmptyList a) (ys: List a): NonEmptyList a :=
 def NonEmptyList.prependList (prefix: List a) (xs: NonEmptyList a): NonEmptyList a := match prefix with
   | [] => xs
   | [y, ..rest] => { head = y, tail = List.append rest xs.toList }
+
+--| The elements satisfying `p`, in order: a `List`, since there may be none ([`NonEmptyList.filterToList`]).
+def NonEmptyList.filter (xs: NonEmptyList a) (p: a → {e} Bool): {e} List a := List.filter xs.toList p
+
+--| `f` on every element, keeping the `Some`s, in order: a `List`, since there may be none ([`NonEmptyList.filterMapToList`]).
+def NonEmptyList.filterMap (xs: NonEmptyList a) (f: a → {e} Option b): {e} List b := List.filterMap xs.toList f
+
+--| The first `count` elements: a `List`, since `count` may be 0 ([`NonEmptyList.takeToList`]).
+def NonEmptyList.take (xs: NonEmptyList a) (count: Nat): List a := List.take xs.toList count
+
+--| All but the first `count` elements: a `List`, since there may be none left ([`NonEmptyList.dropToList`]).
+def NonEmptyList.drop (xs: NonEmptyList a) (count: Nat): List a := List.drop xs.toList count
+
+--| Drops each element equal to the one just before it, as `List.dedup`. The
+--| first element always stays, so the result is a `NonEmptyList`
+--| ([`NonEmptyList.dedupToList`]).
+def NonEmptyList.dedup [auto eq: DecEq a] (xs: NonEmptyList a): NonEmptyList a :=
+  { head = xs.head, tail = List.dedupAfter xs.head xs.tail }
+
+--| Pairs each element with its position, counting from 0, the position first,
+--| as `List.withIndex` ([`NonEmptyList.withIndexToList`]).
+def NonEmptyList.withIndex (xs: NonEmptyList a): NonEmptyList (Pair Nat a) :=
+  { head = MkPair 0 xs.head, tail = List.withIndexFrom 1 xs.tail }
+
+--| `f` of each element's index and the element, as `List.mapWithIndex`; `f` may
+--| perform abilities, which run in list order ([`NonEmptyList.mapWithIndexToList`]).
+def NonEmptyList.mapWithIndex (xs: NonEmptyList a) (f: Nat → a → {e} b): {e} NonEmptyList b :=
+  NonEmptyList.map xs.withIndex (pair => f pair.fst pair.snd)
+
+--| The first `Some` that `f` gives, as `List.findMap`; `f` isn't called after it ([`NonEmptyList.findMapToList`]).
+def NonEmptyList.findMap (xs: NonEmptyList a) (f: a → {e} Option b): {e} Option b := List.findMap xs.toList f
+
+--| The texts with `separator` between them, as `Text.join` ([`NonEmptyList.joinToList`]).
+def NonEmptyList.join (texts: NonEmptyList Text) (separator: Char): Text := Text.join texts.toList separator
+
+--| The texts with a `Text` separator between them, as `List.joinWith` ([`NonEmptyList.joinWithToList`]).
+def NonEmptyList.joinWith (texts: NonEmptyList Text) (separator: Text): Text := Text.joinWith texts.toList separator
 
 --| Sorting a `NonEmptyList` leaves a list with elements: the sorted list is as long as the original.
 theorem NonEmptyList.sortByNotNil ∀ (xs: NonEmptyList a) (cmp: a → a → Ordering): List.sortBy xs.toList cmp ≠ [] :=
