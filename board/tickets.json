@@ -21319,17 +21319,22 @@
     {
       "id": 4919,
       "title": "[Sonnet] facts::is_fact defaults to 'fact' for a bare bound-variable conclusion (∀ (A: Type), A), because its binder's type isn't in the context; judge it from the binder's type, with a test (SW-3593 finding)",
-      "status": "review",
+      "status": "done",
       "agent": "",
       "where": "",
       "labels": [
         "elab"
       ],
       "epic": "proof-automation",
-      "body": "From SW-3593's second round. Pre-existing imprecision, not a quoting bug; only affects which hypotheses byFacts collects.\n\nProgress: is_fact's walk now records each binder's type; a bare variable or family application past the context is judged by it (Type binder: data, Prop binder: fact). Examples facts-binder-data (reject) and facts-binder-prop (accept); std files using byFacts re-checked.",
+      "body": "From SW-3593's second round. Pre-existing imprecision, not a quoting bug; only affects which hypotheses byFacts collects.\n\nProgress: is_fact's walk now records each binder's type; a bare variable or family application past the context is judged by it (Type binder: data, Prop binder: fact). Examples facts-binder-data (reject) and facts-binder-prop (accept); std files using byFacts re-checked.\n\nDone (Sonnet): is_fact (facts.rs) looked a fresh binder variable's type up in cx.types, missed, and defaulted to Prop; the walk now keeps binder domains (variable_type), also for is_prop_family_application. Examples reject/facts-binder-data.sw (was E-UNIVERSE, now E-FACTS) and accept/facts-binder-prop.sw. Orchestrator checks: tools/fmt, aoc, games/rogue check --no-cache clean; example kinds and hash_stability pass after recording the new example's hash (6855e3638). Model result: sonnet, needed fixes (new example's hash snapshot), 25 min (est. 25).",
       "created": "2026-11-27",
       "updated": "2026-11-28",
-      "commits": []
+      "commits": [
+        "a7cb62669",
+        "89d7c2140",
+        "6855e3638",
+        "2fceb8c43"
+      ]
     },
     {
       "id": 4920,
