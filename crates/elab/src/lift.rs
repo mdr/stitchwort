@@ -56,7 +56,8 @@ pub(crate) fn rank(order: &[usize], level: usize) -> usize {
 pub(crate) struct Draft {
     /// The frozen metavariable standing for the call.
     pub meta: usize,
-    /// The `match`, for error messages.
+    /// The `match`, for error messages. For a local definition it is only
+    /// the signature; [`LocalDraft::whole`] is the whole definition.
     pub span: Span,
     /// The context the helper's body was elaborated in. Its first `base`
     /// variables are the context the `match` is in; any after them were
@@ -735,6 +736,26 @@ fn described(draft: &Draft) -> String {
     }
 }
 
+/// `E-MUTUAL-SIGNATURE` for `draft`, whose type mentions a definition that
+/// isn't finished; `reason` says which.
+fn mutual_signature(draft: &Draft, what: &str, reason: &str) -> Diagnostic {
+    Diagnostic::error(
+        "E-MUTUAL-SIGNATURE",
+        format!("{what}'s type refers to a definition that isn't finished"),
+    )
+    .with_label(draft.span, "here")
+    .with_note(reason.to_string())
+    .with_note(if draft.local.is_some() {
+        "a local definition is made into a top-level one, whose type can only \
+         mention finished definitions: not the definition it's in, nor a local \
+         definition that calls that"
+    } else {
+        "the `match` is made into a definition whose type must only mention \
+         finished definitions; annotate it with a type that doesn't, or use a \
+         top-level helper"
+    })
+}
+
 /// Whether `inner` is inside `outer`.
 pub(crate) fn within(outer: Span, inner: Span) -> bool {
     outer.file == inner.file && outer.start <= inner.start && inner.end <= outer.end
@@ -929,6 +950,21 @@ impl Elaborator {
                 } else {
                     self.parts(d, &ordered[i], &|_| false, false)?
                 };
+                // The kernel would refuse a type that mentions a definition
+                // still pending (the owner, or a helper that calls it): say
+                // so before declaring this one, so it records no refusal.
+                if let Some(pending) =
+                    defs(&ty).find(|&p| self.kernel.def(p).state() == State::Pending)
+                {
+                    let name = crate::scope::display(self.kernel.def(pending).name());
+                    return Err(mutual_signature(
+                        d,
+                        &described(d),
+                        &format!(
+                            "the kernel's reason: this refers to `{name}`, which isn't finished"
+                        ),
+                    ));
+                }
                 let id = self.declare_helper(d, &keys[i], &ty)?;
                 if d.local.as_ref().is_some_and(|l| l.tailrec) {
                     kernel::mark_tailrec(&mut self.kernel, id);
@@ -1125,22 +1161,7 @@ impl Elaborator {
                 .chain(d.labels.iter().map(|l| &l.message))
                 .find(|m| m.contains("which isn't finished"))
             {
-                // Like a signature mentioning a member of its own group.
-                return Diagnostic::error(
-                    "E-MUTUAL-SIGNATURE",
-                    format!("{what}'s type refers to a definition that isn't finished"),
-                )
-                .with_label(draft.span, "here")
-                .with_note(format!("the kernel's reason: {reason}"))
-                .with_note(if draft.local.is_some() {
-                    "a local definition is made into a top-level one, whose type can only \
-                     mention finished definitions: not the definition it's in, nor a local \
-                     definition that calls that"
-                } else {
-                    "the `match` is made into a definition whose type must only mention \
-                     finished definitions; annotate it with a type that doesn't, or use a \
-                     top-level helper"
-                });
+                return mutual_signature(draft, &what, &format!("the kernel's reason: {reason}"));
             }
             if draft.local.is_some() {
                 return d;

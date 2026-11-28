@@ -1302,3 +1302,26 @@ fn comparison_after_a_recursive_local_waits_for_it() {
     ));
     assert!(report.verdict.accepted, "refused: {:?}", report.messages);
 }
+
+/// SW-4981: a `match` whose annotated type mentions another `match` that
+/// calls the owner is refused with `E-MUTUAL-SIGNATURE` by the elaborator,
+/// before the helper is declared to the kernel (oracle 3).
+#[test]
+fn oracle_3_match_type_mentions_unfinished_match() {
+    let report = report_of(include_str!(
+        "../../../docs/reviews/repros/sw-4981-match-type-mentions-match.sw"
+    ));
+    assert!(
+        report
+            .messages
+            .iter()
+            .any(|message| message.code == "E-MUTUAL-SIGNATURE"),
+        "the elaborator's E-MUTUAL-SIGNATURE is missing: {:?}",
+        report.messages
+    );
+    assert!(
+        report.rejections.is_empty(),
+        "the kernel refused something first: {:?}",
+        report.rejections
+    );
+}
