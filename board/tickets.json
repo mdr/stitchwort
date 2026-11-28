@@ -21798,12 +21798,12 @@
     {
       "id": 4949,
       "title": "Move the CLI's type shortening (SW-4936, search_render.rs) into the driver so the language server and playground show short types too",
-      "status": "doing",
+      "status": "done",
       "agent": "",
       "where": "",
       "labels": [],
       "epic": "proof-search",
-      "body": "[Sonnet] From SW-4945 (27 Nov).",
+      "body": "[Sonnet] From SW-4945 (27 Nov).\nClosed (28 Nov): premise wrong. search_render.rs prints r.ty unchanged (line 165); only the name is split into short name and namespace, which the language server already sends (short, namespace in type_search.rs) and client.js uses. VS Code and the CLI show the same types. Shortening types (dropping ∀ binders etc.) would be new work changing variant C, Matt's call; not filed. Model result: sonnet, worked (premise disproved), 1 min (est. 35).\n",
       "created": "2026-11-27",
       "updated": "2026-11-28",
       "commits": []
@@ -22104,7 +22104,7 @@
     {
       "id": 4969,
       "title": "search: a pattern of 10,000 chained arrows ran past 100 s (killed); check whether a deep chain is slow rather than failing cleanly",
-      "status": "backlog",
+      "status": "doing",
       "agent": "",
       "where": "",
       "labels": [
@@ -22113,7 +22113,7 @@
       "epic": "proof-search",
       "body": "[Sonnet] From SW-4964 (27 Nov); 10,000 nested parentheses around ?a fail cleanly (exit 2). Reproduce with a timeout first.",
       "created": "2026-11-27",
-      "updated": "2026-11-27",
+      "updated": "2026-11-28",
       "commits": []
     },
     {
