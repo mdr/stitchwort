@@ -21417,13 +21417,14 @@
         "core"
       ],
       "epic": "elaborator-kernel",
-      "body": "From docs/reviews/SW-4914-fable-review.md, suggestions 1, 2, 3, 6.\n\nLane (Sonnet): done in 07ca946a0. check_levels::below walks spines, shared values and resumption frames once by address; 8 new rule_k tests (points 2 and 3, codomain, both etas, case fields), each shown failing against a temporary break of its site; fuzz:elab, fuzz:soundness and fuzz:kernel set STITCHWORT_CHECK_TEST_LEVELS=1. Soundness set passes. Model result: Sonnet, worked, 18 min (est. 40).\n\nDone (Sonnet): check_levels::below remembers closure envs, ctor fields, spines and Shared by address; walks Resumption frames (Capture::values, test-bypass only); 7 rule_k tests each shown failing against a deliberate break of its site (fresh_past set-not-raise, conv_with entry raise, codomains, lambdas, lambda eta, push_eta, case fields); fuzz:elab/soundness/kernel set STITCHWORT_CHECK_TEST_LEVELS=1. Normal build unchanged (all under cfg test-bypass; orchestrator checked). Review suggestions 4-5 not in scope. Model result: sonnet, worked, 18 min (est. 40).",
+      "body": "From docs/reviews/SW-4914-fable-review.md, suggestions 1, 2, 3, 6.\n\nLane (Sonnet): done in 07ca946a0. check_levels::below walks spines, shared values and resumption frames once by address; 8 new rule_k tests (points 2 and 3, codomain, both etas, case fields), each shown failing against a temporary break of its site; fuzz:elab, fuzz:soundness and fuzz:kernel set STITCHWORT_CHECK_TEST_LEVELS=1. Soundness set passes. Model result: Sonnet, worked, 18 min (est. 40).\n\nDone (Sonnet): check_levels::below remembers closure envs, ctor fields, spines and Shared by address; walks Resumption frames (Capture::values, test-bypass only); 7 rule_k tests each shown failing against a deliberate break of its site (fresh_past set-not-raise, conv_with entry raise, codomains, lambdas, lambda eta, push_eta, case fields); fuzz:elab/soundness/kernel set STITCHWORT_CHECK_TEST_LEVELS=1. Normal build unchanged (all under cfg test-bypass; orchestrator checked). Review suggestions 4-5 not in scope. Model result: sonnet, worked, 18 min (est. 40).\n\nFollow-up 3cbb7e233: Overmind's quick tier failed recursion::self_recursion_is_guarded_or_stated on Capture::values's recursive walk; now a worklist. Guard, rule_k, soundness 13 pass.",
       "created": "2026-11-27",
       "updated": "2026-11-28",
       "commits": [
         "07ca946a0",
         "8d510da38",
-        "0b369893b"
+        "0b369893b",
+        "3cbb7e233"
       ]
     },
     {
