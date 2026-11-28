@@ -1,0 +1,28 @@
+---
+source: crates/cli/tests/running/examples.rs
+expression: warnings
+---
+[W-NO-VALUES] Warning: `Co` has no values: every value needs a value of `Co` first
+   ╭─[ accept/no-values-warning.sw:6:6 ]
+   │
+ 6 │ type Co (a: Type) = { head: a, tail: Co a }
+   │      ─┬                              ──┬─  
+   │       ╰──────────────────────────────────── this record can never be built
+   │                                        │   
+   │                                        ╰─── a `Co` is needed here
+   │ 
+   │ Note: a value is built from finitely many constructors, so a type whose every constructor holds one of itself is empty. Give a constructor without that field (an end case, as `Nil` is for a list), or, for an endless stream, a function from the position: `Nat -> a`
+───╯
+[W-NO-VALUES] Warning: `Chain` has no values: every constructor needs a value of `Chain` first
+   ╭─[ accept/no-values-warning.sw:8:6 ]
+   │
+ 8 │ type Chain = | Link (previous: Chain) | Join (left: Chain) (right: Chain)
+   │      ──┬──                     ──┬──                ──┬──  
+   │        ╰─────────────────────────────────────────────────── this type can never be built
+   │                                  │                    │    
+   │                                  ╰───────────────────────── a `Chain` is needed here
+   │                                                       │    
+   │                                                       ╰──── a `Chain` is needed here
+   │ 
+   │ Note: a value is built from finitely many constructors, so a type whose every constructor holds one of itself is empty. Give a constructor without that field (an end case, as `Nil` is for a list), or, for an endless stream, a function from the position: `Nat -> a`
+───╯

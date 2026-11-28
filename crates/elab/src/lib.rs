@@ -2836,6 +2836,12 @@ impl Elaborator {
             self.fail_data_names(members);
             return vec![(members[0].0, d)];
         }
+        for (&(item, decl), d) in members.iter().zip(&ids) {
+            if item.is_some() {
+                self.unit.module.item = item;
+            }
+            self.warn_if_no_values(decl, *d);
+        }
         // Each with its own item, so that what it derives is checked against
         // its own module's instances; the group's instances are derived with
         // the last.
@@ -3133,6 +3139,61 @@ impl Elaborator {
             });
         }
         Ok(core_ctors)
+    }
+
+    /// `W-NO-VALUES` (SW-4965): every constructor of `d` has a field whose
+    /// type is `d` itself, so a value would have to contain a value of the
+    /// same type and none can be built. Only direct self-reference counts: a
+    /// field under another type former (`List (Co a)`), a function returning
+    /// `Co a` or a mutual member is left alone. The type is still accepted.
+    fn warn_if_no_values(&mut self, decl: &Decl, d: DataId) {
+        let Decl::Data {
+            name: data_name,
+            ctors,
+            ..
+        } = decl
+        else {
+            return;
+        };
+        let data = self.kernel.data(d);
+        if !data.indices().is_empty()
+            || data.ctors().is_empty()
+            || ctors.len() != data.ctors().len()
+        {
+            return;
+        }
+        let mut spans = Vec::new();
+        for (ctor, core) in ctors.iter().zip(data.ctors()) {
+            let found = core
+                .fields
+                .iter()
+                .zip(&ctor.fields)
+                .find(|((_, ty), _)| matches!(ty.strip_loc(), Term::Data(e, _) if *e == d));
+            match found {
+                Some((_, binder)) => spans.push(binder.ty.span()),
+                None => return,
+            }
+        }
+        let record = data.record();
+        let what = if record { "record" } else { "type" };
+        let mut warning = Diagnostic::warning(
+            "W-NO-VALUES",
+            format!(
+                "`{}` has no values: every {} needs a value of `{0}` first",
+                data_name.text,
+                if record { "value" } else { "constructor" },
+            ),
+        )
+        .with_label(data_name.span, format!("this {what} can never be built"));
+        for span in spans {
+            warning = warning.with_label(span, format!("a `{}` is needed here", data_name.text));
+        }
+        self.unit.warnings.push(warning.with_note(
+            "a value is built from finitely many constructors, so a type whose every \
+             constructor holds one of itself is empty. Give a constructor without that \
+             field (an end case, as `Nil` is for a list), or, for an endless stream, a \
+             function from the position: `Nat -> a`",
+        ));
     }
 
     /// `W-CTOR-HIDES`: the constructor `name` (declared as `key`) is called
