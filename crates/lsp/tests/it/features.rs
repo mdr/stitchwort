@@ -2315,56 +2315,81 @@ fn find_references_of_an_or_pattern_name_lists_every_binding_and_use() {
     });
 }
 
+/// The put-off equations of the library, as the first and second searches of
+/// one server session leave them: `(hits, misses, seconds)` of each, the hits
+/// and misses cumulative. `memory` has the cache folder, if the host has one.
+fn two_searches(memory: Arc<Memory>) -> [(usize, usize, f64); 2] {
+    let text = "namespace Demo\n\ntheorem f (o: Option (Option Nat)): o = o := ?\n";
+    let options = Options::new(STACK);
+    let bytes = common::cached_bundle(&options, STACK);
+    let bundle = stitchwort_driver::check_cache::LibraryBundle::decode(&bytes).unwrap();
+    options.library.set(Arc::new(bundle)).ok().unwrap();
+    memory.add(MemoryProject {
+        root: "/memory/proj".into(),
+        sources: vec!["src".into()],
+        files: Arc::new([("src/Demo.sw".to_string(), text.to_string())].into()),
+    });
+    let mut s = Session::open_in(
+        text,
+        json!({"workspace": {"workspaceEdit": {"documentChanges": true}}}),
+        options.clone(),
+        memory.clone(),
+    );
+    s.searcher = Arc::new(stitchwort_lsp::Searcher::new(options, memory));
+    let character = text.lines().nth(2).unwrap().find('?').unwrap() as u32;
+    let search = |s: &mut Session| {
+        let at = json!({"textDocument": {"uri": URI},
+                        "range": {"start": {"line": 2, "character": character},
+                                  "end": {"line": 2, "character": character}},
+                        "context": {"diagnostics": []}});
+        let actions = s.request_any("textDocument/codeAction", at);
+        let search = (actions.as_array().unwrap().iter())
+            .find(|a| a["title"] == "Search for a proof")
+            .unwrap();
+        let started = std::time::Instant::now();
+        let answer = s.request_searched(
+            "workspace/executeCommand",
+            json!({"command": search["command"]["command"],
+                   "arguments": search["command"]["arguments"]}),
+        );
+        let seconds = started.elapsed().as_secs_f64();
+        assert_eq!(answer["proofs"].as_array().unwrap().len(), 1, "{answer}");
+        let (hits, misses) = stitchwort_lsp::warm_search_equation_counts().unwrap();
+        (hits, misses, seconds)
+    };
+    let first = search(&mut s);
+    let second = search(&mut s);
+    eprintln!("searches: {first:?} then {second:?}");
+    [first, second]
+}
+
 /// A host with no cache folder (the playground) keeps the library's put-off
 /// equations between searches: the search session is rewound after each, which
 /// forgets them, and a store that dropped them made them again every time,
-/// seconds each (SW-4976). The second search replays what the first made.
+/// seconds each (SW-4976). The first search makes them before the rewind
+/// mark, so the second replays none and makes none (SW-4978).
 #[test]
 fn a_second_search_without_a_cache_folder_makes_no_equations() {
     big_stack(|| {
-        let text = "namespace Demo\n\ntheorem f (o: Option (Option Nat)): o = o := ?\n";
-        let options = Options::new(STACK);
-        let bytes = common::cached_bundle(&options, STACK);
-        let bundle = stitchwort_driver::check_cache::LibraryBundle::decode(&bytes).unwrap();
-        options.library.set(Arc::new(bundle)).ok().unwrap();
-        let memory = Arc::new(Memory::default());
-        memory.add(MemoryProject {
-            root: "/memory/proj".into(),
-            sources: vec!["src".into()],
-            files: Arc::new([("src/Demo.sw".to_string(), text.to_string())].into()),
-        });
-        let mut s = Session::open_in(
-            text,
-            json!({"workspace": {"workspaceEdit": {"documentChanges": true}}}),
-            options.clone(),
-            memory.clone(),
-        );
-        s.searcher = Arc::new(stitchwort_lsp::Searcher::new(options, memory));
-        let character = text.lines().nth(2).unwrap().find('?').unwrap() as u32;
-        let search = |s: &mut Session| {
-            let at = json!({"textDocument": {"uri": URI},
-                            "range": {"start": {"line": 2, "character": character},
-                                      "end": {"line": 2, "character": character}},
-                            "context": {"diagnostics": []}});
-            let actions = s.request_any("textDocument/codeAction", at);
-            let search = (actions.as_array().unwrap().iter())
-                .find(|a| a["title"] == "Search for a proof")
-                .unwrap();
-            let answer = s.request_searched(
-                "workspace/executeCommand",
-                json!({"command": search["command"]["command"],
-                       "arguments": search["command"]["arguments"]}),
-            );
-            assert_eq!(answer["proofs"].as_array().unwrap().len(), 1, "{answer}");
-            stitchwort_lsp::warm_search_equation_counts().unwrap()
-        };
-        let (hits1, misses1) = search(&mut s);
-        let (hits2, misses2) = search(&mut s);
+        let [(hits1, misses1, _), (hits2, misses2, _)] = two_searches(Arc::new(Memory::default()));
         assert!(
             misses1 > 0 && hits1 == 0,
             "first: {hits1} hits {misses1} misses"
         );
         assert_eq!(misses2, misses1, "the second search made equations");
-        assert!(hits2 > 0, "second: {hits2} hits");
+        assert_eq!(hits2, hits1, "the second search replayed equations");
+    });
+}
+
+/// With a cache folder the first search replays the equations from it, and
+/// the second replays none again: the warm session kept them (SW-4978; it
+/// replayed all 895 segments each search before, about 0.5 s).
+#[test]
+fn a_second_search_with_a_cache_folder_replays_no_equations() {
+    big_stack(|| {
+        let [(hits1, misses1, _), (hits2, misses2, _)] = two_searches(common::cached_memory(STACK));
+        assert!(hits1 + misses1 > 0, "the first search made no equations");
+        assert_eq!(misses2, misses1, "the second search made equations");
+        assert_eq!(hits2, hits1, "the second search replayed equations");
     });
 }

@@ -48,16 +48,17 @@ pub(crate) fn answer(
                 .file_name()
                 .map_or("project".to_string(), |n| n.to_string_lossy().into_owned());
             let cache = source.project_cache(&root);
-            let searched = with_project_session(server, cache.as_deref(), cancel, |session| {
-                session.search_in_project(
-                    &name,
-                    &files,
-                    &relative,
-                    cache.as_deref(),
-                    query,
-                    options,
-                )
-            });
+            let searched =
+                with_project_session(server, cache.as_deref(), true, cancel, |session| {
+                    session.search_in_project(
+                        &name,
+                        &files,
+                        &relative,
+                        cache.as_deref(),
+                        query,
+                        options,
+                    )
+                });
             (searched, Some((root, name)))
         }
         // The warm session a project's search uses, library loaded: a query
@@ -66,7 +67,7 @@ pub(crate) fn answer(
             let name = (target.path.file_name())
                 .and_then(|n| n.to_str())
                 .unwrap_or("file.sw");
-            let searched = with_project_session(server, None, cancel, |session| {
+            let searched = with_project_session(server, None, true, cancel, |session| {
                 session.search_in_text(name, &text, query, options)
             });
             (searched, None)

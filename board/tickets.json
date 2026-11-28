@@ -22323,14 +22323,14 @@
     {
       "id": 4978,
       "title": "Goal search: every native search still replays std's 895 equation segments (~0.5 s) because the warm search session is rewound after each search; and actions_at_text (a file with no cache folder) makes a fresh session per search and regenerates them",
-      "status": "doing",
+      "status": "review",
       "agent": "",
       "where": "",
       "labels": [
         "perf"
       ],
       "epic": "proof-search",
-      "body": "[Sonnet] From SW-4976 (28 Nov): generate the equations before the session's mark, lazily at the first search; keep out of live.rs. Measure first.",
+      "body": "[Sonnet] From SW-4976 (28 Nov): generate the equations before the session's mark, lazily at the first search; keep out of live.rs. Measure first.\n\nDone (Sonnet, 28 Nov): the first search (proof or type search) makes/replays std equations before the warm session mark moves past them; second search 0.546 s -> 0.058 s, 0 segments replayed. actions_at_text not shared (two fresh sessions, file loaded before the library). Tests: features::a_second_search_with_a_cache_folder_replays_no_equations. Perf log entry added.\n",
       "created": "2026-11-28",
       "updated": "2026-11-28",
       "commits": []
