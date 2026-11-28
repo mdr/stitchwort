@@ -157,6 +157,24 @@ fn the_relaxed_pass_lists_only_related_candidates() {
     );
 }
 
+#[test]
+fn the_relaxed_pass_doesnt_relate_a_thunk_pattern_through_unit() {
+    // `() → Bool` names `()` and `Bool`; `thunk`'s premise `() → a` shares
+    // only the `()`, which says nothing (SW-4941).
+    let source = "theorem thunk [a: Type] (p: () → a) (k: a): p () = k → k = k := ?\n";
+    let report = with_session(STACK, Session::for_stack, |session| {
+        session.load("thunk.sw", source).expect("the file checks");
+        session
+            .search("() → Bool", &Options::default(), &Scope::File)
+            .unwrap()
+    });
+    let mine: Vec<&str> = (report.results.iter())
+        .map(|r| r.name.as_str())
+        .filter(|n| n.starts_with("Main."))
+        .collect();
+    assert!(mine.is_empty(), "{mine:?}");
+}
+
 /// Overloaded operators with operands nothing types (SW-927).
 const OVERLOADED: &str = "\
 theorem textJoin (a: Text) (b: Text): a ++ b = b ++ a := ?
