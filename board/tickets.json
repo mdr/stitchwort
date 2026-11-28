@@ -22874,7 +22874,7 @@
     {
       "id": 5007,
       "title": "Stream.findRepeat: prove minimality (no earlier repeat) and a None law (no repeat below the limit); strengthen the seen-map invariant (est. ~40 lines)",
-      "status": "doing",
+      "status": "review",
       "agent": "Sonnet",
       "where": "",
       "labels": [],
@@ -22939,7 +22939,7 @@
     {
       "id": 5012,
       "title": "Std.Stream: value-level iterate lemmas stated for any f (like iterateTakeSucc: atSucc, dropIterate, findIndex over iterate) so proofs don't compute an expensive step",
-      "status": "doing",
+      "status": "review",
       "agent": "Sonnet",
       "where": "",
       "labels": [],
