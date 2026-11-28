@@ -719,6 +719,20 @@ impl Session {
         .unwrap_or_else(|report| panic!("{report}"))
     }
 
+    /// A session with nothing loaded, not even the core, under limits for a
+    /// thread with `stack` bytes: for reading a project's files without
+    /// checking any (`project::analyse`), which needs only the elaborator's
+    /// tables. Making one takes microseconds, not the core's check.
+    pub fn reading_for_stack(stack: usize) -> Self {
+        let mut session = Session {
+            sources: SourceMap::new(),
+            elab: Elaborator::new(),
+            warnings: Vec::new(),
+        };
+        session.elab.options.limits = Limits::for_stack(stack);
+        session
+    }
+
     /// A session with the core only: the library's names aren't known, and
     /// nothing loads. For a test that the core stands on its own.
     #[doc(hidden)]

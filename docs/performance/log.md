@@ -301,6 +301,28 @@ in [../proposals/README.md](../proposals/README.md).
 - **Not done.** Making the outline itself cheaper (it parses the whole project on each
   pause, for the tabs only) is a driver change, filed apart.
 
+### SW-4927: the playground's outline reads only the files that changed
+
+- **Problem.** After each pause in typing in a project, the page asks the compiler's worker
+  for the project's outline (the day's tabs), and `outline_project` made a session and
+  parsed all 726 AoC files each time (SW-4925: about 400 ms in the browser).
+- **Cause (measured, native release, `crates/web` test, the AoC project's 726 files).** A
+  request took 138 ms warm (477 ms the first time in the process): about 112 ms making the
+  session, which checks the core and loads the library names though the outline asks for
+  neither, and about 25 ms reading the files.
+- **Change.** The outline's session is bare (`Session::reading_for_stack`: the elaborator's
+  tables, no core), and it reads files through an in-memory scan cache
+  (`ScanMemory`, the scan the CLI's check cache keeps): a file whose text is unchanged since
+  an earlier request is not parsed again, its sketch is decoded instead. The answer is the
+  same; the test compares it with the fresh read of every file.
+- **Measured (native release, one run each).** Unchanged project: 138 ms -> 18 ms. One file
+  typed in: 138 ms -> 23 ms (one file parsed). First request: 477 ms -> 145 ms (no session
+  cost). The browser's figure is not re-measured here; the worker runs the same code
+  slower than native by the factor SW-4925 saw (about 3x), so roughly 60 ms a pause is
+  expected (estimated).
+- **Pinned by** `outline_reparses_only_changed_files` (`crates/web`): a counter of files
+  parsed (726, then 0 for an unchanged project, then 1 for one changed file).
+
 ## 26 Nov 2026
 
 ### SW-4892: the effects pre-pass remembers its answers for the declaration
