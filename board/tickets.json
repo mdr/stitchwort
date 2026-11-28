@@ -11271,14 +11271,14 @@
     {
       "id": 2888,
       "title": "[Sonnet] Split from a ?: offered only on a ? that is a whole body (after := or =>, or alone on its line), not a ? inside an expression (SW-2885)",
-      "status": "backlog",
+      "status": "doing",
       "agent": "Sonnet",
       "where": "",
       "labels": [],
       "epic": "editor-playground",
       "body": "\n\nAudit note (22 Nov): Audit 22 Nov: still open; no commit besides board edits mentions it and no later ticket covers it.\n",
       "created": "2026-11-11",
-      "updated": "2026-11-22",
+      "updated": "2026-11-28",
       "commits": []
     },
     {
