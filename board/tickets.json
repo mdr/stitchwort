@@ -22793,15 +22793,18 @@
     {
       "id": 5002,
       "title": "Docs: the guide test is in the tools binary (--test tools -E 'test(/the_guide_quotes/)'), not --test guide; stitchwort check --std --std-dir . runs from crates/elab/src/std; say both in docs/guide/README.md and docs/testing.md (SW-5000 friction)",
-      "status": "doing",
+      "status": "done",
       "agent": "DeepSeek",
       "where": "",
       "labels": [],
       "epic": "docs-tutorials",
-      "body": "From SW-5000.\n\nRun with SW-5006 in one DeepSeek clone (scratch-sw-5006).",
+      "body": "From SW-5000.\n\nRun with SW-5006 in one DeepSeek clone (scratch-sw-5006).\n\nModel result: deepseek, worked (with SW-5006). Fixed the stale --test guide comment in docs/guide/README.md too.",
       "created": "2026-11-28",
       "updated": "2026-11-28",
-      "commits": []
+      "commits": [
+        "936376457",
+        "793c54652"
+      ]
     },
     {
       "id": 5003,
@@ -22861,15 +22864,18 @@
     {
       "id": 5006,
       "title": "Examples test: rejected_projects treats a stray .stitchwort cache folder in examples/projects/reject/ as a project and panics ('a project has a stitchwort.yaml'); skip dot folders",
-      "status": "doing",
+      "status": "done",
       "agent": "DeepSeek",
       "where": "",
       "labels": [],
       "epic": "test-infra",
-      "body": "Seen 28 Nov in the SW-5004 verifier; a gitignored cache from 04:12 that day. Reproduce by running stitchwort check in examples/projects/reject.\n\nStarted 11:07 on DeepSeek with SW-5002, est. 15 min.",
+      "body": "Seen 28 Nov in the SW-5004 verifier; a gitignored cache from 04:12 that day. Reproduce by running stitchwort check in examples/projects/reject.\n\nStarted 11:07 on DeepSeek with SW-5002, est. 15 min.\n\nModel result: deepseek, worked, ~6 min (est. 15). Reproduced the panic first; filter in examples.rs and common/mod.rs. Orchestrator reran the three project tests with a stray .stitchwort folder: 3 of 3.",
       "created": "2026-11-28",
       "updated": "2026-11-28",
-      "commits": []
+      "commits": [
+        "4d58cf60d",
+        "793c54652"
+      ]
     },
     {
       "id": 5007,
