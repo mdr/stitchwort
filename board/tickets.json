@@ -10634,14 +10634,14 @@
     {
       "id": 2784,
       "title": "stitchwort/contextAt returns null while the first check is still running (seen by SW-2715's probe client; unconfirmed): answer after the check, or say it's pending",
-      "status": "backlog",
+      "status": "doing",
       "agent": "DeepSeek",
       "where": "",
       "labels": [],
       "epic": "editor-playground",
       "body": "\n\nAudit note (22 Nov): Audit 22 Nov: unconfirmed still; contextAt is queued as a search (crates/lsp/src/lib.rs:1856-1873) and answers null when search_target is None; no test pins the first-check case.\n",
       "created": "2026-11-11",
-      "updated": "2026-11-22",
+      "updated": "2026-11-28",
       "commits": []
     },
     {
