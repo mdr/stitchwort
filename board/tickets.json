@@ -21943,7 +21943,7 @@
     {
       "id": 4958,
       "title": "search: a pattern starting with a brace ({Parse _ | _} Nat) parses as a record update (E-PARSE), so a computation type can't be searched on its own",
-      "status": "backlog",
+      "status": "doing",
       "agent": "",
       "where": "",
       "labels": [
@@ -21952,7 +21952,7 @@
       "epic": "proof-search",
       "body": "[Sonnet] From SW-4944 (27 Nov).",
       "created": "2026-11-27",
-      "updated": "2026-11-27",
+      "updated": "2026-11-28",
       "commits": []
     },
     {
