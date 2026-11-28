@@ -9,7 +9,7 @@ expression: output
     │   ┬  
     │   ╰── n: Nat
     │       wide: Nat := n + 3
-    │       split: n + 3 = n + 3
+    │       split: wide = n + 2 + 1
     │       both: n + 3 = n + 3
     │       step: ∀ (k: Nat) => k + 1 = k + 1
     │       ⊢ total (n + 3) = total (n + 3)
