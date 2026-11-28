@@ -1,5 +1,5 @@
 {
-  "next": 4985,
+  "next": 4986,
   "tickets": [
     {
       "id": 47,
@@ -22467,6 +22467,19 @@
       "labels": [],
       "epic": "dev-loop-speed",
       "body": "From SW-4905 (28 Nov): the lane patched in a Debug dump and wrote a Loc-stripping script (~8 min).",
+      "created": "2026-11-28",
+      "updated": "2026-11-28",
+      "commits": []
+    },
+    {
+      "id": 4985,
+      "title": "stitchwort check DIR fails with a bare 'Is a directory': check a project directory (its stitchwort.yaml) or say how to",
+      "status": "backlog",
+      "agent": "DeepSeek",
+      "where": "",
+      "labels": [],
+      "epic": "diagnostics",
+      "body": "From SW-2903 (28 Nov). Check what check does with a directory argument; either treat a folder holding stitchwort.yaml as the project, or give a plain message naming the fix.",
       "created": "2026-11-28",
       "updated": "2026-11-28",
       "commits": []
