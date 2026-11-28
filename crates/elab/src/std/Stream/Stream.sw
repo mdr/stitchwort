@@ -71,7 +71,7 @@ theorem Stream.ext ∀ (s t: Stream a) (h: ∀ (n: Nat) => s.at n = t.at n): s =
 --| any number of `tail`s.
 def Stream.head (s: Stream a): a :=
   Quot.lift
-    (fr => fr.head)
+    (fr => Stream.Front.head fr)
     (x y same => (Stream.Front.headIs s.base.at x).trans (Stream.Front.headIs s.base.at y).flipped)
     s.front
 
@@ -147,7 +147,7 @@ theorem Stream.bisim ∀ (r: Stream a → Stream a → Prop)
 
 --| The first `n` values, in `n` steps: `(Stream.iterate (+ 1) 0).take 3` is
 --| `[0, 1, 2]`.
-def Stream.take (s: Stream a) (n: Nat): List a := (s.base.walk n).toList
+def Stream.take (s: Stream a) (n: Nat): List a := Stream.Cells.toList (s.base.walk n)
 
 --| `x`, `f x`, `f (f x)`, …: `Stream.iterate (* 2) 1` is 1, 2, 4, 8, ….
 @[noReceiver]
@@ -174,7 +174,7 @@ theorem Stream.unfoldTail ∀ (s: Type) (step: s → Pair a s) (start: s):
   Stream.ext (Stream.unfold step start).tail (Stream.unfold step (step start).snd) (n => byComputing)
 
 --| `f` of each value: `(Stream.iterate (+ 1) 0).map (* 3)` is 0, 3, 6, ….
-def Stream.map (s: Stream a) (f: a → b): Stream b := Stream.ofBase (s.base.map f)
+def Stream.map (s: Stream a) (f: a → b): Stream b := Stream.ofBase (Stream.Base.map s.base f)
 
 --| Mapping, then taking the tail, is taking the tail, then mapping.
 theorem Stream.mapTail ∀ (s: Stream a) (f: a → b): (s.map f).tail = s.tail.map f :=
@@ -183,7 +183,7 @@ theorem Stream.mapTail ∀ (s: Stream a) (f: a → b): (s.map f).tail = s.tail.m
 --| `x`, then the values of `s`: `Stream.cons 0 (Stream.iterate (* 2) 1)` is
 --| 0, 1, 2, 4, ….
 @[noReceiver]
-def Stream.cons (x: a) (s: Stream a): Stream a := Stream.ofBase (s.base.cons x)
+def Stream.cons (x: a) (s: Stream a): Stream a := Stream.ofBase (Stream.Base.cons s.base x)
 
 --| The first value of `Stream.cons x s` is `x`.
 theorem Stream.consHead ∀ (x: a) (s: Stream a): (Stream.cons x s).head = x := byComputing
@@ -261,7 +261,7 @@ theorem Stream.dropHead ∀ (s: Stream a) (n: Nat): (s.drop n).head = s.at n :=
 @[tailrec]
 def Stream.fold (s: Stream a) (n: Nat) (init: b) (f: b → a → b): b := match n with
   | Zero => init
-  | Succ k => Stream.fold s.tail k (f init s.head) f
+  | Succ k => Stream.fold (Stream.tail s) k (f init (Stream.head s)) f
 
 --| `fold` over the first `n` values is a fold of `take n`.
 theorem Stream.foldTake ∀ (s: Stream a) (n: Nat) (init: b) (f: b → a → b):
@@ -277,7 +277,7 @@ theorem Stream.foldTake ∀ (s: Stream a) (n: Nat) (init: b) (f: b → a → b):
 @[tailrec]
 def Stream.find (s: Stream a) (n: Nat) (p: a → Bool): Option a := match n with
   | Zero => None
-  | Succ k => if p s.head then Some s.head else Stream.find s.tail k p
+  | Succ k => if p (Stream.head s) then Some (Stream.head s) else Stream.find (Stream.tail s) k p
 
 --| `find` in the first `n` values is a `find` in `take n`.
 theorem Stream.findTake ∀ (s: Stream a) (n: Nat) (p: a → Bool): s.find n p = (s.take n).find p := match n with
@@ -321,7 +321,7 @@ theorem Stream.repeatTail ∀ (x: a): (Stream.repeat x).tail = Stream.repeat x :
 --| `f` of the values of `s` and `t` in step: `(Stream.iterate (+ 1) 0).zipWith (Stream.iterate (* 2) 1) (+)` is 1, 3,
 --| 6, 11, ….
 def Stream.zipWith (s: Stream a) (t: Stream b) (f: a → b → c): Stream c :=
-  Stream.unfold (st => (f st.fst.head st.snd.head, (st.fst.tail, st.snd.tail))) (s, t)
+  Stream.unfold (st => (f (Stream.head st.fst) (Stream.head st.snd), (Stream.tail st.fst, Stream.tail st.snd))) (s, t)
 
 --| The first value of `zipWith` is `f` of the first values.
 theorem Stream.zipWithHead ∀ (s: Stream a) (t: Stream b) (f: a → b → c): (s.zipWith t f).head = f s.head t.head :=
@@ -350,7 +350,8 @@ theorem Stream.zipWithAt ∀ (s: Stream a) (t: Stream b) (f: a → b → c) (n: 
 
 --| The values of `s` and `t` alternately: `Stream.interleave (Stream.repeat 0) (Stream.repeat 1)` is 0, 1, 0, 1, ….
 --| Its state is the stream to read next and the other one, so the tail is the interleave the other way round.
-def Stream.interleave (s t: Stream a): Stream a := Stream.unfold (st => (st.fst.head, (st.snd, st.fst.tail))) (s, t)
+def Stream.interleave (s t: Stream a): Stream a :=
+  Stream.unfold (st => (Stream.head st.fst, (st.snd, Stream.tail st.fst))) (s, t)
 
 --| The first value of `interleave s t` is the first of `s`.
 theorem Stream.interleaveHead ∀ (s t: Stream a): (Stream.interleave s t).head = s.head := byComputing
@@ -387,7 +388,7 @@ theorem Stream.interleaveAtOdd ∀ (s t: Stream a) (n: Nat): (Stream.interleave 
 
 --| The running folds of `s`, the initial value first: `(Stream.iterate (+ 1) 1).scan 0 (+)` is 0, 1, 3, 6, 10, ….
 def Stream.scan (s: Stream a) (init: b) (f: b → a → b): Stream b :=
-  Stream.unfold (st => (st.fst, (f st.fst st.snd.head, st.snd.tail))) (init, s)
+  Stream.unfold (st => (st.fst, (f st.fst (Stream.head st.snd), Stream.tail st.snd))) (init, s)
 
 --| The first value of `scan` is the initial value.
 theorem Stream.scanHead ∀ (s: Stream a) (init: b) (f: b → a → b): (s.scan init f).head = init := byComputing
