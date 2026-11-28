@@ -230,6 +230,63 @@ test "depth" := Packet.depth (Packets [Number 1, Packets [Number 2, Packets [Num
 
 The same holds for `Option` and pairs, and for containers you declare yourself. The compiler also generates an induction principle, `Packet.induct`, for proofs ([chapter 10](10-proofs.md)). [syntax.md](../syntax.md#declaration-order) has the rules and their limits.
 
+## Infinite streams
+
+A `Stream a` is an infinite sequence of values, with no end to recurse towards. Streams belong in this chapter because reading one is recursion with no part to shrink to: you read the `head`, recurse on the `tail`, and count down a number you carry, so the function finishes.
+
+`Stream.iterate` repeats a step from a first value, `Stream.unfold` runs a step that gives a value and the next state, and `Stream.repeat` is one value forever:
+
+<!-- snippet: streams.sw#build -->
+```stitchwort
+def powers: Stream Nat := Stream.iterate (* 2) 1
+
+def fibs: Stream Nat := Stream.unfold (p => (p.fst, (p.snd, p.fst + p.snd))) (0, 1)
+
+def sevens: Stream Nat := Stream.repeat 7
+
+test "building streams" :=
+  powers.take 5 == [1, 2, 4, 8, 16] ∧ fibs.take 8 == [0, 1, 1, 2, 3, 5, 8, 13] ∧ sevens.take 3 == [7, 7, 7]
+```
+
+The natural way to read a stream is to look at `s.head` and recurse on `s.tail`, as over a list. The `fuel` and `count` parameters are what shrink:
+
+<!-- snippet: streams.sw#head-tail -->
+```stitchwort
+def firstWhere (s: Stream a) (p: a → Bool) (fuel: Nat): Option a := match fuel with
+  | Zero => None
+  | Succ k => if p s.head then Some s.head else firstWhere s.tail p k
+
+def sumFirst (s: Stream Nat) (count total: Nat): Nat := match count with
+  | Zero => total
+  | Succ k => sumFirst s.tail k (total + s.head)
+
+test "head and tail" :=
+  firstWhere powers (n => n > 100) 20 == Some 128 ∧ sumFirst (Stream.iterate (+ 1) 0) 20000 0 == 199990000
+```
+
+The loop is as fast as the list version: a stream remembers where its reader has got to, so each `tail` costs a few steps, and the sum of 20,000 values above runs in a fraction of a second. What is slow is `s.at n`, the value at position `n`, which may take `n` steps every time; use it for one value, not to read many in turn.
+
+You rarely need to write the loop yourself. `take n` is the first `n` values as a list, `find n p` is the first of them satisfying `p` (an `Option`, as `firstWhere`), and `fold n init f` folds them; `zipWith`, `scan`, `drop`, `interleave` and `fromFn` build other streams from them:
+
+<!-- snippet: streams.sw#take-find -->
+```stitchwort
+test "take and find" :=
+  fibs.take 5 == [0, 1, 1, 2, 3]
+    ∧ fibs.find 50 (n => n > 1000) == Some 1597
+    ∧ fibs.find 5 (n => n > 1000) == None
+    ∧ powers.fold 4 0 (+) == 15
+```
+
+Two streams with the same value at every position are equal, `Stream.ext`; that is how laws about streams are proved. Chapter 10 teaches proofs; this one says that mapping twice is mapping once with both steps, by comparing the value at each position, which computes:
+
+<!-- snippet: streams.sw#proof -->
+```stitchwort
+theorem mapMap ∀ (s: Stream a) (f: a → b) (g: b → c): (s.map f).map g = s.map (x => g (f x)) :=
+  Stream.ext ((s.map f).map g) (s.map (x => g (f x))) (n => byComputing)
+```
+
+For laws about `head` and `tail`, `Stream.bisim` proves two streams equal from a relation that `head` and `tail` keep, and `Stream.bisimOn` does so for two functions of a shared seed. The laws hold with no axiom beyond `Quot.sound` (proposals/streams-head-tail.md).
+
 ## `Partial`: functions that may not finish
 
 Some functions have no known reason to finish, such as the Collatz sequence. Mark them `Partial`. `Partial` is written in the type like an ability ([chapter 8](08-abilities.md)), and everything that calls a partial function must say `Partial` too:
