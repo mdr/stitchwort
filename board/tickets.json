@@ -23160,15 +23160,20 @@
     {
       "id": 5026,
       "title": "NonEmptyList: the missing methods the non-empty-lists proposal planned (filter, filterMap, take, drop, withIndex, mapWithIndex, sum, product, toSet, dedup, findMap; Text.join/joinWith on NonEmptyList Text), each with a lemma tying it to toList",
-      "status": "review",
+      "status": "done",
       "agent": "Sonnet",
       "where": "",
       "labels": [],
       "epic": "std-library",
-      "body": "From SW-5022 (docs/reviews/SW-5022-nonempty-results.md); cuts .toList after SW-5021 and before Text.split changes.\n\nD3779 yes (Matt, 28 Nov). Runs with SW-5030.\n\nStarted 12:18 on Sonnet on Matt's word ('I need the missing NEL methods quick, start work onit') at 5-min load ~60, above the hold; part 1 methods (incl. Matt's NonEmptyList.sum spec) est. 20 min, then SW-5030 (Parse) est. 15.\n\nLane: added sum, product, filter, filterMap, take, drop, dedup, withIndex, mapWithIndex, toSet (Sets.sw), findMap, join, joinWith, each with a byComputing ToList lemma and tests. Skipped unique (no cheap non-empty form; dedup is List.dedup).",
+      "body": "From SW-5022 (docs/reviews/SW-5022-nonempty-results.md); cuts .toList after SW-5021 and before Text.split changes.\n\nD3779 yes (Matt, 28 Nov). Runs with SW-5030.\n\nStarted 12:18 on Sonnet on Matt's word ('I need the missing NEL methods quick, start work onit') at 5-min load ~60, above the hold; part 1 methods (incl. Matt's NonEmptyList.sum spec) est. 20 min, then SW-5030 (Parse) est. 15.\n\nLane: added sum, product, filter, filterMap, take, drop, dedup, withIndex, mapWithIndex, toSet (Sets.sw), findMap, join, joinWith, each with a byComputing ToList lemma and tests. Skipped unique (no cheap non-empty form; dedup is List.dedup).\n\nDone (Sonnet): 13 methods incl. Matt's sum spec, each with a ToList lemma by byComputing; unique skipped. Model result: sonnet, worked, 7 min (est. 20).",
       "created": "2026-11-28",
       "updated": "2026-11-28",
-      "commits": []
+      "commits": [
+        "40aea7555",
+        "810469a5c",
+        "9020b7023",
+        "b28def2d5"
+      ]
     },
     {
       "id": 5027,
