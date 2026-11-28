@@ -12,7 +12,8 @@ use crate::{Diagnostic, FileId, Span};
 
 use super::declarations::misplaced_attributes;
 use super::failed_names::failed_names_of;
-use super::{DEFAULT_STACK, Parsed, Parser, Result, error, nested_too_deeply, split_decls};
+use super::{Parsed, Parser, Result, error, nested_too_deeply, split_decls};
+use crate::DEFAULT_STACK;
 
 pub fn parse_module(file: FileId, text: &str) -> std::result::Result<Module, Vec<Diagnostic>> {
     parse_module_within(file, text, DEFAULT_STACK)
@@ -383,12 +384,16 @@ fn parse_tokens(
 /// finding a file's namespace when the rest of it doesn't parse or doesn't
 /// lex (the declarations that don't lex are left out, as in
 /// [`parse_module_recovering`]).
-pub fn parse_namespace_line(file: FileId, text: &str) -> Parsed<Option<NamespaceDecl>> {
-    namespace_line(file, text).map_err(|d| *d)
+pub fn parse_namespace_line(
+    file: FileId,
+    text: &str,
+    stack: usize,
+) -> Parsed<Option<NamespaceDecl>> {
+    namespace_line(file, text, stack).map_err(|d| *d)
 }
 
-fn namespace_line(file: FileId, text: &str) -> Result<Option<NamespaceDecl>> {
-    let limit = StackLimit::from_here(DEFAULT_STACK);
+fn namespace_line(file: FileId, text: &str, stack: usize) -> Result<Option<NamespaceDecl>> {
+    let limit = StackLimit::from_here(stack);
     let (lexed, _) = lex_recovering_with_trivia(file, text);
     let groups = split_decls(&lexed.tokens)?;
     let Some(group) = groups.first() else {

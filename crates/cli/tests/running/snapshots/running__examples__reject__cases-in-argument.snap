@@ -7,7 +7,7 @@ expression: output
    │
  9 │   let right := andRight a b cases then both
    │                             ──┬──  
-   │                               ╰──── `cases then …` as an argument needs brackets
+   │                               ╰──── 
    │ 
    │ Note: the body of `cases then` runs to the end of the expression, so as an argument it's written `(cases then t)`
 ───╯

@@ -2,10 +2,10 @@
 source: crates/cli/tests/running/examples.rs
 expression: output
 ---
-[E-PARSE] Error: expected an expression, but reached the end of the declaration
+[E-PARSE] Error: expected an expression, but reached the end of the input
    ╭─[ reject/local-def-type-runs-out.sw:5:18 ]
    │
  5 │   def f (s: Nat):
    │                  │ 
-   │                  ╰─ expected an expression, but reached the end of the declaration
+   │                  ╰─ 
 ───╯

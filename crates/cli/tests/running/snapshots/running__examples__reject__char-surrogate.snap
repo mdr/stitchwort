@@ -7,5 +7,5 @@ expression: output
    │
  3 │ def bad: Char := '\u{D800}'
    │                   ────┬───  
-   │                       ╰───── U+D800 isn't a Unicode scalar value, so it can't be a character
+   │                       ╰───── 
 ───╯

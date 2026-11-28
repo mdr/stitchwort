@@ -7,7 +7,7 @@ expression: output
    │
  7 │   | () if True
    │        ───┬───  
-   │           ╰───── an arm with `()` and no body can't have a condition
+   │           ╰───── 
    │ 
    │ Note: the condition would test nothing: the pattern can't match
 ───╯

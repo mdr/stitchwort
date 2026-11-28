@@ -7,7 +7,7 @@ expression: output
    │
  4 │ theorem leRefl: ∀ x, x <= x := ?
    │                    ┬  
-   │                    ╰── expected `=>` after the parameters of `∀`, but found `,`
+   │                    ╰── 
    │ 
    │ Note: "for all" is written `forall (x: T) => P` or `∀ (x: T) => P`: `=>` follows the parameters, not `,`
 ───╯

@@ -7,7 +7,7 @@ expression: output
    │
  3 │ def byFacts: Nat := 1
    │     ───┬───  
-   │        ╰───── expected a name, but found the keyword `byFacts`
+   │        ╰───── 
    │ 
    │ Note: `byFacts` is a keyword, so it can't be used as a name
 ───╯

@@ -7,5 +7,5 @@ expression: output
    │
  4 │   def g (k: Nat): Nat := k
    │   ─┬─  
-   │    ╰─── a block must end with an expression, not a local `def` or `theorem`
+   │    ╰─── 
 ───╯

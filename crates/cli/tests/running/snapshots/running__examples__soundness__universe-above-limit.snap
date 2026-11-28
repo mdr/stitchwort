@@ -7,7 +7,7 @@ expression: output
    │
  3 │ def above: Type 65536 := Type 65535
    │                 ──┬──  
-   │                   ╰──── universe level is too large
+   │                   ╰──── 
    │ 
    │ Note: the largest universe is `Type 65535`
 ───╯

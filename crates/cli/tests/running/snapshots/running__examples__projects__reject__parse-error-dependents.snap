@@ -7,7 +7,7 @@ expression: output
    │
  5 │ def pick (n: Nat: Nat := match n with
    │                 ┬  
-   │                 ╰── expected `)` to close the parameter `(n: …`, but found `:`
+   │                 ╰── 
 ───╯
 [E-USES-FAILED] Error: `pick` has an error, so `seven` can't be checked until it's fixed
    ╭─[ parse-error-dependents/src/other.sw:3:13 ]

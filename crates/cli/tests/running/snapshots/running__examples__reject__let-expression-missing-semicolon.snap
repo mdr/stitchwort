@@ -7,7 +7,7 @@ expression: output
    │
  4 │ def square (n: Nat): Nat := (let x := n + 1 in x * x)
    │                                                     ┬  
-   │                                                     ╰── expected `;` after the value of `let`, but found `)`
+   │                                                     ╰── 
    │ 
    │ Note: an expression `let` is written `(let x := e; body)`; `in` is membership, not a separator
 ───╯

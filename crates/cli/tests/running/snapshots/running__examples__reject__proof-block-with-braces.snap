@@ -7,7 +7,7 @@ expression: output
    │
  8 │   byComputing }
    │               ┬  
-   │               ╰── expected `|` and the fields to update, but found `}`
+   │               ╰── 
    │ 
    │ Note: braces make a record or a record update; a proof block is written by indentation, with each `let …` on its own line before the term
 ───╯

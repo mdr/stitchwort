@@ -7,7 +7,7 @@ expression: output
    │
  8 │     _ ≤ m := h
    │     ┬  
-   │     ╰── expected an expression, but the next `calc` step starts here
+   │     ╰── 
    │ 
    │ Note: inside a `calc`, a line starting with `_` is the next step, even inside brackets: is a bracket on the step above left open?
 ───╯

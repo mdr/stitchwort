@@ -10,7 +10,7 @@ expression: output
    │     ╰── the first alternative has 2
  8 │   | x => x
    │   ─┬─  
-   │    ╰─── this alternative has 1 pattern, but the first has 2
+   │    ╰─── 
    │ 
    │ Note: every alternative of a clause lambda has one pattern for each parameter
 ───╯

@@ -7,7 +7,7 @@ expression: output
    │
  3 │ theorem t (xs: List Nat) (h: 1 < 2): 0 < 2 := arithmetic [h, ..xs]
    │                                                              ──┬─  
-   │                                                                ╰─── a list of facts can't have a `..` spread
+   │                                                                ╰─── 
    │ 
    │ Note: this list is the facts to use, one term each; `..` builds a list value
 ───╯

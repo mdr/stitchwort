@@ -7,7 +7,7 @@ expression: output
    │
  4 │ def [beats] (n: Nat): Nat := n
    │     ┬  
-   │     ╰── expected a name, but found `[`
+   │     ╰── 
 ───╯
 [E-USES-FAILED] Error: `A` has a syntax error, so `beats` can't be found
    ╭─[ syntax-error-lost-name/src/b.sw:4:11 ]

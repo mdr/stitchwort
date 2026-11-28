@@ -7,7 +7,7 @@ expression: output
    │
  7 │   rewrite h in byComputing
    │             ─┬  
-   │              ╰── write `then`, not `in`, after `rewrite`
+   │              ╰── 
    │ 
    │ Note: the proof that follows a `rewrite` comes after `then`: `rewrite … then t`; `in` is only a membership test
 ───╯

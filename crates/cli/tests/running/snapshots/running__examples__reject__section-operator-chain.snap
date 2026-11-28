@@ -7,7 +7,7 @@ expression: output
    │
  6 │ def f (xs: List Nat): List Nat := xs.map (+ 1 + 2)
    │                                               ┬  
-   │                                               ╰── expected `)` after the operand of a section, but found `+`
+   │                                               ╰── 
    │ 
    │ Note: a section takes one operand, the one that binds tighter than its operator: bracket a longer one, as in `(+ (1 + 2))`
 ───╯

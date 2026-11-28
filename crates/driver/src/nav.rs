@@ -510,7 +510,13 @@ pub fn index_data_of(
                     symbol.span.file,
                     text,
                     user(symbol.span.file),
-                    || stitchwort_syntax::docs::docs(symbol.span.file, text),
+                    || {
+                        stitchwort_syntax::docs::docs(
+                            symbol.span.file,
+                            text,
+                            session.elab.options.limits.stack,
+                        )
+                    },
                 )
             })
             .get(&symbol.span.start)
@@ -537,6 +543,7 @@ pub fn index_data_of(
                                         stitchwort_syntax::docs::file_imports(
                                             symbol.span.file,
                                             text,
+                                            session.elab.options.limits.stack,
                                         )
                                     },
                                 )

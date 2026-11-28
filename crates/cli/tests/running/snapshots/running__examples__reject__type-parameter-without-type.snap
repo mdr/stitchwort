@@ -7,7 +7,7 @@ expression: output
    │
  7 │ type Keypad k = { place: k → Position, gap: Position }
    │             ┬  
-   │             ╰── a type's parameter `k` needs its type, in brackets
+   │             ╰── 
    │ 
    │ Note: write `type Keypad (k: Type) …`
 ───╯

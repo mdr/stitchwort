@@ -7,5 +7,5 @@ expression: output
    │
  4 │   n is ${n +
    │        ──┬──  
-   │          ╰──── a `${…}` in a `"""` text stays on one line
+   │          ╰──── 
 ───╯

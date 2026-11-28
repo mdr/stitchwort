@@ -7,7 +7,7 @@ expression: output
    │
  5 │ type Tagged [a: Type] (x: a) =
    │             ────┬────  
-   │                 ╰────── a type's parameters in brackets must be `auto`, like `[auto ord: Ord k]`
+   │                 ╰────── 
    │ 
    │ Note: a type's other parameters are always given, so they're written `(a: Type)`
 ───╯

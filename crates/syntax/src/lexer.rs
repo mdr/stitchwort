@@ -352,6 +352,16 @@ fn starts_declaration(line: &[u8]) -> bool {
 /// such line below it, less the comments just before that one. A file that
 /// lexes gives the tokens of [`lex_with_bars`] and no failures.
 pub fn lex_recovering(file: FileId, text: &str) -> Recovered {
+    if let Some(error) = size_error(text.len()) {
+        return Recovered {
+            tokens: Vec::new(),
+            bars: Vec::new(),
+            failures: vec![LexFailure {
+                error,
+                range: 0..text.len(),
+            }],
+        };
+    }
     let bytes = text.as_bytes();
     // Searched by byte, since an error's span can end inside a character
     // (a `ℕ`); a line start is always a character boundary.
@@ -443,6 +453,20 @@ pub fn lex_recovering(file: FileId, text: &str) -> Recovered {
 /// does: the declarations that don't lex are blanked out (their trivia goes
 /// with them) and listed, and the rest keep their positions.
 pub fn lex_recovering_with_trivia(file: FileId, text: &str) -> (Lexed, Vec<LexFailure>) {
+    if let Some(error) = size_error(text.len()) {
+        return (
+            Lexed {
+                tokens: Vec::new(),
+                trivia: Vec::new(),
+                eof: Trivia::default(),
+                bars: Vec::new(),
+            },
+            vec![LexFailure {
+                error,
+                range: 0..text.len(),
+            }],
+        );
+    }
     if let Ok(lexed) = lex_keeping(file, text, true) {
         return (lexed, Vec::new());
     }
@@ -471,7 +495,27 @@ pub fn lex_recovering_with_trivia(file: FileId, text: &str) -> (Lexed, Vec<LexFa
 /// `trivia` and `eof` are empty). Only the formatter needs it, and it takes
 /// more memory than the tokens, so checking doesn't record it.
 fn lex_keeping(file: FileId, text: &str, keep_trivia: bool) -> Result<Lexed, Diagnostic> {
+    if let Some(error) = size_error(text.len()) {
+        return Err(error);
+    }
     lex_from(file, text, 0, keep_trivia, None).map(|(lexed, _)| lexed)
+}
+
+/// Why `text` can't be lexed: a [`Span`] is 32-bit, so a source over
+/// `u32::MAX` bytes would wrap. `None` when it fits ([`Span`]'s limit).
+fn size_error(len: usize) -> Option<Diagnostic> {
+    let limit = u32::MAX as usize;
+    (len > limit).then(|| {
+        Diagnostic::error(
+            "E-RESOURCE",
+            format!(
+                "ran out of resources: the source is too large to lex ({len} bytes; the limit is 4 GiB)"
+            ),
+        )
+        .with_note(
+            "this isn't a syntax error: source positions are 32-bit, so a file must be at most 4 GiB",
+        )
+    })
 }
 
 /// Lexes `text` from `from`. With `interp: Some(dollar)`, `from` is just
@@ -1535,10 +1579,11 @@ fn alias_list() -> String {
         .join(", ")
 }
 
+/// An `E-PARSE` error over `start..end`. The label is empty: the message
+/// already says what went wrong, and repeating it under the caret adds
+/// nothing.
 fn error(file: FileId, start: usize, end: usize, message: impl Into<String>) -> Diagnostic {
-    let message = message.into();
-    Diagnostic::error("E-PARSE", message.clone())
-        .with_label(Span::new(file, start as u32, end as u32), message)
+    Diagnostic::error("E-PARSE", message).with_label(Span::new(file, start as u32, end as u32), "")
 }
 
 #[cfg(test)]
@@ -2348,6 +2393,25 @@ mod tests {
         assert_eq!(failure("a # b").message, "unexpected character `#`");
     }
 
+    // F9: a source over 4 GiB is refused, checked from its length so the
+    // test doesn't build one.
+    #[test]
+    fn sources_over_the_span_limit_are_refused() {
+        let limit = u32::MAX as usize;
+        assert!(size_error(0).is_none());
+        assert!(size_error(limit).is_none());
+        let d = size_error(limit + 1).expect("over the limit");
+        assert_eq!(d.code, "E-RESOURCE");
+        assert!(d.is_resource());
+        assert!(
+            d.message
+                .starts_with("ran out of resources: the source is too large to lex"),
+            "{}",
+            d.message
+        );
+        assert!(d.notes[0].contains("32-bit"), "{d:?}");
+    }
+
     #[test]
     fn error_spans_point_at_the_problem() {
         // A comment in a `${…}` runs to the end of the line and takes the `}`,
@@ -2361,7 +2425,7 @@ mod tests {
         let span = d.primary_span().expect("a label");
         assert_eq!((span.start, span.end), (10, 14));
         assert_eq!(&text[span.start as usize..span.end as usize], "-- }");
-        assert_eq!(d.labels[0].message, d.message);
+        assert!(d.labels[0].message.is_empty());
 
         // A `${…}` that really does reach the newline spans from `${` to it.
         let text = "\"\"\"\n  ${f\n  x}\n  \"\"\"";

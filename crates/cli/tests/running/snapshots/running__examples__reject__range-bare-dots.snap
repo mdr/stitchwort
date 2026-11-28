@@ -7,7 +7,7 @@ expression: output
    │
  5 │ def numbers (n: Nat): List Nat := 1 .. n
    │                                     ─┬  
-   │                                      ╰── a range is `a ..< b` (up to, not including, `b`) or `a ..= b` (through `b`)
+   │                                      ╰── 
    │                                      │  
    │                                      ╰── write `..<` or `..=` here
 ───╯

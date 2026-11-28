@@ -7,7 +7,7 @@ expression: output
    │
  7 │ def number(): {Parse Char} Nat := (char ','; nat();)
    │                                                   ┬  
-   │                                                   ╰── `;` needs an expression after it: `(a; b)` runs `a`, then gives `b`'s value
+   │                                                   ╰── 
    │ 
    │ Note: `;` goes between two expressions: leave out a `;` at the end
 ───╯

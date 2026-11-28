@@ -9,7 +9,7 @@ expression: output
    │          ──────┬───── ──┬─  
    │                ╰──────────── these braces are matched as `Cons`'s own
    │                         │   
-   │                         ╰─── braces after `Cons` in a pattern take no further arguments
+   │                         ╰─── 
    │ 
    │ Note: to match a record as `Cons`'s first argument and then more, write it in brackets: `Cons ({ … }) …`
 ───╯

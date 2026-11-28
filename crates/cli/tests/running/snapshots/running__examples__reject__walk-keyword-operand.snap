@@ -7,5 +7,5 @@ expression: output
    │
  4 │ def a (x y: Nat): Nat := x + byWalking [y]
    │                              ────┬────  
-   │                                  ╰────── expected an expression, but found `byWalking`
+   │                                  ╰────── 
 ───╯

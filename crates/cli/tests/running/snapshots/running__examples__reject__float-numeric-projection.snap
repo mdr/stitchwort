@@ -7,7 +7,7 @@ expression: output
    │
  6 │ def first: Nat := pair.0.1
    │                       ┬  
-   │                       ╰── expected a field name after `.`
+   │                       ╰── 
    │ 
    │ Note: `.` is for field access, as in `p.name`
 ───╯

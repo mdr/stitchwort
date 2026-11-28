@@ -7,7 +7,7 @@ expression: output
    │
  7 │ opaque theorem oneIsOne: 1 = 1 := byComputing
    │        ───┬───  
-   │           ╰───── a theorem can't be `opaque`
+   │           ╰───── 
    │ 
    │ Note 1: a theorem is already sealed: other declarations use only its statement
    │ 

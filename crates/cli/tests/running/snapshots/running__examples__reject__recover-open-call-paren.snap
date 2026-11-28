@@ -7,7 +7,7 @@ expression: output
     │
   9 │   g (
     │      │ 
-    │      ╰─ expected an expression, but the line ends here
+    │      ╰─ 
  10 │   let y := 1
     │   ─┬─  
     │    ╰─── this line starts a new statement

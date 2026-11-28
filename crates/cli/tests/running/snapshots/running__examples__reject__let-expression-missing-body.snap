@@ -7,5 +7,5 @@ expression: output
    │
  3 │ def square (n: Nat): Nat := (let x := n + 1;)
    │                                             ┬  
-   │                                             ╰── `let` needs a body after `;`: `(let x := e; body)`
+   │                                             ╰── 
 ───╯
