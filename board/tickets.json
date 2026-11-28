@@ -22793,12 +22793,12 @@
     {
       "id": 5002,
       "title": "Docs: the guide test is in the tools binary (--test tools -E 'test(/the_guide_quotes/)'), not --test guide; stitchwort check --std --std-dir . runs from crates/elab/src/std; say both in docs/guide/README.md and docs/testing.md (SW-5000 friction)",
-      "status": "backlog",
+      "status": "doing",
       "agent": "DeepSeek",
       "where": "",
       "labels": [],
       "epic": "docs-tutorials",
-      "body": "From SW-5000.",
+      "body": "From SW-5000.\n\nRun with SW-5006 in one DeepSeek clone (scratch-sw-5006).",
       "created": "2026-11-28",
       "updated": "2026-11-28",
       "commits": []
@@ -22861,7 +22861,7 @@
     {
       "id": 5006,
       "title": "Examples test: rejected_projects treats a stray .stitchwort cache folder in examples/projects/reject/ as a project and panics ('a project has a stitchwort.yaml'); skip dot folders",
-      "status": "backlog",
+      "status": "doing",
       "agent": "DeepSeek",
       "where": "",
       "labels": [],
@@ -22874,7 +22874,7 @@
     {
       "id": 5007,
       "title": "Stream.findRepeat: prove minimality (no earlier repeat) and a None law (no repeat below the limit); strengthen the seen-map invariant (est. ~40 lines)",
-      "status": "backlog",
+      "status": "doing",
       "agent": "Sonnet",
       "where": "",
       "labels": [],
@@ -22913,7 +22913,7 @@
     {
       "id": 5010,
       "title": "rewrite/byComputing on a stream of an expensive step unfold into the step's heavy closed term (W-REWRITE-UNCONFIRMED, E-REWRITE-BUDGET; 2021 day 11 flashesInSucc took 12M steps); stop at the stream's structure",
-      "status": "backlog",
+      "status": "doing",
       "agent": "Opus",
       "where": "",
       "labels": [],
@@ -22939,12 +22939,12 @@
     {
       "id": 5012,
       "title": "Std.Stream: value-level iterate lemmas stated for any f (like iterateTakeSucc: atSucc, dropIterate, findIndex over iterate) so proofs don't compute an expensive step",
-      "status": "backlog",
+      "status": "doing",
       "agent": "Sonnet",
       "where": "",
       "labels": [],
       "epic": "std-library",
-      "body": "From SW-5005.",
+      "body": "From SW-5005.\n\nRun in SW-5007's lane (same file), orchestrator's call.",
       "created": "2026-11-28",
       "updated": "2026-11-28",
       "commits": []
