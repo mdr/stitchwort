@@ -1,5 +1,5 @@
 {
-  "next": 5000,
+  "next": 5001,
   "tickets": [
     {
       "id": 47,
@@ -22753,6 +22753,19 @@
       "labels": [],
       "epic": "docs-tutorials",
       "body": "SW-4997 lost a minute to it.",
+      "created": "2026-11-28",
+      "updated": "2026-11-28",
+      "commits": []
+    },
+    {
+      "id": 5000,
+      "title": "Streams S1: the rest of Std.Stream (zipWith, drop, interleave, repeat, scan, fromFn, find, fold, bisimOn, unfold's uniqueness, the at-laws), each with its laws; a guide section teaching head/tail recursion first; docs/syntax.md line",
+      "status": "doing",
+      "agent": "Sonnet",
+      "where": "",
+      "labels": [],
+      "epic": "std-library",
+      "body": "Matt, 28 Nov: 'Proceed.' (after S0, SW-4997). Plan: docs/proposals/streams-head-tail.md §6 S1. Expected: 50 min.",
       "created": "2026-11-28",
       "updated": "2026-11-28",
       "commits": []
