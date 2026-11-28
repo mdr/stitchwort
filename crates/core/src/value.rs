@@ -6553,6 +6553,9 @@ pub fn next_parameter(g: &Ev, value: &Value) -> Option<(Icit, ProofMark)> {
 
 /// Whether `value` is a definition applied to all its arguments that
 /// [`same_stuck_trees`] can compare with another by its case tree.
+/// Recursive definitions don't open by tree, and a group of more than one
+/// member is recursive, so a test that means to exercise the tree comparison
+/// needs each definition in its own group.
 pub fn opens_by_tree(g: &Ev, value: &Value) -> bool {
     let Value::Neutral(Head::Def(id), spine) = value else {
         return false;

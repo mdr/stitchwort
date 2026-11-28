@@ -212,6 +212,12 @@ pub fn ctor(name: &str, fields: Vec<(&str, Term)>) -> CtorDecl {
     }
 }
 
+/// Declares `name : ty`, leaving it pending. Anything that refers to it
+/// before a body is installed is refused as "isn't finished", unless it is
+/// being admitted in the same group. For an axiom, a final constant with no
+/// body that never unfolds, call `check::assume` instead (see
+/// `assumptions.rs`): a trusted group installs a body for every member, so
+/// `declare` plus one can't make a bodiless axiom.
 pub fn declare(g: &mut Kernel, name: &str, ty: Term) -> DefId {
     check::declare_def(g, &name.into(), &name.into(), &ty, false, false, span())
         .expect("type checks")
