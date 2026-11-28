@@ -668,8 +668,9 @@ fn meet_in_evaluation(g: &Ev, x: &Value, y: &Value) -> Result<bool> {
 /// (the soundness examples do), since it walks both values whole.
 #[cfg(feature = "test-bypass")]
 pub mod check_levels {
-    use super::{Closure, Elim, Head, Value};
+    use super::{Closure, Elim, Head, Shared, Value};
     use crate::collections::HashSet;
+    use std::rc::Rc;
     use std::sync::atomic::{AtomicBool, Ordering};
 
     static ON: AtomicBool = AtomicBool::new(false);
@@ -686,42 +687,61 @@ pub mod check_levels {
     }
 
     /// Panics if `x` or `y` holds a variable at `start` or above (the
-    /// marker levels apart), walking closures' environments and stuck
-    /// casts' ends but forcing nothing.
+    /// marker levels apart), walking closures' environments, stuck casts'
+    /// ends and a resumption's captured frames but forcing nothing. Each
+    /// shared part (a closure's environment, a constructor's fields, a
+    /// spine, a shared value) is walked once, by address, so the walk is
+    /// the value's size in memory however much of it is shared.
     pub(super) fn below(start: usize, x: &Value, y: &Value) {
         if !on() {
             return;
         }
-        let mut seen: HashSet<*const ()> = HashSet::default();
+        let mut seen: HashSet<usize> = HashSet::default();
         let mut work = vec![x.clone(), y.clone()];
-        let closure = |c: &Closure, work: &mut Vec<Value>, seen: &mut HashSet<*const ()>| {
-            if seen.insert(c.env.as_ptr().cast()) {
+        let closure = |c: &Closure, work: &mut Vec<Value>, seen: &mut HashSet<usize>| {
+            if seen.insert(c.env.as_ptr() as usize) {
                 work.extend(c.env.iter().cloned());
+            }
+        };
+        let shared = |s: &Shared, work: &mut Vec<Value>, seen: &mut HashSet<usize>| {
+            if seen.insert(Rc::as_ptr(s.rc()) as usize) {
+                work.push((**s).clone());
             }
         };
         while let Some(value) = work.pop() {
             match &value {
                 Value::Sort(_) | Value::Nat(_) | Value::Chars(_) | Value::Refl => {}
-                Value::Resumption(_) => {}
+                Value::Resumption(capture) => {
+                    if seen.insert(Rc::as_ptr(capture) as usize) {
+                        capture.values(&mut work);
+                    }
+                }
                 Value::Pi(_, _, a, b, _) => {
-                    work.push((**a).clone());
+                    shared(a, &mut work, &mut seen);
                     closure(b, &mut work, &mut seen);
                 }
                 Value::Lam(_, _, b, _) => closure(b, &mut work, &mut seen),
                 Value::Data(_, args) => work.extend(args.iter().cloned()),
                 Value::Ctor(_, _, fields) => {
-                    if seen.insert(fields.as_ptr().cast()) {
+                    if seen.insert(fields.as_ptr() as usize) {
                         work.extend(fields.iter().cloned());
                     }
                 }
-                Value::NatAdd(_, x) => work.push((**x).clone()),
-                Value::Eq(a, x, y) => work.extend([(**a).clone(), (**x).clone(), (**y).clone()]),
+                Value::NatAdd(_, x) => shared(x, &mut work, &mut seen),
+                Value::Eq(a, x, y) => {
+                    for part in [a, x, y] {
+                        shared(part, &mut work, &mut seen);
+                    }
+                }
                 Value::Neutral(_, spine) | Value::Call(_, spine, _) => {
                     if let Value::Neutral(Head::Var(l, ..), _) = &value {
                         assert!(
                             *l < start || *l >= super::LEVEL_CAP,
                             "internal error: a test starting at level {start} compares a value holding the variable at level {l}"
                         );
+                    }
+                    if spine.addr() != 0 && !seen.insert(spine.addr()) {
+                        continue;
                     }
                     for elim in spine.iter() {
                         match elim {

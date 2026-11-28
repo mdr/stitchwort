@@ -540,7 +540,10 @@ tasks:
   # FUZZ_DUMP from the environment also apply (a given CASES or SEED wins
   # over the environment). The other fuzzers pass Task's CASES, SEED and
   # CORPUS on as FUZZ_CASES, FUZZ_SEED and FUZZ_CORPUS (unset: the test's
-  # default).
+  # default). The elab, soundness and kernel fuzzers also set
+  # STITCHWORT_CHECK_TEST_LEVELS=1: their binaries are built with core's
+  # `test-bypass` (through dev-features), where it turns on the level check
+  # at every rule K test (`value::check_levels`).
 
   fuzz:elab:
     desc: 'Elaborator fuzzer, release (task fuzz:elab CASES=2000 SEED=0x2 CORPUS=1)'
@@ -553,6 +556,7 @@ tasks:
       FUZZ_TO: '{{.TO}}'
       FUZZ_ONLY: '{{.ONLY}}'
       FUZZ_DUMP: '{{.DUMP}}'
+      STITCHWORT_CHECK_TEST_LEVELS: '1'
     cmds:
       - '{{.GUARD}} --cap-gb {{.MEM_CAP_BROAD}} -- cargo nextest run --release --workspace --no-capture -E ''binary(fuzz_elab)'' {{.CLI_ARGS}}'
 
@@ -568,6 +572,7 @@ tasks:
       SOUND_VOID: '{{.VOID}}'
       SOUND_SEED: '{{.SEED}}'
       SOUND_CORPUS: '{{.CORPUS}}'
+      STITCHWORT_CHECK_TEST_LEVELS: '1'
     cmds:
       - '{{.GUARD}} --cap-gb {{.MEM_CAP_BROAD}} -- cargo nextest run --release --workspace --no-capture -E ''binary(soundness_fuzz)'' {{.CLI_ARGS}}'
 
@@ -626,6 +631,7 @@ tasks:
     env:
       FUZZ_CASES: '{{.CASES}}'
       FUZZ_SEED: '{{.SEED}}'
+      STITCHWORT_CHECK_TEST_LEVELS: '1'
     cmds:
       - '{{.GUARD}} --cap-gb {{.MEM_CAP_BROAD}} -- cargo nextest run --release --workspace --no-capture -E ''package(stitchwort-core) & binary(it) & test(/^fuzz::/)'' {{.CLI_ARGS}}'
 
