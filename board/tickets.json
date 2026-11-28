@@ -1,5 +1,5 @@
 {
-  "next": 5003,
+  "next": 5006,
   "tickets": [
     {
       "id": 47,
@@ -22777,12 +22777,12 @@
     {
       "id": 5001,
       "title": "Std.Stream: a pass over Base.sw and Stream.sw writing in full every dot call whose name a Stream function also has, before S2 adds more (SW-5000 hit Front.step's .drop); or fix SW-4989 first",
-      "status": "backlog",
+      "status": "done",
       "agent": "DeepSeek",
       "where": "",
       "labels": [],
       "epic": "std-library",
-      "body": "From SW-5000's friction.",
+      "body": "From SW-5000's friction.\n\nFolded into SW-5003 (S2), which edits the same file.",
       "created": "2026-11-28",
       "updated": "2026-11-28",
       "commits": []
@@ -22796,6 +22796,45 @@
       "labels": [],
       "epic": "docs-tutorials",
       "body": "From SW-5000.",
+      "created": "2026-11-28",
+      "updated": "2026-11-28",
+      "commits": []
+    },
+    {
+      "id": 5003,
+      "title": "Streams S2: Stream.findRepeat and foldUntil with their laws, the stream timings in the performance log; and SW-5001's pass writing clashing dot calls in full",
+      "status": "doing",
+      "agent": "Sonnet",
+      "where": "",
+      "labels": [],
+      "epic": "std-library",
+      "body": "Matt, 28 Nov: 'Proceed with S2-S4 - I'm interested in which AoC days might genuinely benefit from streams'. Plan: docs/proposals/streams-head-tail.md §6.",
+      "created": "2026-11-28",
+      "updated": "2026-11-28",
+      "commits": []
+    },
+    {
+      "id": 5004,
+      "title": "Streams S3: E-TERMINATION on a definition whose result is a Stream points at Stream.unfold / Stream.iterate / Stream.repeat; a feature-tour page (web/guide/) on head/tail recursion over streams",
+      "status": "doing",
+      "agent": "Sonnet",
+      "where": "",
+      "labels": [],
+      "epic": "std-library",
+      "body": "Matt, 28 Nov: 'Proceed with S2-S4 - I'm interested in which AoC days might genuinely benefit from streams'. Plan: docs/proposals/streams-head-tail.md §6.",
+      "created": "2026-11-28",
+      "updated": "2026-11-28",
+      "commits": []
+    },
+    {
+      "id": 5005,
+      "title": "Streams S4: which AoC days genuinely benefit from Std.Stream (survey all of aoc/, with reasons), then rewrite the best one or two on streams with friction notes; judge the proof style and whether the re-walk shows",
+      "status": "doing",
+      "agent": "Opus",
+      "where": "",
+      "labels": [],
+      "epic": "std-library",
+      "body": "Matt, 28 Nov: 'Proceed with S2-S4 - I'm interested in which AoC days might genuinely benefit from streams'. Plan: docs/proposals/streams-head-tail.md §6.",
       "created": "2026-11-28",
       "updated": "2026-11-28",
       "commits": []
