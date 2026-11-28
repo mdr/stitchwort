@@ -1,5 +1,5 @@
 {
-  "next": 5001,
+  "next": 5003,
   "tickets": [
     {
       "id": 47,
@@ -22760,12 +22760,42 @@
     {
       "id": 5000,
       "title": "Streams S1: the rest of Std.Stream (zipWith, drop, interleave, repeat, scan, fromFn, find, fold, bisimOn, unfold's uniqueness, the at-laws), each with its laws; a guide section teaching head/tail recursion first; docs/syntax.md line",
-      "status": "review",
+      "status": "done",
       "agent": "Sonnet",
       "where": "",
       "labels": [],
       "epic": "std-library",
-      "body": "Matt, 28 Nov: 'Proceed.' (after S0, SW-4997). Plan: docs/proposals/streams-head-tail.md §6 S1. Expected: 50 min.\n\nLane (Sonnet): S1 done in e0d70384c: functions, laws, bisimOn, unfoldUnique, guide ch. 7 section, syntax.md entry. Timings at 20,000 values: take/find/fold ~0.1 s each.",
+      "body": "Matt, 28 Nov: 'Proceed.' (after S0, SW-4997). Plan: docs/proposals/streams-head-tail.md §6 S1. Expected: 50 min.\n\nLane (Sonnet): S1 done in e0d70384c: functions, laws, bisimOn, unfoldUnique, guide ch. 7 section, syntax.md entry. Timings at 20,000 values: take/find/fold ~0.1 s each.\n\nDone (Sonnet): Stream.sw +251 lines, 10 tests, guide section 'Infinite streams' in 07-recursion.md (head/tail recursion first) with examples/streams.sw, syntax.md entry. zipWith/interleave/scan built on unfold (tail laws by computing, no new walk proofs). Longest proof 20 lines (bisimOn). Timings at 20,000: take 0.11 s, find 0.13 s, fold 0.13 s. Orchestrator checked the 42 statements (D2436): each says what its name claims, none weakened. Model result: sonnet, worked, ~8 min (est. 50).",
+      "created": "2026-11-28",
+      "updated": "2026-11-28",
+      "commits": [
+        "e0d70384c",
+        "1f1d83c9a",
+        "b9b16d4e6"
+      ]
+    },
+    {
+      "id": 5001,
+      "title": "Std.Stream: a pass over Base.sw and Stream.sw writing in full every dot call whose name a Stream function also has, before S2 adds more (SW-5000 hit Front.step's .drop); or fix SW-4989 first",
+      "status": "backlog",
+      "agent": "DeepSeek",
+      "where": "",
+      "labels": [],
+      "epic": "std-library",
+      "body": "From SW-5000's friction.",
+      "created": "2026-11-28",
+      "updated": "2026-11-28",
+      "commits": []
+    },
+    {
+      "id": 5002,
+      "title": "Docs: the guide test is in the tools binary (--test tools -E 'test(/the_guide_quotes/)'), not --test guide; stitchwort check --std --std-dir . runs from crates/elab/src/std; say both in docs/guide/README.md and docs/testing.md (SW-5000 friction)",
+      "status": "backlog",
+      "agent": "DeepSeek",
+      "where": "",
+      "labels": [],
+      "epic": "docs-tutorials",
+      "body": "From SW-5000.",
       "created": "2026-11-28",
       "updated": "2026-11-28",
       "commits": []
