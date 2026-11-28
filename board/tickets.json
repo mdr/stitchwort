@@ -21121,15 +21121,17 @@
     {
       "id": 4907,
       "title": "[DeepSeek] docs/workflow.md 'Writing a brief': a sweep that deletes AoC lemmas greps crates/driver/tests/search_at_aoc.rs for the names it drops (its cases anchor on file text; SW-2167 broke one); and a bisect worktree outside .claude/worktrees needs .claude/worktrees/.cargo/config.toml copied to a parent folder for kache (SW-4900 findings)",
-      "status": "backlog",
+      "status": "done",
       "agent": "",
       "where": "",
       "labels": [],
       "epic": "docs-tutorials",
-      "body": "",
+      "body": "Done by the orchestrator (two doc lines, paths checked): docs/workflow.md 'Writing a brief' gains the AoC-lemma sweep and the out-of-tree kache lines.",
       "created": "2026-11-27",
-      "updated": "2026-11-27",
-      "commits": []
+      "updated": "2026-11-28",
+      "commits": [
+        "3718e4dd2"
+      ]
     },
     {
       "id": 4908,
