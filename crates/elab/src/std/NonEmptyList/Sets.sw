@@ -46,3 +46,9 @@ test "NonEmptyList.intersectAll, unionAll" :=
   ({ head = a, tail = [b, c] }: NonEmptyList (Set Nat)).intersectAll == Set.fromList [3]
     ∧ ({ head = a, tail = [b, c] }: NonEmptyList (Set Nat)).unionAll == Set.fromList [1, 2, 3, 4, 5]
     ∧ (NonEmptyList.singleton a).intersectAll == a
+
+--| The distinct elements as a `Set` ([`NonEmptyList.toSetToList`]).
+def NonEmptyList.toSet [auto ord: Ord k] (xs: NonEmptyList k): Set k := List.toSet xs.toList
+
+theorem NonEmptyList.toSetToList ∀ [auto ord: Ord k] (xs: NonEmptyList k): xs.toSet = List.toSet xs.toList :=
+  byComputing
