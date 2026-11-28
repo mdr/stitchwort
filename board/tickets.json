@@ -21413,7 +21413,7 @@
     {
       "id": 4921,
       "title": "[DeepSeek] docs/core.md wording after SW-4914: is_type_former stops at RESERVED_LEVELS (2^31 on 32-bit), not 2^40, and for a different reason than the cap; point (2) says every variable still live (same_trees_of gives its levels back early); 'alike on every target' is the rule, not the room. Also the E-RESOURCE text 'the program is nested too deeply for the comparison' reads oddly for a computed-deep type: reword",
-      "status": "backlog",
+      "status": "doing",
       "agent": "",
       "where": "",
       "labels": [
@@ -21422,7 +21422,7 @@
       "epic": "elaborator-kernel",
       "body": "From docs/reviews/SW-4914-fable-review.md suggestion 4 and the lane's finding. Suggestion 5 (measure is_type_former's steps per binder on 32-bit) can go with it if cheap.",
       "created": "2026-11-27",
-      "updated": "2026-11-27",
+      "updated": "2026-11-28",
       "commits": []
     },
     {
@@ -21927,7 +21927,7 @@
     {
       "id": 4951,
       "title": "search patterns: a project type clashing with a std one can't be named (Pair → Nat gives E-ARITY via Std.Pair) though a project's lowercase length wins over std's",
-      "status": "backlog",
+      "status": "doing",
       "agent": "",
       "where": "",
       "labels": [
@@ -21936,7 +21936,7 @@
       "epic": "proof-search",
       "body": "[Opus] From SW-4947 (27 Nov): shadowing in patterns is inconsistent.",
       "created": "2026-11-27",
-      "updated": "2026-11-27",
+      "updated": "2026-11-28",
       "commits": []
     },
     {
