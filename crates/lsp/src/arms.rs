@@ -244,6 +244,19 @@ pub fn split_hole(
     {
         return None;
     }
+    // Alone on its line, the `?` is a whole body only if the code before
+    // it ends in `:=` or `=>`: otherwise it is an argument or an element
+    // continued on the next line (`n +` / `?`). Blank and comment-only
+    // lines don't count (`--` is the only comment form).
+    if before.is_empty() {
+        let previous = lines[..hl].iter().rev().find_map(|l| {
+            let code = l.split("--").next().unwrap_or("").trim_end();
+            (!code.trim().is_empty()).then_some(code)
+        });
+        if !previous.is_some_and(|p| p.ends_with(":=") || p.ends_with("=>")) {
+            return None;
+        }
+    }
     let used = names_in_declaration(&lines, hl);
     let arms = |prefix: &str, edits: &mut Vec<String>, indent: usize| {
         for pattern in patterns {

@@ -2490,3 +2490,43 @@ fn a_second_search_with_a_cache_folder_replays_no_equations() {
         assert_eq!(hits2, hits1, "the second search replayed equations");
     });
 }
+
+#[test]
+fn a_hole_that_is_a_whole_body_is_split_in_each_position() {
+    big_stack(|| {
+        let after_define = "namespace Demo\n\ndef f (n: Nat): Nat := ?\n";
+        let after_arrow =
+            "namespace Demo\n\ndef f (n: Nat): Nat := match n with\n  | 0 => 0\n  | m => ?\n";
+        let alone = "namespace Demo\n\ndef f (n: Nat): Nat :=\n  -- the body\n  ?\n";
+        let mut s = Session::open(after_define);
+        for (version, text) in [(2, after_define), (3, after_arrow), (4, alone)] {
+            let (titles, _) = split_at(&mut s, version, text, hole(text, 0), "");
+            assert!(!titles.is_empty(), "no split on a whole body: {text:?}");
+        }
+    });
+}
+
+#[test]
+fn a_hole_inside_an_expression_is_not_split() {
+    big_stack(|| {
+        let inline = "namespace Demo\n\ndef f (n: Nat): Nat := n + ?\n";
+        let front = "namespace Demo\n\ndef f (n: Nat): Nat := ? + n\n";
+        let list = "namespace Demo\n\ndef f (n: Nat): List Nat := [?, n]\n";
+        let own_line = "namespace Demo\n\ndef f (n: Nat): Nat := n +\n  ?\n";
+        let list_line = "namespace Demo\n\ndef f (n: Nat): List Nat := [n,\n  ?\n]\n";
+        let mut s = Session::open(inline);
+        for (version, text) in [
+            (2, inline),
+            (3, front),
+            (4, list),
+            (5, own_line),
+            (6, list_line),
+        ] {
+            let (titles, _) = split_at(&mut s, version, text, hole(text, 0), "");
+            assert!(
+                titles.is_empty(),
+                "split offered inside {text:?}: {titles:?}"
+            );
+        }
+    });
+}
