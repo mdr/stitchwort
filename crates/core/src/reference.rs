@@ -1050,7 +1050,17 @@ pub fn quote(g: &Ev, level: usize, value: &Value) -> Result<Term> {
         Value::Refl => Term::Refl,
         Value::Neutral(head, spine) => {
             let (mut term, rest) = match head {
-                Head::Var(l, _, _) => (Term::Var(level - 1 - l), &spine[..]),
+                // Checked in release builds too: past it, the index wraps
+                // to one no context has, which a printer shows as some
+                // other name rather than failing.
+                Head::Var(l, _, _) => {
+                    assert!(
+                        l < level,
+                        "internal error: variable at level {l} read back with {level} in scope: \
+                         the caller is quoting outside the context the value was made in"
+                    );
+                    (Term::Var(level - 1 - l), &spine[..])
+                }
                 Head::Def(id) => (Term::Def(id), &spine[..]),
                 Head::Meta(m) => (Term::Meta(m), &spine[..]),
                 Head::Quot(form, mark) => quote_quot(g, level, form, mark, &spine)?,
@@ -1986,5 +1996,21 @@ fn validate_local_marks(term: &Term, name: &str) {
             mark != ProofMark::Unknown,
             "internal error: in `{name}`, a checked {what} has no proof mark"
         );
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    /// Reading back a variable from outside the context, `level - 1 - l` with
+    /// `l ≥ level`, would wrap to an index no context has: a caller quoting in
+    /// the wrong context. It is an internal error in every build, as in
+    /// `value.rs`'s quote (SW-3593).
+    #[test]
+    #[should_panic(expected = "variable at level 0 read back with 0 in scope")]
+    fn a_variable_outside_the_context_does_not_read_back() {
+        let g = crate::globals::Kernel::default();
+        let _ = quote(&g.ev(), 0, &Value::var(0));
     }
 }
