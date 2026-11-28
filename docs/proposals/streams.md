@@ -1,5 +1,7 @@
 # Proposal: infinite streams
 
+**See also:** [streams-head-tail.md](streams-head-tail.md) (SW-4993, 28 Nov): head/tail recursion made linear with no trusted code, weighed against a lazy runtime and kernel coinduction; D3775 replaces the revised D3772.
+
 **See also:** [streams-one-type.md](streams-one-type.md) (SW-4988, 28 Nov) replaces D3772 and changes the shape of D3770's type: one `Stream` type that is fast to walk, with no `Stream.Gen`.
 
 **Status:** draft 1, 27 November 2026. Ticket SW-4962 (Fable, paper), from

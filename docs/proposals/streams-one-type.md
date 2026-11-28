@@ -1,5 +1,7 @@
 # Proposal: one stream type that is fast to walk
 
+**See also:** [streams-head-tail.md](streams-head-tail.md) (SW-4993, 28 Nov) removes the slow `s.tail` loop of §4 without trusted code, and replaces §6's decision with D3775.
+
 **Status:** draft 1, 28 November 2026. Ticket SW-4988 (Fable, paper), D3774.
 A follow-up to [streams.md](streams.md) (SW-4962), after Matt turned down
 D3772(a), its second type for speed: "having two types, one with a
