@@ -1,5 +1,5 @@
 {
-  "next": 4995,
+  "next": 4997,
   "tickets": [
     {
       "id": 47,
@@ -22614,7 +22614,7 @@
       "where": "",
       "labels": [],
       "epic": "syntax-language",
-      "body": "Repro in docs/proposals/streams/src/Probe/Walk.sw's history (SW-4988 report). Reproduce first.",
+      "body": "Repro in docs/proposals/streams/src/Probe/Walk.sw's history (SW-4988 report). Reproduce first.\n\nSecond instance (SW-4993): in Probe/Seq.sw, c.tail.drop k inside Cells.drop was grouped with Stream.drop, and (…).tail inside Front.step with Seq.tail; dot calls seem to count every same-named method in the file as a dependency.",
       "created": "2026-11-28",
       "updated": "2026-11-28",
       "commits": []
@@ -22653,7 +22653,7 @@
       "where": "",
       "labels": [],
       "epic": "effects-native",
-      "body": "Matt asked for this on 28 Nov, from the streams discussion (SW-4988).\n\nLean 4's @[csimp] (src/Lean/Compiler/CSimpAttr.lean, master, read 28 Nov):\n- The theorem must be exactly @f = @g, two bare constants with the same universe levels, with no parameters.\n- Code compiled after the theorem runs g. The type theory is unchanged.\n- Core uses it for tail-recursive list functions (append_eq_appendTR, map_eq_mapTR, src/Init/Data/List/Basic.lean).\n- @[implemented_by] is the unproved version; Stitchwort's analogue is a pinned native.\n\nQuestions for the note:\n- How the fast runtime, JS and native backends apply the swap.\n- Code compiled before the theorem, and imports.\n- Interaction with term hashes and the check cache.\n- What becomes trusted: only that the compiler swaps correctly.\n- Which std functions would benefit: deep recursion, closed forms. Measure first.\n\nDoesn't solve streams on its own: a stream stored as a bare function has no faster take to swap in. That needs a change of representation (SW-4988's walk field; Isabelle's code_datatype).",
+      "body": "Matt asked for this on 28 Nov, from the streams discussion (SW-4988).\n\nLean 4's @[csimp] (src/Lean/Compiler/CSimpAttr.lean, master, read 28 Nov):\n- The theorem must be exactly @f = @g, two bare constants with the same universe levels, with no parameters.\n- Code compiled after the theorem runs g. The type theory is unchanged.\n- Core uses it for tail-recursive list functions (append_eq_appendTR, map_eq_mapTR, src/Init/Data/List/Basic.lean).\n- @[implemented_by] is the unproved version; Stitchwort's analogue is a pinned native.\n\nQuestions for the note:\n- How the fast runtime, JS and native backends apply the swap.\n- Code compiled before the theorem, and imports.\n- Interaction with term hashes and the check cache.\n- What becomes trusted: only that the compiler swaps correctly.\n- Which std functions would benefit: deep recursion, closed forms. Measure first.\n\nDoesn't solve streams on its own: a stream stored as a bare function has no faster take to swap in. That needs a change of representation (SW-4988's walk field; Isabelle's code_datatype).\n\nUse case from SW-4993: streams option C (runtimes keep unfold's step and state) needs a swap that also changes a type's representation, not only a function.",
       "created": "2026-11-28",
       "updated": "2026-11-28",
       "commits": []
@@ -22661,15 +22661,18 @@
     {
       "id": 4993,
       "title": "Streams: cost a trusted lazy runtime (head/tail recursion one step) against the three-field Stream and kernel coinduction, with probes; recommend",
-      "status": "doing",
+      "status": "done",
       "agent": "Fable",
       "where": "",
       "labels": [],
       "epic": "syntax-language",
-      "body": "Matt, 28 Nov: 'tbh that's probably my first intuition I'd have about a stream, is it's something I could recurse on with head and tail'; 'Start the Fable paper lane to explore the space further.' Follows SW-4962 (docs/proposals/streams.md) and SW-4988 (docs/proposals/streams-one-type.md). Expected: 30 min.",
+      "body": "Matt, 28 Nov: 'tbh that's probably my first intuition I'd have about a stream, is it's something I could recurse on with head and tail'; 'Start the Fable paper lane to explore the space further.' Follows SW-4962 (docs/proposals/streams.md) and SW-4988 (docs/proposals/streams-one-type.md). Expected: 30 min.\n\nDone (Fable, paper): docs/proposals/streams-head-tail.md. Option E: Seq carries a finite front of cells behind Quot (Front.same), re-walking twice as far when it runs out; head/tail loop linear on average: 20,000 values 0.14 s (three-field 33.24 s), 2,000,000 2.32 s at 79 MB. Seq.ext, tailAt, iterate and map tail laws proved, Quot.sound only (orchestrator reran check/test 17 pass and axioms). Thunk alone doesn't fix the loop; option C (runtimes keep unfold's step and state, ~5 proved natives) fallback, simulated only; kernel coinduction does make the loop linear, D3771 stands. D3775 (E with pilot S0, rec yes), D3776 (C if E too heavy, decide later).",
       "created": "2026-11-28",
       "updated": "2026-11-28",
-      "commits": []
+      "commits": [
+        "a11a6bbe1",
+        "c31fbe901"
+      ]
     },
     {
       "id": 4994,
@@ -22680,6 +22683,32 @@
       "labels": [],
       "epic": "proof-search",
       "body": "Measured 28 Nov with scratchpad lsp-search-time/time_search.py (stitchwort/search over stdio, aoc/src/Aoc/Year2020/Day08/Day08.sw, main at about 3d909a131, load 5-8). First search: 33.35 s with the existing aoc cache, 31.54 s with an empty one; 1.48 s and 1.76 s in later fresh sessions; every later search in a session 0.30-0.42 s. Likely cause, inferred and not verified: today's crates/core changes altered the kernel fingerprint, so no entries carried over (elab cache Store::kernel). Check what the editor shows during the wait. Measure before building.",
+      "created": "2026-11-28",
+      "updated": "2026-11-28",
+      "commits": []
+    },
+    {
+      "id": 4995,
+      "title": "stitchwort test takes only one target: test Probe.Cursor Probe.Seq is refused while check takes several; take several (SW-4993 finding)",
+      "status": "backlog",
+      "agent": "DeepSeek",
+      "where": "",
+      "labels": [],
+      "epic": "diagnostics",
+      "body": "From SW-4993's report. Reproduce first.",
+      "created": "2026-11-28",
+      "updated": "2026-11-28",
+      "commits": []
+    },
+    {
+      "id": 4996,
+      "title": "Guide: an eagerly evaluated default argument (c.headOr (at 0)) is computed on every call even when unused; a line on passing a function instead, from a quadratic it hid in SW-4993",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "epic": "docs-tutorials",
+      "body": "SW-4993: computing at 0 on every call made a stream probe quadratic (20,000 values in 31 s); passing at fixed it.",
       "created": "2026-11-28",
       "updated": "2026-11-28",
       "commits": []
