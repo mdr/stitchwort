@@ -744,7 +744,11 @@ fn a_project_search_writes_the_scan_entry() {
         &cache.display().to_string(),
         &empty.display().to_string(),
     ]);
-    assert!(out.contains("A 1 scan"), "{out}");
+    let left_out = out
+        .lines()
+        .find(|l| l.starts_with("left out (build-specific): A "))
+        .unwrap_or_default();
+    assert!(left_out.contains(" 1 scan"), "{out}");
 }
 
 /// A project with a type, a `length` of its own, and a declaration that
