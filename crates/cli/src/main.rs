@@ -1167,7 +1167,7 @@ fn exit_quietly_on_broken_pipe() {
     }));
 }
 
-/// Runs a check, and if it panics (on this thread, or on a worker thread
+/// Runs a command, and if it panics (on this thread, or on a worker thread
 /// of `--jobs`, whose panic the fill or the check after it meets again
 /// here) reports `E-INTERNAL` naming the namespace being checked and the
 /// panic's message, and fails as a check with errors does. The default panic
@@ -1181,15 +1181,14 @@ fn internal_error_on_panic(run: impl FnOnce() -> ExitCode) -> ExitCode {
         .or_else(|| payload.downcast_ref::<&str>().copied())
         .unwrap_or("(a panic with no message)");
     let message = match stitchwort_driver::project::namespace_being_checked() {
-        Some(namespace) => format!("while checking namespace `{namespace}`: {message}"),
-        None => format!("while checking: {message}"),
+        Some(namespace) => {
+            format!("the checker panicked while checking namespace `{namespace}`: {message}")
+        }
+        None => format!("Stitchwort panicked (a bug in Stitchwort): {message}"),
     };
     report(
         &SourceMap::new(),
-        &[Diagnostic::error(
-            "E-INTERNAL",
-            format!("the checker panicked {message}"),
-        )],
+        &[Diagnostic::error("E-INTERNAL", message)],
     );
     ExitCode::FAILURE
 }
@@ -1299,7 +1298,13 @@ fn main() -> ExitCode {
     let ran = stitchwort_host::try_with_stack(stack, move || {
         stitchwort_elab::timings::start();
         stitchwort_elab::progress::report_to(print_progress_note);
-        let code = run(cli);
+        // The language server and the REPL are long-lived and handle their
+        // own failures; every other command ends at the first panic.
+        let code = if matches!(cli.command, Command::Lsp | Command::Repl { .. }) {
+            run(cli)
+        } else {
+            internal_error_on_panic(|| run(cli))
+        };
         stitchwort_elab::timings::report();
         stitchwort_syntax::stack::probe::report_deepest();
         code
@@ -1340,19 +1345,17 @@ fn run(cli: Cli) -> ExitCode {
             recheck,
             timings: _,
             jobs,
-        } => internal_error_on_panic(|| {
-            check(
-                &targets,
-                project.as_deref(),
-                index.as_deref(),
-                &only,
-                (expand_repeatedly, expand_walk, expand_facts, stdout),
-                &counterexamples,
-                &cache,
-                (carry_over || carry_over_from_environment(), recheck),
-                jobs_asked(jobs),
-            )
-        }),
+        } => check(
+            &targets,
+            project.as_deref(),
+            index.as_deref(),
+            &only,
+            (expand_repeatedly, expand_walk, expand_facts, stdout),
+            &counterexamples,
+            &cache,
+            (carry_over || carry_over_from_environment(), recheck),
+            jobs_asked(jobs),
+        ),
         Command::StdSource { path } => match stitchwort_cli::nav::std_source(&path, STACK) {
             Some(text) => {
                 print!("{text}");

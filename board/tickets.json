@@ -22342,7 +22342,7 @@
     {
       "id": 4979,
       "title": "stitchwort test, run and build have no panic boundary: a checker panic there is an uncaught Rust panic with exit 101 (check reports E-INTERNAL since SW-4918)",
-      "status": "doing",
+      "status": "review",
       "agent": "",
       "where": "",
       "labels": [

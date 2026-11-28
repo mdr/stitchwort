@@ -1674,3 +1674,48 @@ fn a_panic_while_checking_is_reported_as_an_internal_error_naming_the_namespace(
     }
     let _ = std::fs::remove_dir_all(&project);
 }
+
+/// `test`, `run` and `build` check the project too, and a panic in that
+/// check ends them as `check`'s does (SW-4979): an `E-INTERNAL` error
+/// naming the namespace, and exit status 1, not an uncaught panic's 101.
+#[test]
+fn a_panic_while_testing_running_or_building_is_reported_as_an_internal_error() {
+    let project = temp_dir("panic-internal-other");
+    for (path, text) in [
+        ("stitchwort.yaml", "sources: [src]\n"),
+        ("src/A.sw", "namespace A\n\ndef main () : {IO} () := ()\n"),
+        ("src/B.sw", "namespace B\n\ndef two: Nat := 2\n"),
+    ] {
+        let full = project.join(path);
+        std::fs::create_dir_all(full.parent().unwrap()).unwrap();
+        std::fs::write(full, text).unwrap();
+    }
+    let out = project.join("built");
+    let (project_arg, out_arg) = (project.to_str().unwrap(), out.to_str().unwrap());
+    for args in [
+        vec!["test", "--project", project_arg],
+        vec!["run", "A.main", "--project", project_arg],
+        vec!["build", "A.main", "--project", project_arg, "-o", out_arg],
+    ] {
+        let cache = temp_dir("panic-internal-other-cache");
+        let mut args = args;
+        args.extend(["--cache-dir", cache.to_str().unwrap()]);
+        let output = stitchwort(&args, &[("STITCHWORT_TEST_PANIC_IN", "A")]);
+        let stderr = String::from_utf8_lossy(&output.stderr);
+        assert_eq!(
+            output.status.code(),
+            Some(1),
+            "{args:?}: {}",
+            shown(&output)
+        );
+        assert!(
+            stderr.contains("E-INTERNAL")
+                && stderr.contains("namespace `A`")
+                && stderr.contains("test panic while checking `A`"),
+            "{args:?}: {}",
+            shown(&output)
+        );
+        let _ = std::fs::remove_dir_all(&cache);
+    }
+    let _ = std::fs::remove_dir_all(&project);
+}
