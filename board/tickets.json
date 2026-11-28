@@ -21417,17 +21417,21 @@
     {
       "id": 4926,
       "title": "Playground: the in-page fallback's project calls miss the project argument the worker passes (AoC days, book, roguelike broken without the worker)",
-      "status": "review",
+      "status": "done",
       "agent": "",
       "where": "",
       "labels": [
         "bug"
       ],
       "epic": "editor-playground",
-      "body": "[Sonnet] Found by SW-4924 (27 Nov): the in-page fallback in web/index.html (around line 1001, used when the worker cannot start) calls compiler.*_project(...) without the `project` argument that web/playground-worker.js passes, so project requests (AoC days, the book, the roguelike) look broken in the fallback; no test covers it. Check against the worker, fix, and add a browser test that forces the fallback with a project open (the two \"the compiler runs in the page when...\" tests show how to force it).\n",
+      "body": "[Sonnet] Found by SW-4924 (27 Nov): the in-page fallback in web/index.html (around line 1001, used when the worker cannot start) calls compiler.*_project(...) without the `project` argument that web/playground-worker.js passes, so project requests (AoC days, the book, the roguelike) look broken in the fallback; no test covers it. Check against the worker, fix, and add a browser test that forces the fallback with a project open (the two \"the compiler runs in the page when...\" tests show how to force it).\n\nDone (Sonnet): all seven project calls in web/index.html's InPage.call lacked request.project (args shifted: arg.charCodeAt crash); evaluate_project also lacked targets. New browser test 'the compiler runs in the page for a project too' failed before (crash at 120 s), passes after (14 s); the two existing fallback tests pass. The fallback has no live run (start_live): a feature gap, not filed. Model result: sonnet, worked, 7 min (est. 35).",
       "created": "2026-11-27",
       "updated": "2026-11-28",
-      "commits": []
+      "commits": [
+        "0da3c98d3",
+        "e9f7002cd",
+        "a44b7c62e"
+      ]
     },
     {
       "id": 4927,
