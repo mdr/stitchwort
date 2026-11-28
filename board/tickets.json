@@ -22609,12 +22609,12 @@
     {
       "id": 4989,
       "title": "Dot resolution inside def Cells.map: (rest ()).map f picks Stream.map defined later in the same file and gives E-MUTUAL-SIGNATURE; it checked before Stream.map existed (SW-4988 finding)",
-      "status": "backlog",
+      "status": "doing",
       "agent": "",
       "where": "",
       "labels": [],
       "epic": "syntax-language",
-      "body": "Repro in docs/proposals/streams/src/Probe/Walk.sw's history (SW-4988 report). Reproduce first.\n\nSecond instance (SW-4993): in Probe/Seq.sw, c.tail.drop k inside Cells.drop was grouped with Stream.drop, and (…).tail inside Front.step with Seq.tail; dot calls seem to count every same-named method in the file as a dependency.\n\nThird instance (SW-4997): in std's Stream, .map/.tail/.at on Stream, Base and Cells tied types and functions together (E-MUTUAL-KIND, E-MUTUAL-SIGNATURE); fixed by splitting Base.sw and full names. Idea: resolve a dot call on a value of known record type before cycles are worked out.",
+      "body": "Repro in docs/proposals/streams/src/Probe/Walk.sw's history (SW-4988 report). Reproduce first.\n\nSecond instance (SW-4993): in Probe/Seq.sw, c.tail.drop k inside Cells.drop was grouped with Stream.drop, and (…).tail inside Front.step with Seq.tail; dot calls seem to count every same-named method in the file as a dependency.\n\nThird instance (SW-4997): in std's Stream, .map/.tail/.at on Stream, Base and Cells tied types and functions together (E-MUTUAL-KIND, E-MUTUAL-SIGNATURE); fixed by splitting Base.sw and full names. Idea: resolve a dot call on a value of known record type before cycles are worked out.\n\nStarted 11:12 on Opus, est. 45 min.",
       "created": "2026-11-28",
       "updated": "2026-11-28",
       "commits": []
