@@ -15,6 +15,36 @@ export LC_ALL=C
 root="$(cd "$1" && pwd)"
 mkdir -p "$2"
 dest="$(cd "$2" && pwd)/projects/aoc"
+mkdir -p "$(dirname "$dest")"
+
+# Each output is built in TMP, beside its final path, and only then renamed into
+# place, so two overlapping builds can't interleave their writes and leave a
+# half-written bundle. An interrupted build removes TMP.
+tmp=""
+cleanup() {
+  if [ -n "${tmp:-}" ]; then
+    rm -rf "$tmp"
+  fi
+}
+trap cleanup EXIT
+
+# replace_dir NEW FINAL: replace directory FINAL (or create it) with NEW. The
+# old FINAL is moved aside first, so the rename never sees a half-written tree.
+replace_dir() {
+  local new=$1 final=$2 old
+  if [ ! -e "$final" ]; then
+    mv "$new" "$final"
+    return 0
+  fi
+  old="$(mktemp -d "$final.old.XXXXXX")"
+  rmdir "$old"
+  mv "$final" "$old"
+  if ! mv "$new" "$final"; then
+    mv "$old" "$final"
+    return 1
+  fi
+  rm -rf "$old"
+}
 
 # The playground reads only the .sw files, so the config must say nothing
 # else (D112).
@@ -58,11 +88,11 @@ for path in $files $examples; do
   esac
 done
 
-rm -rf "$dest"
-mkdir -p "$dest"
+tmp="$(mktemp -d "$dest.XXXXXX")"
+chmod 755 "$tmp" # mktemp -d makes it 700; the bundle is served
 for path in $files $examples; do
-  mkdir -p "$dest/$(dirname "$path")"
-  cp "$path" "$dest/$path"
+  mkdir -p "$tmp/$(dirname "$path")"
+  cp "$path" "$tmp/$path"
 done
 
 # One day per src/Aoc/YearYYYY/DayNN/DayNN.sw, newest year first, with its
@@ -114,7 +144,9 @@ done
     done
   done
   printf '\n  ]\n}\n'
-} >"$dest/manifest.json"
+} >"$tmp/manifest.json"
+replace_dir "$tmp" "$dest"
+tmp=""
 echo "bundled the AoC project into $dest"
 
 # ---- The roguelike (games/rogue): its sources only. --------------------------
@@ -138,11 +170,11 @@ for path in $rogue_files; do
       ;;
   esac
 done
-rm -rf "$rogue_dest"
-mkdir -p "$rogue_dest"
+tmp="$(mktemp -d "$rogue_dest.XXXXXX")"
+chmod 755 "$tmp" # mktemp -d makes it 700; the bundle is served
 for path in $rogue_files; do
-  mkdir -p "$rogue_dest/$(dirname "$path")"
-  cp "$path" "$rogue_dest/$path"
+  mkdir -p "$tmp/$(dirname "$path")"
+  cp "$path" "$tmp/$path"
 done
 # Two entries for Rogue.main, with its tests and proofs: "Play" runs live in
 # the terminal pane; "Play (scripted)" keeps the input box, which starts as a
@@ -163,7 +195,9 @@ done
   printf '      "evalInput": "Rogue.ending",\n'
   printf '      "hint": "Type keys into the input box, then Run: h/j/k/l, a/s/w/d or the arrow keys move, > goes down stairs, p drinks a potion, . waits, q quits; walking into a monster attacks it. Other keys are skipped, and the end of the input quits. Every turn prints a frame." }\n'
   printf '  ]\n}\n'
-} >"$rogue_dest/manifest.json"
+} >"$tmp/manifest.json"
+replace_dir "$tmp" "$rogue_dest"
+tmp=""
 echo "bundled the roguelike into $rogue_dest"
 
 # ---- Chapter projects: sf/ (the Software Foundations port) and book/. ---------
@@ -224,11 +258,11 @@ bundle_chapters() {
         ;;
     esac
   done
-  rm -rf "$out"
-  mkdir -p "$out"
+  tmp="$(mktemp -d "$out.XXXXXX")"
+  chmod 755 "$tmp" # mktemp -d makes it 700; the bundle is served
   for path in $chapter_files; do
-    mkdir -p "$out/$(dirname "$path")"
-    cp "$path" "$out/$path"
+    mkdir -p "$tmp/$(dirname "$path")"
+    cp "$path" "$tmp/$path"
   done
   {
     printf '{\n  "name": "%s",\n  "title": "%s",\n  "noRun": true,\n  "openGoals": "%s",\n  "files": [' "$name" "$title" "$open_goals"
@@ -244,7 +278,9 @@ bundle_chapters() {
       sep=$',\n'
     done < <("$entries")
     printf '\n  ]\n}\n'
-  } >"$out/manifest.json"
+  } >"$tmp/manifest.json"
+  replace_dir "$tmp" "$out"
+  tmp=""
   echo "bundled $folder into $out"
 }
 
