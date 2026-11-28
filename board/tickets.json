@@ -1,5 +1,5 @@
 {
-  "next": 4993,
+  "next": 4994,
   "tickets": [
     {
       "id": 47,
@@ -22654,6 +22654,19 @@
       "labels": [],
       "epic": "effects-native",
       "body": "Matt asked for this on 28 Nov, from the streams discussion (SW-4988).\n\nLean 4's @[csimp] (src/Lean/Compiler/CSimpAttr.lean, master, read 28 Nov):\n- The theorem must be exactly @f = @g, two bare constants with the same universe levels, with no parameters.\n- Code compiled after the theorem runs g. The type theory is unchanged.\n- Core uses it for tail-recursive list functions (append_eq_appendTR, map_eq_mapTR, src/Init/Data/List/Basic.lean).\n- @[implemented_by] is the unproved version; Stitchwort's analogue is a pinned native.\n\nQuestions for the note:\n- How the fast runtime, JS and native backends apply the swap.\n- Code compiled before the theorem, and imports.\n- Interaction with term hashes and the check cache.\n- What becomes trusted: only that the compiler swaps correctly.\n- Which std functions would benefit: deep recursion, closed forms. Measure first.\n\nDoesn't solve streams on its own: a stream stored as a bare function has no faster take to swap in. That needs a change of representation (SW-4988's walk field; Isabelle's code_datatype).",
+      "created": "2026-11-28",
+      "updated": "2026-11-28",
+      "commits": []
+    },
+    {
+      "id": 4993,
+      "title": "Streams: cost a trusted lazy runtime (head/tail recursion one step) against the three-field Stream and kernel coinduction, with probes; recommend",
+      "status": "doing",
+      "agent": "Fable",
+      "where": "",
+      "labels": [],
+      "epic": "syntax-language",
+      "body": "Matt, 28 Nov: 'tbh that's probably my first intuition I'd have about a stream, is it's something I could recurse on with head and tail'; 'Start the Fable paper lane to explore the space further.' Follows SW-4962 (docs/proposals/streams.md) and SW-4988 (docs/proposals/streams-one-type.md). Expected: 30 min.",
       "created": "2026-11-28",
       "updated": "2026-11-28",
       "commits": []
