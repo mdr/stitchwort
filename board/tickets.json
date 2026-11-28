@@ -1,5 +1,5 @@
 {
-  "next": 4998,
+  "next": 5000,
   "tickets": [
     {
       "id": 47,
@@ -22614,7 +22614,7 @@
       "where": "",
       "labels": [],
       "epic": "syntax-language",
-      "body": "Repro in docs/proposals/streams/src/Probe/Walk.sw's history (SW-4988 report). Reproduce first.\n\nSecond instance (SW-4993): in Probe/Seq.sw, c.tail.drop k inside Cells.drop was grouped with Stream.drop, and (…).tail inside Front.step with Seq.tail; dot calls seem to count every same-named method in the file as a dependency.",
+      "body": "Repro in docs/proposals/streams/src/Probe/Walk.sw's history (SW-4988 report). Reproduce first.\n\nSecond instance (SW-4993): in Probe/Seq.sw, c.tail.drop k inside Cells.drop was grouped with Stream.drop, and (…).tail inside Front.step with Seq.tail; dot calls seem to count every same-named method in the file as a dependency.\n\nThird instance (SW-4997): in std's Stream, .map/.tail/.at on Stream, Base and Cells tied types and functions together (E-MUTUAL-KIND, E-MUTUAL-SIGNATURE); fixed by splitting Base.sw and full names. Idea: resolve a dot call on a value of known record type before cycles are worked out.",
       "created": "2026-11-28",
       "updated": "2026-11-28",
       "commits": []
@@ -22716,12 +22716,43 @@
     {
       "id": 4997,
       "title": "Streams S0 pilot (D3775): Std.Stream as option E (the reader's place behind a quotient), with Cells, the three-field base, head, tail, cons, iterate, unfold, map, take, ext, headIs, tailAt, bisim; timings again; proof lines per function; stop if one needs over ~30 lines",
-      "status": "review",
+      "status": "done",
       "agent": "Opus",
       "where": "",
       "labels": [],
       "epic": "std-library",
-      "body": "D3775 (Matt, 28 Nov: 'D3775 yes, try that'). Plan: docs/proposals/streams-head-tail.md §6 S0. Expected: 45 min.\n28 Nov (Opus lane): done in ~10 min. crates/elab/src/std/Stream/{Base,Stream,Tests}.sw: Cells, the three-field Base and the Front (Base.sw), Stream with ofBase, at, head, tail, take, iterate, unfold, map, cons, ext, headIs, tailAt, bisim (+bisimAt), iterateTail, mapTail, consHead/consTail, unfoldHead/unfoldTail. Longest proof 11 lines (bisimAt, as calc); ~92 lines of proof bodies in all; no function over the 30-line stop rule. Axioms: ext, tailAt, iterateTail use Quot.sound; headIs, consHead none. Timings (load ~6): sum by head/tail 1,000 0.11 s, 4,000 0.11 s, 20,000 0.13 s, 2,000,000 2.19 s at 80 MB; --js 20,000 0.39 s. Tests: test --std Stream (8 pass), hash_stability (14 pass), prelude snapshot re-recorded (77 added lines, none moved). Harder than predicted: dot calls in one file tie types and functions of the same names into a cycle (E-MUTUAL-KIND / E-MUTUAL-SIGNATURE), so the parts went in their own file and internal calls are written in full.\n",
+      "body": "D3775 (Matt, 28 Nov: 'D3775 yes, try that'). Plan: docs/proposals/streams-head-tail.md §6 S0. Expected: 45 min.\n28 Nov (Opus lane): done in ~10 min. crates/elab/src/std/Stream/{Base,Stream,Tests}.sw: Cells, the three-field Base and the Front (Base.sw), Stream with ofBase, at, head, tail, take, iterate, unfold, map, cons, ext, headIs, tailAt, bisim (+bisimAt), iterateTail, mapTail, consHead/consTail, unfoldHead/unfoldTail. Longest proof 11 lines (bisimAt, as calc); ~92 lines of proof bodies in all; no function over the 30-line stop rule. Axioms: ext, tailAt, iterateTail use Quot.sound; headIs, consHead none. Timings (load ~6): sum by head/tail 1,000 0.11 s, 4,000 0.11 s, 20,000 0.13 s, 2,000,000 2.19 s at 80 MB; --js 20,000 0.39 s. Tests: test --std Stream (8 pass), hash_stability (14 pass), prelude snapshot re-recorded (77 added lines, none moved). Harder than predicted: dot calls in one file tie types and functions of the same names into a cycle (E-MUTUAL-KIND / E-MUTUAL-SIGNATURE), so the parts went in their own file and internal calls are written in full.\n\nDone (Opus): crates/elab/src/std/Stream/{Base,Stream,Tests}.sw. Pilot passed its stop rule: longest proof 11 lines (limit 30), ~92 lines of proof bodies in all. Timings as the probe: head/tail sum 20,000 0.13 s, 2,000,000 2.19 s at 80 MB; --js 20,000 0.39 s. Orchestrator checked the 11 statements (ext, headIs, tailAt, bisimAt, bisim, iterateTail, mapTail, consHead, consTail, unfoldHead, unfoldTail): each says what its name claims, none weakened; probed that (s.map f).at n = f (s.at n), (iterate f x).at n = Nat.iterate n f x and take on iterate hold byComputing (S1 should state them). No project uses the name Stream. ~10 min (est. 45).",
+      "created": "2026-11-28",
+      "updated": "2026-11-28",
+      "commits": [
+        "75e95d708",
+        "f9345f4f2",
+        "4e739cd42",
+        "ca853edf1"
+      ]
+    },
+    {
+      "id": 4998,
+      "title": "stitchwort axioms can't name a std definition (Std.Stream.ext: 'there's no definition'), even from a project; resolve library names too (SW-4997 finding)",
+      "status": "backlog",
+      "agent": "DeepSeek",
+      "where": "",
+      "labels": [],
+      "epic": "diagnostics",
+      "body": "From SW-4997. Reproduce first.",
+      "created": "2026-11-28",
+      "updated": "2026-11-28",
+      "commits": []
+    },
+    {
+      "id": 4999,
+      "title": "Docs: how imports work inside a std file (core names are E-IMPORT-CLASH there; a dotted type's constructors need import Stream.Cells (Done, Cell)), a line in docs/testing.md or docs/syntax.md (SW-4997 friction)",
+      "status": "backlog",
+      "agent": "DeepSeek",
+      "where": "",
+      "labels": [],
+      "epic": "docs-tutorials",
+      "body": "SW-4997 lost a minute to it.",
       "created": "2026-11-28",
       "updated": "2026-11-28",
       "commits": []
