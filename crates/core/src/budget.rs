@@ -298,6 +298,9 @@ impl fmt::Display for ResourceError {
         f.write_str(match self {
             ResourceError::Work => "it took more evaluation steps than allowed",
             ResourceError::Depth => "it recursed more deeply than allowed",
+            ResourceError::Nesting("comparison") => {
+                return f.write_str("the comparison of the two values went too deep");
+            }
             ResourceError::Nesting(pass) => {
                 return write!(f, "the program is nested too deeply for the {pass}");
             }
