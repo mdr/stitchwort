@@ -4335,7 +4335,14 @@ pub(crate) type Around = (usize, usize, Rc<Term>);
 /// nothing (`%sameIff`'s `%k`, whose unfolding ran into the limits after
 /// 26 K steps, SW-4905). An annotated lambda folds as elaborated, which the
 /// callers look for themselves.
-pub(crate) fn value_forms(g: &Ev, level: usize, value: &Value) -> Result<Vec<Term>> {
+///
+/// A `proof` (a value whose type is a proposition) has only its as-written
+/// form: its unfolding can be costly, and where a solution holds a proof as
+/// an argument at a proof position, [`refold`] skips it, so a later `let`
+/// whose value takes the proof (`%b0 := T.%C%0%at %s %e` in derived `Ord`)
+/// folds whatever form the solution holds it in. Only a proof held
+/// elsewhere, in another form, is left unfolded (SW-4986).
+pub(crate) fn value_forms(g: &Ev, level: usize, value: &Value, proof: bool) -> Result<Vec<Term>> {
     if matches!(value, Value::Lam(..)) {
         return Ok(Vec::new());
     }
@@ -4344,6 +4351,9 @@ pub(crate) fn value_forms(g: &Ev, level: usize, value: &Value) -> Result<Vec<Ter
         return Ok(vec![quote_internal(g, level, value)?]);
     }
     let mut forms = vec![quote_as_written(g, level, value)?];
+    if proof {
+        return Ok(forms);
+    }
     for folded in [true, false] {
         let read = || match folded {
             // Within `cheap_limits`: a form too large to read is left out, so
@@ -4798,7 +4808,13 @@ fn zonk_let(
     let v2 = go(v, level)?;
     let v_now = v2.clone().unwrap_or_else(|| v.clone());
     let env: Vec<Value> = (0..level).map(Value::var).collect();
-    let normals = cheaply(g, || value_forms(g, level, &eval(g, &env, &v_now)?));
+    let a_now = a2.clone().unwrap_or_else(|| a.clone());
+    let normals = cheaply(g, || {
+        let ty = eval(g, &env, &a_now)?;
+        let proof =
+            stitchwort_core::value::mark_of_type(g, &ty, &|_| None, level + 1_000_000)?.is_proof();
+        value_forms(g, level, &eval(g, &env, &v_now)?, proof)
+    });
     let mut normals: Vec<Term> = normals
         .unwrap_or_default()
         .into_iter()
