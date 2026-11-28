@@ -1181,15 +1181,14 @@ fn internal_error_on_panic(run: impl FnOnce() -> ExitCode) -> ExitCode {
         .or_else(|| payload.downcast_ref::<&str>().copied())
         .unwrap_or("(a panic with no message)");
     let message = match stitchwort_driver::project::namespace_being_checked() {
-        Some(namespace) => format!("while checking namespace `{namespace}`: {message}"),
-        None => format!("while checking: {message}"),
+        Some(namespace) => {
+            format!("the checker panicked while checking namespace `{namespace}`: {message}")
+        }
+        None => format!("Stitchwort panicked (a bug in Stitchwort): {message}"),
     };
     report(
         &SourceMap::new(),
-        &[Diagnostic::error(
-            "E-INTERNAL",
-            format!("the checker panicked {message}"),
-        )],
+        &[Diagnostic::error("E-INTERNAL", message)],
     );
     ExitCode::FAILURE
 }
