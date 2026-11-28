@@ -1,5 +1,5 @@
 {
-  "next": 4978,
+  "next": 4979,
   "tickets": [
     {
       "id": 47,
@@ -22274,17 +22274,21 @@
     {
       "id": 4976,
       "title": "Language server goal search starts with ~2.4 s of cold put-off equation generation per session: SW-4954's equations cache isn't kept by its LayeredStore (Store::keeps, Fable finding 1); measure the cost in a real editor session and decide whether the server should keep eqs.std entries",
-      "status": "review",
+      "status": "done",
       "agent": "",
       "where": "",
       "labels": [
         "perf"
       ],
       "epic": "proof-search",
-      "body": "[Sonnet] From SW-4974 (28 Nov): equation_hits 0 / misses 0 before generation in features::a_code_action...; ~2.4 s cold, ~2x under load. Check with the installed bundle (SW-2163/SW-4960) too.\n\nMeasured 28 Nov (release, loaded machine): native server with a cache folder: 1st search of a session, equations cold 2.47 s (895 misses), warm folder 0.50 s replay (895 hits, 0 misses), every later search in the session 0.45-0.55 s again (the warm session's rewind forgets them). CLI search --at, cold eqs 1.49 s total, warm 0.73 s. So the premise only held with no cache folder (playground/BundleStore): every search made them. Fixed there (LayeredStore::for_equations in the search thread's Warm); bundle option not taken (see report). Test: features::a_second_search_without_a_cache_folder_makes_no_equations. Open: the 0.5 s replay per search natively.",
+      "body": "[Sonnet] From SW-4974 (28 Nov): equation_hits 0 / misses 0 before generation in features::a_code_action...; ~2.4 s cold, ~2x under load. Check with the installed bundle (SW-2163/SW-4960) too.\n\nMeasured 28 Nov (release, loaded machine): native server with a cache folder: 1st search of a session, equations cold 2.47 s (895 misses), warm folder 0.50 s replay (895 hits, 0 misses), every later search in the session 0.45-0.55 s again (the warm session's rewind forgets them). CLI search --at, cold eqs 1.49 s total, warm 0.73 s. So the premise only held with no cache folder (playground/BundleStore): every search made them. Fixed there (LayeredStore::for_equations in the search thread's Warm); bundle option not taken (see report). Test: features::a_second_search_without_a_cache_folder_makes_no_equations. Open: the 0.5 s replay per search natively.\n\nDone (Sonnet): premise held only without a cache folder: native server with a folder keeps eqs. entries (cold 2.47 s, warm session 0.50 s, 895 hits). Without one (playground, bundle store) every search regenerated all 895. LayeredStore now keeps eqs. (3.1 MB for std) and the search thread holds one LayeredStore::for_equations. New test features::a_second_search_without_a_cache_folder_makes_no_equations (1790 vs 895 misses before). Bundle eqs. entries not taken (one-off gain). On main: 34 tests, wasm builds. Model result: sonnet, worked, 25 min (est. 40).",
       "created": "2026-11-28",
       "updated": "2026-11-28",
-      "commits": []
+      "commits": [
+        "c57ff90b6",
+        "54d5e0175",
+        "df8b66844"
+      ]
     },
     {
       "id": 4977,
@@ -22295,6 +22299,21 @@
       "labels": [],
       "epic": "proof-search",
       "body": "[Sonnet] From SW-4973 (28 Nov): consider the same unit-absorption rule in the open-abilities tier, comparing the usual queries before/after.",
+      "created": "2026-11-28",
+      "updated": "2026-11-28",
+      "commits": []
+    },
+    {
+      "id": 4978,
+      "title": "Goal search: every native search still replays std's 895 equation segments (~0.5 s) because the warm search session is rewound after each search; and actions_at_text (a file with no cache folder) makes a fresh session per search and regenerates them",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [
+        "perf"
+      ],
+      "epic": "proof-search",
+      "body": "[Sonnet] From SW-4976 (28 Nov): generate the equations before the session's mark, lazily at the first search; keep out of live.rs. Measure first.",
       "created": "2026-11-28",
       "updated": "2026-11-28",
       "commits": []
