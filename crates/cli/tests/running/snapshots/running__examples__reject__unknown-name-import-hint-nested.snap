@@ -10,6 +10,5 @@ expression: output
    │               ──┬─  
    │                 ╰─── not in scope
    │ 
-   │ Note: the library has `Std.Effect.Comp.Done`: write it in full, or `import Std.Effect.Comp (Done)`
+   │ Note: the library has `Std.Effect.Comp.Done` or `Std.Stream.Cells.Done`: write it in full, or `import Std.Effect.Comp (Done)`
 ───╯
-try: add `import Std.Effect.Comp (Done)`
