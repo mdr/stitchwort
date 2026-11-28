@@ -22106,15 +22106,18 @@
     {
       "id": 4968,
       "title": "docs/syntax.md crib: add the proposition constructors (Both, Witness), h.flipped and Pair's fields (.fst/.snd)",
-      "status": "doing",
+      "status": "done",
       "agent": "",
       "where": "",
       "labels": [],
       "epic": "docs-tutorials",
-      "body": "[DeepSeek] From SW-4962 (27 Nov): a lane guessed And.intro, Exists.intro, Eq.symm, .first.",
+      "body": "[DeepSeek] From SW-4962 (27 Nov): a lane guessed And.intro, Exists.intro, Eq.symm, .first.\nDone (DeepSeek): three crib lines in docs/syntax.md (Both/.left/.right/And.left; Witness/Exists.elim with import Std (Exists); h.flipped/Eq.flipped; Pair .fst/.snd), each checked with four probe files; the syntax doc unit test passes. Model result: deepseek, worked, ~6 min (est. 15).\n",
       "created": "2026-11-27",
       "updated": "2026-11-28",
-      "commits": []
+      "commits": [
+        "2c57ca7b2",
+        "d70134c70"
+      ]
     },
     {
       "id": 4969,
