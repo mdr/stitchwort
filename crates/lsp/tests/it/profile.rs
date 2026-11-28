@@ -139,3 +139,99 @@ fn body() {
         );
     }
 }
+
+/// SW-4928: the worker's loop under typing in a day of a project, a key
+/// every 400 ms, ticking between keys as the page's worker does.
+#[test]
+#[ignore]
+fn sw4928_typing() {
+    std::thread::Builder::new()
+        .stack_size(STACK)
+        .spawn(typing)
+        .unwrap()
+        .join()
+        .unwrap();
+}
+
+fn typing() {
+    let root = std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join("../../aoc");
+    let mut files = Default::default();
+    for d in ["src", "inputs", "examples"] {
+        walk(&root.join(d), &root, &mut files);
+    }
+    let day = "src/Aoc/Year2021/Day18/Day18.sw";
+    let own = files[day].clone();
+    let memory = Arc::new(stitchwort_lsp::Memory::default());
+    memory.add(MemoryProject {
+        root: "/memory/aoc".into(),
+        sources: vec!["src".into()],
+        files: Arc::new(files),
+    });
+    let mut options = Options::new(STACK);
+    options.sweep_quiet = std::time::Duration::from_millis(
+        std::env::var("SW4928_QUIET")
+            .ok()
+            .and_then(|v| v.parse().ok())
+            .unwrap_or(300),
+    );
+    let bundle = common::cached_bundle(&options, STACK);
+    let bundle = stitchwort_driver::check_cache::LibraryBundle::decode(&bundle).unwrap();
+    options.library.set(Arc::new(bundle)).ok().unwrap();
+    let checks = options.checks.clone();
+    let mut server = Inline::new(options, memory).unwrap();
+    let uri = format!("file:///memory/aoc/{day}");
+    let send = |s: &mut Inline, m: Value| {
+        s.receive(&m.to_string());
+    };
+    send(
+        &mut server,
+        json!({"jsonrpc": "2.0", "id": 1, "method": "initialize", "params": {"capabilities": {}}}),
+    );
+    send(
+        &mut server,
+        json!({"jsonrpc": "2.0", "method": "initialized", "params": {}}),
+    );
+    send(
+        &mut server,
+        json!({"jsonrpc": "2.0", "method": "textDocument/didOpen", "params": {"textDocument": {"uri": uri, "languageId": "stitchwort", "version": 1, "text": own}}}),
+    );
+    while server.tick().1 {}
+    stitchwort_driver::live::phases::take();
+    let before = checks.load(std::sync::atomic::Ordering::SeqCst);
+    let keys: usize = std::env::var("SW4928_KEYS")
+        .ok()
+        .and_then(|v| v.parse().ok())
+        .unwrap_or(20);
+    let began = Instant::now();
+    let mut busy = std::time::Duration::ZERO;
+    let mut published = 0;
+    for k in 0..keys {
+        let text = format!("{own}\n-- {}\n", "x".repeat(k + 1));
+        send(
+            &mut server,
+            json!({"jsonrpc": "2.0", "method": "textDocument/didChange", "params": {"textDocument": {"uri": uri, "version": 2 + k}, "contentChanges": [{"text": text}]}}),
+        );
+        let key_at = Instant::now();
+        while key_at.elapsed() < std::time::Duration::from_millis(400) {
+            let t = Instant::now();
+            let (out, more) = server.tick();
+            busy += t.elapsed();
+            if t.elapsed().as_millis() > 3 {
+                eprintln!("SW4928 key {k} tick {:?}", t.elapsed());
+            }
+            published += out
+                .iter()
+                .filter(|m| m.contains("publishDiagnostics"))
+                .count();
+            if !more || server.wait().is_some() {
+                std::thread::sleep(std::time::Duration::from_millis(5));
+            }
+        }
+    }
+    eprintln!("SW4928 PHASES {}", stitchwort_driver::live::phases::take());
+    eprintln!(
+        "SW4928 {keys} keys: {} checks, {published} publishes, busy {busy:?} of {:?}",
+        checks.load(std::sync::atomic::Ordering::SeqCst) - before,
+        began.elapsed()
+    );
+}

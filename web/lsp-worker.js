@@ -183,10 +183,17 @@ function crashInfo() {
 }
 
 let scheduled = false;
-function schedule() {
-  if (scheduled) return;
+let timer = null;
+let timerWait = 0;
+// A tick after `wait` ms, or at once when something has happened that the
+// next tick may have to act on (an edit): that replaces a longer wait for
+// typing to pause (SW-4928).
+function schedule(wait = 0) {
+  if (scheduled && wait >= timerWait) return;
+  clearTimeout(timer);
   scheduled = true;
-  setTimeout(tick, 0);
+  timerWait = wait;
+  timer = setTimeout(tick, wait);
 }
 
 // Where a re-check's time goes (SW-3113): the page sums these in `stats.phases`.
@@ -215,7 +222,7 @@ function tick() {
     checked = true;
     warmSearcher();
   }
-  if (answer.more) schedule();
+  if (answer.more) schedule(answer.wait);
   // `stack`: the WebAssembly stack the work reached, in a build with STITCHWORT_STACK_PROBE.
   else postMessage({ phases: { ...JSON.parse(server.phases()), stack: Array.from(stack_reached()) } });
 }

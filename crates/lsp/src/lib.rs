@@ -81,6 +81,14 @@ pub struct Options {
     /// How long typing must pause before a check starts. The client can
     /// set it: `initializationOptions: {"debounceMs": 50}`.
     pub debounce: Duration,
+    /// How long after the last edit the rest of a project (what is not
+    /// being looked at, nor needed by it) waits before it is checked. An
+    /// edit rewinds the session to the edited namespace, so a sweep that
+    /// typing interrupts is thrown away and started again by the next key:
+    /// waiting until typing pauses leaves the worker idle between keys. The
+    /// edited file's own diagnostics are not held back. Zero checks at once.
+    /// The client can set it: `initializationOptions: {"sweepQuietMs": 300}`.
+    pub sweep_quiet: Duration,
     /// The checker thread's stack, for the sessions' limits.
     pub stack: usize,
     /// How many checks have been stopped because an edit made them stale,
@@ -90,6 +98,9 @@ pub struct Options {
     /// to it; a test holds a clone to see that a stale check was cancelled,
     /// rather than timing the answer.
     pub cancellations: Arc<std::sync::atomic::AtomicUsize>,
+    /// How many namespaces (or lone files) the checker has checked, for a
+    /// test to see that a burst of edits is not checked once per edit.
+    pub checks: Arc<std::sync::atomic::AtomicUsize>,
     /// The journal's statistics (`JournalStats`) of the project checked last,
     /// written after each check, for the measurements (`dev/measure-state`).
     pub journal: Arc<std::sync::Mutex<stitchwort_elab::JournalStats>>,
@@ -515,8 +526,10 @@ impl Options {
     pub fn new(stack: usize) -> Self {
         Options {
             debounce: Duration::from_millis(100),
+            sweep_quiet: Duration::ZERO,
             stack,
             cancellations: Arc::default(),
+            checks: Arc::default(),
             journal: Arc::default(),
             search_workers: 1,
             search_delay: Duration::ZERO,
@@ -592,6 +605,12 @@ fn initialize(params: &serde_json::Value, options: &mut Options) -> (serde_json:
         .and_then(serde_json::Value::as_u64)
     {
         options.debounce = Duration::from_millis(ms);
+    }
+    if let Some(ms) = params
+        .pointer("/initializationOptions/sweepQuietMs")
+        .and_then(serde_json::Value::as_u64)
+    {
+        options.sweep_quiet = Duration::from_millis(ms);
     }
     if let Some(settings) = params.get("initializationOptions") {
         options.settings.apply(settings);
@@ -3703,6 +3722,8 @@ struct Checker {
     /// An edit's diagnostics are still to be published (for
     /// `Options::cancellations`).
     unanswered: bool,
+    /// When a document was last opened or changed (`Options::sweep_quiet`).
+    last_edit: Option<Instant>,
     /// The text and version of each open document, recorded before an edit
     /// is applied, so that a successor can open them again ([`Keeper`]).
     open: BTreeMap<PathBuf, (i32, String)>,
@@ -3945,6 +3966,7 @@ impl Checker {
             requests: 0,
             published: HashMap::default(),
             unanswered: false,
+            last_edit: None,
             open: BTreeMap::new(),
             homes: BTreeMap::new(),
             quarantined: BTreeMap::new(),
@@ -4270,6 +4292,18 @@ impl Checker {
                     }
                     continue;
                 }
+                if let Some(wait) = self.caught(None, |c| c.sweep_wait())? {
+                    self.caught(None, Checker::announce)?;
+                    match edits.recv_timeout(wait) {
+                        Ok(edit) => {
+                            self.apply_caught(edit)?;
+                            carried = true;
+                        }
+                        Err(RecvTimeoutError::Timeout) => {}
+                        Err(RecvTimeoutError::Disconnected) => return Ok(()),
+                    }
+                    continue;
+                }
                 self.step_caught(&key)?;
             }
             self.caught(None, Checker::announce)?;
@@ -4331,14 +4365,27 @@ impl Checker {
             })
     }
 
+    /// How much longer the step the checker would take next waits, because
+    /// it is part of the sweep of a project and typing hasn't paused for
+    /// `Options::sweep_quiet` (`None`: it can run).
+    fn sweep_wait(&self) -> Option<Duration> {
+        let quiet = self.options.sweep_quiet;
+        let key = self.next_key()?;
+        let swept = matches!(self.work.get(&key), Some(w @ Work::Project(_)) if !w.focus_pending());
+        let since = self.last_edit?.elapsed();
+        (swept && since < quiet).then(|| quiet - since)
+    }
+
     /// [`Checker::run`] without blocking or waiting for typing to pause:
-    /// applies the edits sent, then checks one namespace. Whether there is
-    /// more to check.
+    /// applies the edits sent, then checks one namespace, unless it is one
+    /// the sweep holds back (`sweep_wait`). Whether there is more to check.
     fn pump(&mut self, edits: &Receiver<Edit>) -> bool {
         while let Ok(edit) = edits.try_recv() {
             self.apply(edit);
         }
-        if let Some(key) = self.next_key() {
+        if let Some(key) = self.next_key()
+            && self.sweep_wait().is_none()
+        {
             self.step(&key);
         }
         self.announce();
@@ -4352,6 +4399,9 @@ impl Checker {
             return;
         };
         let started = Instant::now();
+        self.options
+            .checks
+            .fetch_add(1, std::sync::atomic::Ordering::SeqCst);
         let progress = match work {
             Work::Project(p) => {
                 p.writable.set(p.saved());
@@ -4419,6 +4469,11 @@ impl Checker {
             self.publish(key, project, answers);
             stitchwort_driver::live::phases::add("publish", published.elapsed());
             self.unanswered = false;
+            // The quiet is counted from the answer: a check slower than it
+            // mustn't let the sweep start the moment it ends.
+            if !done {
+                self.last_edit = Some(Instant::now());
+            }
             trace(|| {
                 format!(
                     "answers in {answered:?}, published in {:?}",
@@ -4619,6 +4674,9 @@ impl Checker {
             self.rename_warnings_stale(path, text);
         }
         self.unanswered = true;
+        if matches!(edit, Edit::Open { .. } | Edit::Change { .. }) {
+            self.last_edit = Some(Instant::now());
+        }
         self.record(&edit);
         if let Some(path) = edit.path()
             && self.options.faults.apply_panics_now(path)
@@ -5074,6 +5132,12 @@ impl Inline {
             self.sent(),
             more || !self.jobs.is_empty() || !self.edits.is_empty(),
         )
+    }
+
+    /// How long the host may wait before the next `tick` has anything to do,
+    /// when it is waiting for typing to pause (`Options::sweep_quiet`).
+    pub fn wait(&self) -> Option<Duration> {
+        self.checker.sweep_wait()
     }
 
     fn sent(&self) -> Vec<String> {
