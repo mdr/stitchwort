@@ -21295,17 +21295,21 @@
     {
       "id": 4918,
       "title": "[Sonnet] check: a panic in a worker thread is re-raised (crates/driver/src/parallel.rs) and ends the CLI with exit 101 and a Rust panic message; report it as E-INTERNAL naming the namespace and declaration instead, with a test (SW-3593 finding)",
-      "status": "review",
+      "status": "done",
       "agent": "",
       "where": "",
       "labels": [
         "bug"
       ],
       "epic": "diagnostics",
-      "body": "From SW-3593's second round: the release read-back assert's panic reached the user as an uncaught worker panic, not E-INTERNAL as assumed.",
+      "body": "From SW-3593's second round: the release read-back assert's panic reached the user as an uncaught worker panic, not E-INTERNAL as assumed.\n\nDone (Sonnet): no path turned panics into E-INTERNAL (catch_unwind only in the LSP), main thread included. internal_error_on_panic wraps check (CLI main.rs), namespace_being_checked() (thread-local in driver project.rs) names it; exit 1; check stops. Test hook STITCHWORT_TEST_PANIC_IN (test-bypass builds only). New test check_cache::a_panic_while_checking_is_reported_as_an_internal_error_naming_the_namespace (jobs 1 and 2). Follow-up SW-4979 (test/run/build). On main: 22 tests. Model result: sonnet, worked, 4 min (est. 30).",
       "created": "2026-11-27",
       "updated": "2026-11-28",
-      "commits": []
+      "commits": [
+        "270bf32c0",
+        "5109a5820",
+        "5f299f119"
+      ]
     },
     {
       "id": 4919,
