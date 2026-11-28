@@ -124,3 +124,39 @@ fn a_project_name_is_given_in_full() {
         "Proof.same:\n  Quot.sound\nProof.plain:\n  no axioms are used\n"
     );
 }
+
+/// In a project, only the namespaces of the names and what they import are
+/// checked: another namespace's error is not printed and doesn't fail the
+/// run (SW-4966); an error in the namespace itself, or one it imports, is.
+#[test]
+fn a_project_report_ignores_other_namespaces_errors() {
+    let base = std::env::temp_dir().join(format!("stitchwort-axioms-scope-{}", std::process::id()));
+    let _ = std::fs::remove_dir_all(&base);
+    let dir = base.join("proj");
+    std::fs::create_dir_all(dir.join("src")).unwrap();
+    std::fs::write(dir.join("stitchwort.yaml"), "").unwrap();
+    let files = [
+        ("Good", "def plain: Nat := 1\n"),
+        ("Bad", "def broken: Nat := True\n"),
+        ("Lib", "def x: Nat := True\n"),
+        ("Dep", "import Lib (x)\n\ndef y: Nat := 3\n"),
+    ];
+    for (name, body) in files {
+        std::fs::write(
+            dir.join(format!("src/{name}.sw")),
+            format!("namespace {name}\n\n{body}"),
+        )
+        .unwrap();
+    }
+    let good = stitchwort(&dir, &["axioms", "Good.plain"]);
+    let dep = stitchwort(&dir, &["axioms", "Dep.y"]);
+    let _ = std::fs::remove_dir_all(&base);
+    assert_eq!(String::from_utf8_lossy(&good.stderr), "");
+    assert_eq!(
+        String::from_utf8_lossy(&good.stdout),
+        "no axioms are used\n"
+    );
+    assert!(good.status.success());
+    assert!(!dep.status.success());
+    assert!(String::from_utf8_lossy(&dep.stderr).contains("Lib.sw"));
+}
