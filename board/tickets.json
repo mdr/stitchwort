@@ -22450,7 +22450,7 @@
     {
       "id": 4983,
       "title": "refold folds proofs only by shape, so a data let mentioning a proof let depends on the proof's exact read-back; folding a proof by its type (rule I) might shrink derived terms such as derived Ord's %equal (its %e spelled out). Design note first",
-      "status": "backlog",
+      "status": "doing",
       "agent": "Opus",
       "where": "",
       "labels": [
@@ -22465,7 +22465,7 @@
     {
       "id": 4984,
       "title": "A documented way to dump a declaration's full kernel term (no case-tree elision, no Loc wrappers), for comparing two elaborations: STITCHWORT_DUMP_KERNEL prints case trees as 'case r of …'",
-      "status": "backlog",
+      "status": "doing",
       "agent": "DeepSeek",
       "where": "",
       "labels": [],
