@@ -22342,17 +22342,22 @@
     {
       "id": 4979,
       "title": "stitchwort test, run and build have no panic boundary: a checker panic there is an uncaught Rust panic with exit 101 (check reports E-INTERNAL since SW-4918)",
-      "status": "review",
+      "status": "done",
       "agent": "",
       "where": "",
       "labels": [
         "bug"
       ],
       "epic": "diagnostics",
-      "body": "[Sonnet] From SW-4918 (28 Nov): reuse internal_error_on_panic (crates/cli/src/main.rs) and namespace_being_checked; test with STITCHWORT_TEST_PANIC_IN.",
+      "body": "[Sonnet] From SW-4918 (28 Nov): reuse internal_error_on_panic (crates/cli/src/main.rs) and namespace_being_checked; test with STITCHWORT_TEST_PANIC_IN.\n\nDone (Sonnet): internal_error_on_panic wraps run(cli) for every command except lsp and repl (check's inner wrap removed). Outside a namespace check the message reads 'Stitchwort panicked (a bug in Stitchwort): …' (orchestrator's wording fix, aa78bd566). New test check_cache::a_panic_while_testing_running_or_building_is_reported_as_an_internal_error; both panic tests pass after the wording fix. Model result: sonnet, needed fixes (message wording), 5 min (est. 25).",
       "created": "2026-11-28",
       "updated": "2026-11-28",
-      "commits": []
+      "commits": [
+        "8f21e828c",
+        "92c40ba31",
+        "aa78bd566",
+        "217050b03"
+      ]
     }
   ]
 }
