@@ -582,6 +582,16 @@ impl Session {
         session
     }
 
+    /// The session of the language server's checker and searches
+    /// ([`Session::navigable_for_stack`] with expression types): the one
+    /// recipe, so that a library bundle made with it has the keys they look
+    /// up (SW-4960).
+    pub fn editor_for_stack(stack: usize) -> Self {
+        let mut session = Self::navigable_for_stack(stack);
+        session.elab.enable_expression_types();
+        session
+    }
+
     /// [`Session::eager`], for a thread with `stack` bytes of stack.
     #[doc(hidden)]
     pub fn eager_for_stack(stack: usize) -> Self {

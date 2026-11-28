@@ -628,6 +628,57 @@ fn an_installed_bundle_serves_a_directory_that_has_no_entry_and_is_not_copied_in
     let _ = std::fs::remove_dir_all(&dir);
 }
 
+/// [`bundle_of`] for the language server's sessions (`+nav+ty`).
+fn editor_bundle_of(source: &Source) -> std::sync::Arc<LibraryBundle> {
+    with_stack(STACK, || {
+        let mut session = Session::editor_for_stack(STACK);
+        let recorder = std::rc::Rc::new(BundleRecorder::default());
+        session.elab.set_check_cache(recorder.clone());
+        finish_run(session, source);
+        std::sync::Arc::new(recorder.finish(Default::default()))
+    })
+}
+
+#[test]
+fn a_bundle_with_the_editors_modes_serves_the_language_servers_sessions() {
+    let source = small_program();
+    let cli = bundle_of(&source);
+    let editor = editor_bundle_of(&source);
+    // Another mode's entries are other units: merging adds, never replaces.
+    let both = std::sync::Arc::new(LibraryBundle::merged(&cli, &editor));
+    assert_eq!(both.len(), cli.len() + editor.len());
+    assert!(editor.len() > 0);
+    let dir = temp_dir("installed-editor");
+    let served_by = |bundle: &std::sync::Arc<LibraryBundle>, editor_mode: bool| {
+        with_stack(STACK, || {
+            let mut session = if editor_mode {
+                Session::editor_for_stack(STACK)
+            } else {
+                Session::for_stack(STACK)
+            };
+            session.elab.set_check_cache(std::rc::Rc::new(
+                CheckCache::at(&dir).with_installed(bundle.clone()),
+            ));
+            finish_run(session, &source)
+        })
+    };
+    // The server's mode: every library file loaded is a hit (not merely
+    // "no misses", which a key that never matched would also show as zero
+    // hits and a full check), and nothing is written to the folder.
+    let run = served_by(&both, true);
+    assert!(run.stats.hits > 0, "{:?}", run.stats);
+    assert_eq!(run.stats.hits, run.loaded, "{:?}", run.stats);
+    assert_eq!(run.stats.misses, 0);
+    assert!(entries(&dir).is_empty());
+    // The CLI's mode still is served from the same bundle.
+    let cli_run = served_by(&both, false);
+    assert_eq!(cli_run.stats.hits, cli_run.loaded, "{:?}", cli_run.stats);
+    // And the CLI's entries alone don't serve the server: that was the gap.
+    let before = served_by(&cli, true);
+    assert_eq!(before.stats.hits, 0, "{:?}", before.stats);
+    let _ = std::fs::remove_dir_all(&dir);
+}
+
 #[test]
 fn the_bundle_beside_an_executable_is_read_only_for_this_build() {
     let source = small_program();
