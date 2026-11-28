@@ -11512,15 +11512,19 @@
     {
       "id": 2931,
       "title": "[DeepSeek] LSP textDocument/definition on a std type (Bool) hung in a script driving stitchwort lsp; check F12 on Bool in VS Code and with a test (book SW-2918)",
-      "status": "doing",
+      "status": "done",
       "agent": "DeepSeek",
       "where": "",
       "labels": [],
       "epic": "editor-playground",
-      "body": "\n\nAudit note (22 Nov): Audit 22 Nov: still open; no commit besides board edits mentions it and no later ticket covers it.\n\nBacklog grooming 27 Nov 2026: Does not reproduce at 6024c0de2: a scripted `stitchwort lsp` session answered textDocument/definition on `Bool` (both the use and the import) at once, pointing at crates/elab/src/std/core/Data.sw:43. What is left: a regression test for definition on a std type.\n",
+      "body": "\n\nAudit note (22 Nov): Audit 22 Nov: still open; no commit besides board edits mentions it and no later ticket covers it.\n\nBacklog grooming 27 Nov 2026: Does not reproduce at 6024c0de2: a scripted `stitchwort lsp` session answered textDocument/definition on `Bool` (both the use and the import) at once, pointing at crates/elab/src/std/core/Data.sw:43. What is left: a regression test for definition on a std type.\n\nDone (DeepSeek): features::go_to_definition_on_a_standard_library_type_goes_to_its_declaration (no hang; answer in std/core/Data.sw at type Bool). Orchestrator fixup b0a3bb1c8: line read from the file, not hard-coded. Model result: deepseek, needed fixes (hard-coded line), ~8 min (est. 15).",
       "created": "2026-11-11",
       "updated": "2026-11-28",
-      "commits": []
+      "commits": [
+        "99aeb6541",
+        "b0a3bb1c8",
+        "a9184e171"
+      ]
     },
     {
       "id": 2934,
