@@ -305,6 +305,8 @@ tasks:
       - '{{.STEP}} features -- task test:features'
       - '{{.STEP}} fmt -- cargo fmt --check'
       - '{{.STEP}} glossary -- tools/fmt/dev/check-glossary.sh'
+      - '{{.STEP}} "sf check" -- task sf:check'
+      - '{{.STEP}} "book check" -- task book:check'
       - '{{.STEP}} "wasm check" -- cargo check -p stitchwort-web --target wasm32-unknown-unknown --release'
       - '{{.STEP}} "nextest build" -- {{.GUARD}} --cap-gb {{.MEM_CAP_QUICK}} -- cargo nextest run --release --workspace --profile quick --no-run {{.CLI_ARGS}}'
       - '{{.STEP}} "nextest run" -- {{.GUARD}} --cap-gb {{.MEM_CAP_QUICK}} -- cargo nextest run --release --workspace --profile quick {{.CLI_ARGS}}'
@@ -1032,6 +1034,22 @@ tasks:
     interactive: true
     cmds:
       - '{{.SW}} run {{.CLI_ARGS}}'
+
+  # ------------------------------------------------------- SF and the book
+
+  sf:check:
+    desc: 'Check the SF project (sf/), or the namespaces after -- (task sf:check -- Sf.Lf.Nat)'
+    deps: [build]
+    dir: sf
+    cmds:
+      - 'STITCHWORT_JOBS="${STITCHWORT_JOBS:-2}" {{.SW}} check {{.CLI_ARGS}}'
+
+  book:check:
+    desc: 'Check the book project (book/), or the namespaces after -- (task book:check -- Book.SettingUp)'
+    deps: [build]
+    dir: book
+    cmds:
+      - 'STITCHWORT_JOBS="${STITCHWORT_JOBS:-2}" {{.SW}} check {{.CLI_ARGS}}'
 
   # ------------------------------------------------------- Advent of Code
 
