@@ -3109,8 +3109,10 @@ pub(crate) fn same_shifted(a: &Term, b: &Term, by: usize, cutoff: usize) -> bool
 /// argument that mentions an unknown, which unification may still have to
 /// solve.
 ///
-/// For searches that match a pattern against a candidate, where the head
-/// fixes the types of the arguments compared.
+/// For comparisons where the head fixes the types of the arguments
+/// compared: `rewrite`'s searches, which match a pattern against a
+/// candidate, and `unify::refold`, whose `let` forms are only those
+/// `unify::worth_folding` keeps.
 pub(crate) fn same_shifted_but_proofs(
     g: &Ev,
     a: &Term,
