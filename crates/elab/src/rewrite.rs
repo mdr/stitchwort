@@ -2503,6 +2503,9 @@ pub(crate) fn kernel_context<'e>(cx: &Ctx<'e>) -> Result<kernel::Ctx<'e>> {
 /// (`unify::can_apply`), and a match at another type than the goal's is
 /// refused when the motive is checked (`E-REWRITE-MOTIVE`).
 fn has_carrier(cx: &mut Ctx, kcx: &mut kernel::Ctx, term: &Term, carrier: &Value) -> Result<bool> {
+    if let Some(ty) = kernel::without_glue(&cx.g(), || read_off_type(cx, term))? {
+        return cx.unify(&ty, carrier);
+    }
     match kernel::without_glue(&cx.g(), || kernel::infer(kcx, term)) {
         Ok((_, ty)) => return cx.unify(&ty, carrier),
         Err(e) if fatal(&e) => return Err(e),
@@ -2526,6 +2529,55 @@ fn has_carrier(cx: &mut Ctx, kcx: &mut kernel::Ctx, term: &Term, carrier: &Value
         Err(e) if fatal(&e) => Err(e),
         Err(_) => Ok(false),
     }
+}
+
+/// The type of `term`, a candidate taken from a well-typed goal, read off
+/// its head without checking its arguments: a variable's or a
+/// definition's type with each argument applied, or a constructor's type
+/// when its data type has no parameters or indices. `None` for any other
+/// form, or a term with an unknown in it, which [`has_carrier`] leaves to
+/// the kernel as before.
+///
+/// What the kernel's `infer` would give, without its cost: it checks every
+/// argument, and a candidate in a goal read back unfolded can be a large
+/// term, the body of a step function computed on a variable (2021 day 11's
+/// `cavern.step`, 70,000 nodes), whose check took nearly all of a
+/// `rewrite`'s search budget for each copy of it (SW-5010). The arguments
+/// were checked with the goal they come from.
+fn read_off_type(cx: &Ctx, term: &Term) -> Result<Option<Value>> {
+    if term.subterms().any(|(t, _)| matches!(t, Term::Meta(_))) {
+        return Ok(None);
+    }
+    let g = cx.g();
+    let mut args = Vec::new();
+    let mut head = term.strip_loc();
+    while let Term::App(f, a, icit) = head {
+        args.push((a, *icit));
+        head = f.strip_loc();
+    }
+    let mut ty = match head {
+        Term::Var(ix) if *ix < cx.level() => cx.types[cx.level() - 1 - ix].clone(),
+        Term::Def(id) => kernel::def_ty(&g, *id)?,
+        Term::Ctor(d, _, _)
+            if args.is_empty()
+                && g.env
+                    .datas()
+                    .get(d.0)
+                    .is_some_and(|d| d.params().is_empty() && d.indices().is_empty()) =>
+        {
+            Value::Data(*d, Default::default())
+        }
+        _ => return Ok(None),
+    };
+    for (a, icit) in args.into_iter().rev() {
+        match force(&g, ty)? {
+            Value::Pi(_, pi_icit, _, cod, _) if pi_icit == icit => {
+                ty = cod.apply(&g, cx.eval(a)?)?;
+            }
+            _ => return Ok(None),
+        }
+    }
+    Ok(Some(ty))
 }
 
 /// Whether `term`, a lambda in `cx`'s context, has type `carrier`, whose
