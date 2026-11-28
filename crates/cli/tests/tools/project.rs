@@ -791,6 +791,38 @@ fn check_only_suggests_a_qualified_name() {
     }
 }
 
+/// A missing match arm on a type whose short name isn't in scope is
+/// suggested by the type's full key (`Outer.Shape.Square`), and pasting that
+/// alternative back with a body checks (SW-2903).
+#[test]
+fn a_missing_case_on_a_type_out_of_scope_is_suggested_by_its_full_key() {
+    let example = Path::new(env!("CARGO_MANIFEST_DIR"))
+        .join("../../examples/projects/reject/missing-cases-full-key");
+    let dir = project("missing_case_full_key", &[]);
+    copy_tree(&example, &dir);
+
+    let output = stitchwort(&dir, &["check"]);
+    assert_eq!(output.status.code(), Some(1), "{}", err(&output));
+    let message = err(&output);
+    assert!(message.contains("[E-NONEXHAUSTIVE]"), "{message}");
+    assert!(
+        message.contains("try: add `| Outer.Shape.Square s => ?`"),
+        "{message}"
+    );
+
+    let day = dir.join("src/Day.sw");
+    let source = std::fs::read_to_string(&day).unwrap();
+    let pasted = source.replace(
+        "    | Circle r => r * r\n",
+        "    | Circle r => r * r\n    | Outer.Shape.Square s => s * s\n",
+    );
+    assert_ne!(pasted, source, "the missing alternative was pasted");
+    std::fs::write(&day, pasted).unwrap();
+
+    let output = stitchwort(&dir, &["check"]);
+    assert!(output.status.success(), "{}", err(&output));
+}
+
 fn copy_tree(from: &Path, to: &Path) {
     std::fs::create_dir_all(to).unwrap();
     for entry in std::fs::read_dir(from).unwrap() {
