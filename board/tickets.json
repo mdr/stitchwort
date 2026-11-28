@@ -22251,14 +22251,14 @@
     {
       "id": 4975,
       "title": "Live answers per key: index_data_of in LiveProject::answers (crates/driver/src/live.rs) costs ~134 ms a key and make_plan re-analyses all 726 AoC files on every key: most of the ~300 ms left per key after SW-4928",
-      "status": "doing",
+      "status": "review",
       "agent": "",
       "where": "",
       "labels": [
         "perf"
       ],
       "epic": "editor-playground",
-      "body": "[Sonnet] From SW-4928 (28 Nov): native, 2021 day 18, 20 keys 400 ms apart: 6.3 s busy of 8.2 s. Profile first; also measure the wasm worker per key.",
+      "body": "[Sonnet] From SW-4928 (28 Nov): native, 2021 day 18, 20 keys 400 ms apart: 6.3 s busy of 8.2 s. Profile first; also measure the wasm worker per key.\n\nLane (Sonnet, 02:12-02:55): native, day 18, 20 keys: answers 161 to 23 ms a key, plan 62 to 28 ms, busy 5.9 s to 2.3 s of 8.1 s; answers hash identical before/after. Cause of the answers: navigation_index copied the library's 125k locals, 50k binders and 268k expr types per key. Left: edges of all namespaces and text copies in the plan (28 ms), Day18 check 80 ms. Wasm worker per key not measured (no browser here). Commit e263af72a.",
       "created": "2026-11-28",
       "updated": "2026-11-28",
       "commits": []
