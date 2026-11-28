@@ -21111,14 +21111,14 @@
     {
       "id": 4906,
       "title": "[DeepSeek] Put derive_cost::derived_instances_of_wide_constructors_stay_cheap (step-bound test) in the quick tier (.config/nextest.toml) if it's under ~5 s, so a step regression like SW-4674's shows the same day; SW-4900 finding",
-      "status": "backlog",
+      "status": "doing",
       "agent": "",
       "where": "",
       "labels": [],
       "epic": "test-infra",
       "body": "",
       "created": "2026-11-27",
-      "updated": "2026-11-27",
+      "updated": "2026-11-28",
       "commits": []
     },
     {
