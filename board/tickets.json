@@ -11503,12 +11503,12 @@
     {
       "id": 2929,
       "title": "[Sonnet] A Bool used as a statement shows without its '= True': hypothesis h: beats mine theirs, hover on rockBeatsScissors shows beats Rock Scissors; show '= True' (or say it's a Bool fact) so a learner sees the statement (book SW-2918; with D3522)",
-      "status": "doing",
+      "status": "backlog",
       "agent": "Sonnet",
       "where": "",
       "labels": [],
       "epic": "diagnostics",
-      "body": "\n\nAudit note (22 Nov): Audit 22 Nov: SW-2901 (merged) added a note for a hole whose goal is False = True; this ticket's hover/hypothesis case is separate; not re-run.\n",
+      "body": "\n\nAudit note (22 Nov): Audit 22 Nov: SW-2901 (merged) added a note for a hole whose goal is False = True; this ticket's hover/hypothesis case is separate; not re-run.\n\nParked for Matt (28 Nov): the hiding is D3482's printing rule (docs/syntax.md 'A Bool as a proposition' ~2141; docs/proposals/bool-as-proposition.md §4). Lane's options: (1) keep = True for a bare call of a user Bool function, hide for connectives and comparisons [lane's rec]; (2) a one-line hint on a bare Bool hypothesis/hover, beside SW-2901's note; (3) reverse fully [not rec]. A D question for after D3770-D3772.",
       "created": "2026-11-11",
       "updated": "2026-11-28",
       "commits": []
