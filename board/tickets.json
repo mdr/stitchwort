@@ -1,5 +1,5 @@
 {
-  "next": 5030,
+  "next": 5032,
   "tickets": [
     {
       "id": 47,
@@ -23154,12 +23154,12 @@
     {
       "id": 5026,
       "title": "NonEmptyList: the missing methods the non-empty-lists proposal planned (filter, filterMap, take, drop, withIndex, mapWithIndex, sum, product, toSet, dedup, findMap; Text.join/joinWith on NonEmptyList Text), each with a lemma tying it to toList",
-      "status": "backlog",
+      "status": "doing",
       "agent": "Sonnet",
       "where": "",
       "labels": [],
       "epic": "std-library",
-      "body": "From SW-5022 (docs/reviews/SW-5022-nonempty-results.md); cuts .toList after SW-5021 and before Text.split changes.",
+      "body": "From SW-5022 (docs/reviews/SW-5022-nonempty-results.md); cuts .toList after SW-5021 and before Text.split changes.\n\nD3779 yes (Matt, 28 Nov). Runs with SW-5030.",
       "created": "2026-11-28",
       "updated": "2026-11-28",
       "commits": []
@@ -23199,6 +23199,32 @@
       "labels": [],
       "epic": "syntax-language",
       "body": "docs/reviews/SW-5017-core-review.md",
+      "created": "2026-11-28",
+      "updated": "2026-11-28",
+      "commits": []
+    },
+    {
+      "id": 5030,
+      "title": "Parse.oneOf and Parse.pick take a NonEmptyList of alternatives; Parse.span1 returns a NonEmptyList (D3779)",
+      "status": "doing",
+      "agent": "Sonnet",
+      "where": "",
+      "labels": [],
+      "epic": "std-library",
+      "body": "D3779, Matt 28 Nov: 'D3779 yes'. docs/reviews/SW-5022-nonempty-results.md recs 1 and 3. Runs with SW-5026 in one lane.",
+      "created": "2026-11-28",
+      "updated": "2026-11-28",
+      "commits": []
+    },
+    {
+      "id": 5031,
+      "title": "Text.split and Text.splitOn return NonEmptyList Text, with a lemma that the result is non-empty in the pieces' sense; after SW-5026's NonEmptyList methods (D3779)",
+      "status": "backlog",
+      "agent": "Sonnet",
+      "where": "",
+      "labels": [],
+      "epic": "std-library",
+      "body": "D3779, Matt 28 Nov: 'D3779 yes'. docs/reviews/SW-5022-nonempty-results.md rec 2; waits for SW-5026.",
       "created": "2026-11-28",
       "updated": "2026-11-28",
       "commits": []
