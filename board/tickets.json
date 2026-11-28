@@ -22760,12 +22760,12 @@
     {
       "id": 5000,
       "title": "Streams S1: the rest of Std.Stream (zipWith, drop, interleave, repeat, scan, fromFn, find, fold, bisimOn, unfold's uniqueness, the at-laws), each with its laws; a guide section teaching head/tail recursion first; docs/syntax.md line",
-      "status": "doing",
+      "status": "review",
       "agent": "Sonnet",
       "where": "",
       "labels": [],
       "epic": "std-library",
-      "body": "Matt, 28 Nov: 'Proceed.' (after S0, SW-4997). Plan: docs/proposals/streams-head-tail.md §6 S1. Expected: 50 min.",
+      "body": "Matt, 28 Nov: 'Proceed.' (after S0, SW-4997). Plan: docs/proposals/streams-head-tail.md §6 S1. Expected: 50 min.\n\nLane (Sonnet): S1 done in e0d70384c: functions, laws, bisimOn, unfoldUnique, guide ch. 7 section, syntax.md entry. Timings at 20,000 values: take/find/fold ~0.1 s each.",
       "created": "2026-11-28",
       "updated": "2026-11-28",
       "commits": []
