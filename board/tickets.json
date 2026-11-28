@@ -11473,12 +11473,12 @@
     {
       "id": 2925,
       "title": "[Sonnet] A let's name is inlined into later hypotheses (fact: n + n = n + n where the source says twice = n + n); keep the let's name (SW-2921)",
-      "status": "doing",
+      "status": "review",
       "agent": "Sonnet",
       "where": "",
       "labels": [],
       "epic": "diagnostics",
-      "body": "\n\nAudit note (22 Nov): Audit 22 Nov: no commit touches it; not re-run.\n",
+      "body": "\n\nAudit note (22 Nov): Audit 22 Nov: no commit touches it; not re-run.\n\nLane: fixed in goals.rs (print_hypotheses prints a let's written type when it names an earlier let); example examples/goals/let-name-in-hypotheses.sw; let-proofs snapshots changed (split: wide = n + 2 + 1).",
       "created": "2026-11-11",
       "updated": "2026-11-28",
       "commits": []
