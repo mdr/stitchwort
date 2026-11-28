@@ -22419,7 +22419,7 @@
     {
       "id": 4982,
       "title": "A dev flag or env var that prints the kernel's refusals (which side refused first), so lanes can tell an elaborator E-REFL from a kernel one without a probe test",
-      "status": "doing",
+      "status": "review",
       "agent": "",
       "where": "",
       "labels": [],

@@ -473,6 +473,7 @@ times. A clean rebuild with `RUSTC_WRAPPER=` empty is the test of one run.
   `stitchwort dev keys --cache-dir /tmp/keys-main` with main's binary and
   `--cache-dir /tmp/keys-lane` with the lane's, from one project folder, then
   `task cache:compare -- /tmp/keys-main /tmp/keys-lane` (exit 0: same keys).
+- **Whether the kernel or the elaborator refused.** `STITCHWORT_KERNEL_DEBUG=1 stitchwort check FILE` prints each kernel refusal to stderr as it happens (name, code, message, span), so a diagnostic with no such line before it is the elaborator's. See "Kernel debug switch" in `docs/testing.md` (SW-4982).
 - **Comparing a std declaration's kernel term between main and a lane.**
   `STITCHWORT_DUMP_KERNEL` prints nothing for a declaration the check cache
   answers for, which is every library declaration in an ordinary `check`. Use
