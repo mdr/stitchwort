@@ -23087,15 +23087,19 @@
     {
       "id": 5021,
       "title": "List.scanLeft returns NonEmptyList b, initial value as head (D3778, Matt: yes); update all 63 uses in 22 files and its lemmas; .drop 1 becomes .tail",
-      "status": "review",
+      "status": "done",
       "agent": "Sonnet",
       "where": "",
       "labels": [],
       "epic": "std-library",
-      "body": "D3778, Matt 28 Nov: 'D3778 yes, kick that specific change off now.' Restated lemmas keep their meaning (orchestrator checks each).\n\nDone on lane/SW-5021 (65bd21b51): scanLeft returns NonEmptyList; scan lemmas moved to std/List/Scan.sw (cycle: NonEmptyList.sw needs Index/Zip); NonEmptyList.scanLeft added (SW-5028).",
+      "body": "D3778, Matt 28 Nov: 'D3778 yes, kick that specific change off now.' Restated lemmas keep their meaning (orchestrator checks each).\n\nDone on lane/SW-5021 (65bd21b51): scanLeft returns NonEmptyList; scan lemmas moved to std/List/Scan.sw (cycle: NonEmptyList.sw needs Index/Zip); NonEmptyList.scanLeft added (SW-5028).\n\nDone (Sonnet, with SW-5028): scanLeft and its lemmas moved to new List/Scan.sw (NonEmptyList.sw needs Index.sw and Zip.sw, so Toolkit.sw would cycle). Orchestrator checked restated lemmas (D2436): same meaning. Model result: sonnet, worked, 18 min (est. 40 + 10).",
       "created": "2026-11-28",
       "updated": "2026-11-28",
-      "commits": []
+      "commits": [
+        "65bd21b51",
+        "e6ae274b4",
+        "c91fe3349"
+      ]
     },
     {
       "id": 5022,
@@ -23182,7 +23186,7 @@
     {
       "id": 5028,
       "title": "NonEmptyList.scanLeft, the twin of List.scanLeft, with scanLeftToList: xs.scanLeft i f = xs.toList.scanLeft i f",
-      "status": "doing",
+      "status": "done",
       "agent": "Sonnet",
       "where": "",
       "labels": [],
@@ -23190,7 +23194,11 @@
       "body": "Matt, 28 Nov (pasted spec, 'WDYT?'). Run in SW-5021's lane (D3778), orchestrator's call: with List.scanLeft returning NonEmptyList, the lemma is a plain equation.",
       "created": "2026-11-28",
       "updated": "2026-11-28",
-      "commits": []
+      "commits": [
+        "65bd21b51",
+        "e6ae274b4",
+        "c91fe3349"
+      ]
     },
     {
       "id": 5029,
