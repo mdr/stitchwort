@@ -35,6 +35,47 @@ fn dumps_the_named_declarations_type_and_value_once() {
 }
 
 #[test]
+fn dumps_case_tree_arms_only_in_full_mode() {
+    let dir = std::env::temp_dir().join(format!("stitchwort-kernel-full-{}", std::process::id()));
+    std::fs::create_dir_all(&dir).expect("create temp dir");
+    let path = dir.join("full.sw");
+    std::fs::write(
+        &path,
+        "def parity (b: Bool): Nat := match b with\n  | True => 1\n  | False => 0\n",
+    )
+    .expect("write source");
+    let run = |full: bool| {
+        let mut command = Command::new(env!("CARGO_BIN_EXE_stitchwort"));
+        command
+            .args(["check", "--no-cache"])
+            .arg(&path)
+            .env("STITCHWORT_DUMP_KERNEL", "Main.parity");
+        if full {
+            command.env("STITCHWORT_DUMP_KERNEL_FULL", "1");
+        } else {
+            command.env_remove("STITCHWORT_DUMP_KERNEL_FULL");
+        }
+        let out = command.output().expect("run stitchwort");
+        let stderr = String::from_utf8_lossy(&out.stderr).into_owned();
+        assert!(out.status.success(), "check failed:\n{stderr}");
+        stderr
+    };
+
+    let plain = run(false);
+    assert!(plain.contains("kernel dump: Main.parity"), "{plain}");
+    assert!(plain.contains("case b of …"), "{plain}");
+    assert!(!plain.contains("True =>"), "{plain}");
+
+    let full = run(true);
+    assert!(full.contains("kernel dump: Main.parity"), "{full}");
+    assert!(
+        full.contains("case b of { False => 0 | True => 1 }"),
+        "{full}"
+    );
+    assert!(!full.contains("case b of …"), "{full}");
+}
+
+#[test]
 fn reports_readbacks_over_the_given_node_count() {
     let dir = std::env::temp_dir().join(format!("stitchwort-big-readback-{}", std::process::id()));
     std::fs::create_dir_all(&dir).expect("create temp dir");

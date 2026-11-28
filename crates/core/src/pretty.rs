@@ -206,6 +206,18 @@ pub fn value_ascii(g: &Ev, names: &[Name], value: &Value) -> String {
     })
 }
 
+/// Prints `term` as [`term`] does, but with each case tree's arms shown
+/// rather than elided to `case x of …`: `case x of { True => 1 | False => 0 }`.
+/// For comparing two elaborations, where the arms are the term.
+pub fn term_with_cases(g: &Ev, names: &[Name], term: &Term) -> String {
+    with_operation(g, || {
+        let mut names = names.to_vec();
+        let printer = Printer::new(g, None);
+        printer.show_cases.set(true);
+        printer.print(&mut names, term, Prec::Arrow)
+    })
+}
+
 /// Prints all of `term`, or fails if part of it is nested too deeply to
 /// print: for showing a result, where `…` would hide part of it.
 pub fn term_in_full(g: &Ev, names: &[Name], term: &Term) -> Result<String> {
@@ -852,6 +864,9 @@ struct Printer<'g> {
     /// Write the next `p → Void` as an arrow instead of `¬p`
     /// ([`term_not_unfolded`]).
     unfold_not: Cell<bool>,
+    /// Write a case tree's arms rather than `case x of …`
+    /// ([`term_with_cases`]).
+    show_cases: Cell<bool>,
     /// The names in scope, to shorten declarations' names by; without it,
     /// names are written from the root.
     scope: Option<&'g dyn NameScope>,
@@ -878,6 +893,7 @@ impl<'g> Printer<'g> {
             calls: Cell::new(false),
             equations: Cell::new(false),
             unfold_not: Cell::new(false),
+            show_cases: Cell::new(false),
             scope,
             decider: RefCell::new(None),
             predicates: RefCell::new(Vec::new()),
@@ -943,6 +959,22 @@ impl<'g> Printer<'g> {
     /// Data type `d`'s name, as [`Printer::short_name`] writes it.
     fn data_name(&self, names: &[Name], d: DataId) -> String {
         self.short_name(names, &self.g.data(d).name, Declaration::Data(d))
+    }
+
+    /// Constructor `c` of `d`'s name, as the scope writes it.
+    fn ctor_text(&self, d: DataId, c: usize) -> String {
+        let mut text = (self.scope)
+            .and_then(|scope| scope.ctor_name(d, c))
+            .unwrap_or_else(|| self.g.data(d).ctors[c].name.to_string());
+        // An ability's operation is a constructor named `%op`, which
+        // source can't write; it is shown as the operation's own
+        // name, `Parse.mark`.
+        if let Some(op) = text.strip_prefix('%') {
+            text = format!("{}.{op}", self.g.data(d).name);
+        } else if let Some((ability, op)) = text.rsplit_once(".%") {
+            text = format!("{ability}.{op}");
+        }
+        text
     }
 
     /// Whether `head` is an open goal's assumption.
@@ -1337,17 +1369,7 @@ impl<'g> Printer<'g> {
                     return (self.bracket_items(names, &pieces), Prec::Atom);
                 }
                 let ctor = &self.g.data(*d).ctors[*c];
-                let mut text = (self.scope)
-                    .and_then(|scope| scope.ctor_name(*d, *c))
-                    .unwrap_or_else(|| ctor.name.to_string());
-                // An ability's operation is a constructor named `%op`, which
-                // source can't write; it is shown as the operation's own
-                // name, `Parse.mark`.
-                if let Some(op) = text.strip_prefix('%') {
-                    text = format!("{}.{op}", self.g.data(*d).name);
-                } else if let Some((ability, op)) = text.rsplit_once(".%") {
-                    text = format!("{ability}.{op}");
-                }
+                let mut text = self.ctor_text(*d, *c);
                 // A constructor declared with its fields in braces is shown
                 // by field name, as it can be written. (With implicit fields
                 // it is shown positionally, which braces can't say.)
@@ -1898,9 +1920,60 @@ impl<'g> Printer<'g> {
     #[inline(never)]
     fn go_rest(&self, names: &mut Vec<Name>, term: &Term) -> (String, Prec) {
         match term {
-            Term::Case(ix, _, _) | Term::NumCase(ix, _, _) => {
+            Term::Case(ix, d, branches) => {
                 let scrutinee = self.print(names, &Term::Var(*ix), Prec::Atom);
-                (format!("case {scrutinee} of …"), Prec::Arrow)
+                if !self.show_cases.get() {
+                    return (format!("case {scrutinee} of …"), Prec::Arrow);
+                }
+                let arms: Vec<String> = branches
+                    .iter()
+                    .enumerate()
+                    .map(|(c, branch)| {
+                        let head = self.ctor_text(*d, c);
+                        let Some(body) = &branch.body else {
+                            return format!("{head} => (impossible)");
+                        };
+                        let base = names.len();
+                        for name in &branch.names {
+                            let shown = binder(name, names, body);
+                            names.push(shown);
+                        }
+                        let fields = names[base..]
+                            .iter()
+                            .map(|name| &**name)
+                            .collect::<Vec<_>>()
+                            .join(" ");
+                        let body = self.print(names, body, Prec::Arrow);
+                        names.truncate(base);
+                        if fields.is_empty() {
+                            format!("{head} => {body}")
+                        } else {
+                            format!("{head} {fields} => {body}")
+                        }
+                    })
+                    .collect();
+                (
+                    format!("case {scrutinee} of {{ {} }}", arms.join(" | ")),
+                    Prec::Arrow,
+                )
+            }
+            Term::NumCase(ix, arms, default) => {
+                let scrutinee = self.print(names, &Term::Var(*ix), Prec::Atom);
+                if !self.show_cases.get() {
+                    return (format!("case {scrutinee} of …"), Prec::Arrow);
+                }
+                let mut shown: Vec<String> = arms
+                    .iter()
+                    .map(|arm| {
+                        let body = self.print(names, &arm.body, Prec::Arrow);
+                        format!("{} => {body}", arm.value)
+                    })
+                    .collect();
+                shown.push(format!("_ => {}", self.print(names, default, Prec::Arrow)));
+                (
+                    format!("case {scrutinee} of {{ {} }}", shown.join(" | ")),
+                    Prec::Arrow,
+                )
             }
             // `a < b` and `a <= b` as propositions on `Nat`, `Int` and
             // `Float` compute to the `Bool` comparison being `True`.
