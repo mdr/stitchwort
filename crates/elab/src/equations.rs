@@ -1188,8 +1188,9 @@ struct BranchLib {
     false_not_true: DefId,
     bool_unique: DefId,
     deceq_unique: Option<(DefId, Vec<Icit>)>,
-    /// `Prop.irrel`: any two proofs of a proposition are equal.
-    prop_irrel: Option<(DefId, Vec<Icit>)>,
+    /// `Prop.irrel`: any two proofs of a proposition are equal. It is in the
+    /// core, so every session has it.
+    prop_irrel: (DefId, Vec<Icit>),
     deceq_decide: Option<DefId>,
     inspect: Option<DefId>,
     to_bool: DefId,
@@ -3901,13 +3902,7 @@ impl Elaborator {
                             );
                         }
                         let uniq = if uses && !marked {
-                            Some(self.uniqueness(
-                                lib,
-                                &p,
-                                &args[2].0,
-                                depth,
-                                named.map(|n| n.text.as_str()),
-                            )?)
+                            Some(self.uniqueness(lib, &p, &args[2].0, depth)?)
                         } else {
                             None
                         };
@@ -4653,17 +4648,9 @@ impl Elaborator {
     /// A proof that any two proofs of `p` (decided by `decision`, at
     /// `depth`) are equal, for a branch of `if h: p` that uses `h` (§3.5,
     /// D2180): `p` an equation of `Bool`s (`<` and `≤` on `Nat` and `Int`
-    /// are), or one decided by a `DecEq` instance. `proof` is the name the
-    /// guard gives its proof (`if h: P`), when it gives one: an unnamed
-    /// guard's is found automatically, and the note says so.
-    fn uniqueness(
-        &self,
-        lib: &BranchLib,
-        p: &Term,
-        decision: &Term,
-        depth: usize,
-        proof: Option<&str>,
-    ) -> R<Uniq> {
+    /// are), or one decided by a `DecEq` instance; any other proposition is
+    /// `Prop.irrel p`, from the core.
+    fn uniqueness(&self, lib: &BranchLib, p: &Term, decision: &Term, depth: usize) -> R<Uniq> {
         let g = &self.ev();
         let env: Vec<Value> = (0..depth).map(Value::var).collect();
         if let Value::Eq(ty, l, r) = force(g, eval(g, &env, p)?)?
@@ -4691,18 +4678,8 @@ impl Elaborator {
         // Any other proposition (a conjunction read from an `&&` guard, a
         // condition a `decreasing` proof is made from): by `Prop.irrel`,
         // its statement alone, so a theorem's sealed proof is never needed.
-        if let Some((irrel, icits)) = &lib.prop_irrel {
-            return Ok(Uniq::Irrel(*irrel, p.clone(), icits.clone()));
-        }
-        let proof = match proof {
-            Some(name) => format!("the proof `{name}`"),
-            None => "the guard's proof".to_string(),
-        };
-        skip(format!(
-            "its branch uses {proof} of a condition that isn't an equation in a type with \
-             `DecEq` (or a comparison), and the branch computes on it: two proofs of it \
-             aren't known to be equal (D2180)"
-        ))
+        let (irrel, icits) = &lib.prop_irrel;
+        Ok(Uniq::Irrel(*irrel, p.clone(), icits.clone()))
     }
 
     /// The declarations branch equations are made with.
@@ -4720,6 +4697,12 @@ impl Elaborator {
             let (b, _) = split_pis(g.def(id).ty(), None);
             (id, b.iter().map(|b| b.icit).collect::<Vec<_>>())
         });
+        let prop_irrel = self.lookup_def("Std.Prop.irrel").ok_or_else(none)?;
+        let (irrel_binders, _) = split_pis(g.def(prop_irrel).ty(), None);
+        let prop_irrel = (
+            prop_irrel,
+            irrel_binders.iter().map(|b| b.icit).collect::<Vec<_>>(),
+        );
         Ok(BranchLib {
             ite: r.def(Builtin::IfThenElse).ok_or_else(none)?,
             elim: r.def(Builtin::ElimDec).ok_or_else(none)?,
@@ -4734,10 +4717,7 @@ impl Elaborator {
             false_not_true: r.def(Builtin::FalseNotTrue).ok_or_else(none)?,
             bool_unique: r.def(Builtin::BoolUniqueEq).ok_or_else(none)?,
             deceq_unique,
-            prop_irrel: self.lookup_def("Std.Prop.irrel").map(|id| {
-                let (b, _) = split_pis(g.def(id).ty(), None);
-                (id, b.iter().map(|b| b.icit).collect::<Vec<_>>())
-            }),
+            prop_irrel,
             deceq_decide: self.lookup_def("Std.DecEq.decide"),
             inspect: self.lookup_def("Std.Bool.inspect"),
             to_bool: r.def(Builtin::Holds).ok_or_else(none)?,
@@ -7583,14 +7563,10 @@ impl<'a> Walk<'a> {
                 let uniq = if node.then.mentions(0)
                     && !self.e.proof_is_inert_in(&node.then, None, fvals.len())?
                 {
-                    let proof = guard_name(self.d.rows[j].guard.as_ref());
-                    Some(self.e.uniqueness(
-                        &blib,
-                        &read.args[0].0,
-                        &read.args[2].0,
-                        depth,
-                        proof.as_deref(),
-                    )?)
+                    Some(
+                        self.e
+                            .uniqueness(&blib, &read.args[0].0, &read.args[2].0, depth)?,
+                    )
                 } else {
                     None
                 };
