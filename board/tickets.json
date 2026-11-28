@@ -22808,7 +22808,7 @@
       "where": "",
       "labels": [],
       "epic": "std-library",
-      "body": "Matt, 28 Nov: 'Proceed with S2-S4 - I'm interested in which AoC days might genuinely benefit from streams'. Plan: docs/proposals/streams-head-tail.md §6.",
+      "body": "Matt, 28 Nov: 'Proceed with S2-S4 - I'm interested in which AoC days might genuinely benefit from streams'. Plan: docs/proposals/streams-head-tail.md §6.\n\nScope added (orchestrator, from SW-5005's survey): Stream.findIndex with position laws; fold/find/findIndex/findRepeat/foldUntil read the walk once (head/tail loops pay E's re-walk, about 2n steps for n values); optional iterateCongr. Est. +15 min.",
       "created": "2026-11-28",
       "updated": "2026-11-28",
       "commits": []
@@ -22834,7 +22834,7 @@
       "where": "",
       "labels": [],
       "epic": "std-library",
-      "body": "Matt, 28 Nov: 'Proceed with S2-S4 - I'm interested in which AoC days might genuinely benefit from streams'. Plan: docs/proposals/streams-head-tail.md §6.",
+      "body": "Matt, 28 Nov: 'Proceed with S2-S4 - I'm interested in which AoC days might genuinely benefit from streams'. Plan: docs/proposals/streams-head-tail.md §6.\n\nPhase 1 done (f138a63da): docs/reviews/SW-5005-aoc-streams-survey.md. Two days benefit a little: 2021 day 11 (clearer, shorter; proofs may shrink), 2024 day 22 (one stream for both parts). Most neutral, four worse; none faster, no new proofs. findRepeat fits no day. Phase 2 waits for SW-5003 (findIndex, walk-based fold/find added there, orchestrator's call).",
       "created": "2026-11-28",
       "updated": "2026-11-28",
       "commits": []
