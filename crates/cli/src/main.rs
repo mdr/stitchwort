@@ -2244,6 +2244,29 @@ fn load_file(session: &mut Session, path: &Path, verb: Option<&'static str>) -> 
     load_file_into(session, path, verb, &mut Vec::new())
 }
 
+/// Says why a folder given where a file is expected can't be read, and how
+/// to name what to read instead. `verb` is the file's mode (`"checked"`,
+/// `"tested"`, `"run"`, `"built"`), which names the command in the fix.
+fn report_folder_target(path: &Path, verb: Option<&'static str>) {
+    let dir = path.display();
+    let command = match verb {
+        Some("tested") => "test",
+        Some("run") => "run",
+        Some("built") => "build",
+        _ => "check",
+    };
+    if path.join("stitchwort.yaml").is_file() {
+        eprintln!(
+            "error: `{dir}` is a project folder: to {command} the whole project, run \
+             `stitchwort {command} --project {dir}`"
+        );
+    } else {
+        eprintln!(
+            "error: `{dir}` is a folder: name the `.sw` files to {command}, or a project's namespaces"
+        );
+    }
+}
+
 /// [`load_file`], also keeping what it reported in `reported`.
 fn load_file_into(
     session: &mut Session,
@@ -2251,6 +2274,10 @@ fn load_file_into(
     verb: Option<&'static str>,
     reported: &mut Vec<Diagnostic>,
 ) -> bool {
+    if path.is_dir() {
+        report_folder_target(path, verb);
+        return false;
+    }
     let text = match std::fs::read_to_string(path) {
         Ok(text) => text,
         Err(err) => {

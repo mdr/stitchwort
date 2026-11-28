@@ -232,6 +232,25 @@ fn check_mixed_targets() {
 }
 
 #[test]
+fn check_a_folder_target() {
+    let dir = standard("check_folder");
+    let output = stitchwort(&dir, &["check", "src/"]);
+    assert_eq!(output.status.code(), Some(1));
+    assert_eq!(
+        err(&output),
+        "error: `src/` is a folder: name the `.sw` files to check, or a project's namespaces\n"
+    );
+    let outside = dir.parent().unwrap();
+    let output = stitchwort(outside, &["check", "proj/"]);
+    assert_eq!(output.status.code(), Some(1));
+    assert_eq!(
+        err(&output),
+        "error: `proj/` is a project folder: to check the whole project, run \
+         `stitchwort check --project proj/`\n"
+    );
+}
+
+#[test]
 fn no_project_found() {
     let empty = std::env::temp_dir().join(format!("stitchwort-noproject-{}", std::process::id()));
     std::fs::create_dir_all(&empty).unwrap();
