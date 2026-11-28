@@ -1,5 +1,5 @@
 {
-  "next": 4971,
+  "next": 4973,
   "tickets": [
     {
       "id": 47,
@@ -22138,6 +22138,34 @@
       "body": "[Opus, design] From SW-4955 finding 7 (27 Nov). Not scheduled: would need a D question with the risk and measured saving.",
       "created": "2026-11-27",
       "updated": "2026-11-27",
+      "commits": []
+    },
+    {
+      "id": 4971,
+      "title": "Core quoting (quote_folded) and the printer (mentions) are quadratic in a Pi chain's depth: affects search, check messages and hovers on long arrow chains; make them linear (a precomputed used-binder set, or a closure environment sharing its prefix)",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [
+        "perf"
+      ],
+      "epic": "performance",
+      "body": "[Opus] From SW-4969 (28 Nov): after its search-local fixes a 3,000-arrow search takes 11.7 s and 10,000 is past 40 s. Kernel-adjacent (crates/core): Fable review if quoting changes. Profile first; results and hashes unchanged.",
+      "created": "2026-11-28",
+      "updated": "2026-11-28",
+      "commits": []
+    },
+    {
+      "id": 4972,
+      "title": "Generated declarations: a marker set by the elaborator instead of inferring from names (% convention) and spans (SW-4957's partial helpers) in search's hidden()",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "epic": "proof-search",
+      "body": "[Sonnet] From SW-4957 (28 Nov).",
+      "created": "2026-11-28",
+      "updated": "2026-11-28",
       "commits": []
     }
   ]
