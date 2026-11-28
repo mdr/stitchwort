@@ -1,5 +1,5 @@
 {
-  "next": 4994,
+  "next": 4995,
   "tickets": [
     {
       "id": 47,
@@ -22667,6 +22667,19 @@
       "labels": [],
       "epic": "syntax-language",
       "body": "Matt, 28 Nov: 'tbh that's probably my first intuition I'd have about a stream, is it's something I could recurse on with head and tail'; 'Start the Fable paper lane to explore the space further.' Follows SW-4962 (docs/proposals/streams.md) and SW-4988 (docs/proposals/streams-one-type.md). Expected: 30 min.",
+      "created": "2026-11-28",
+      "updated": "2026-11-28",
+      "commits": []
+    },
+    {
+      "id": 4994,
+      "title": "Editor: the first Search by Type after a compiler change waits ~32 s while std's search-mode cache fills (measured 28 Nov through stitchwort lsp on aoc/); fill it in the background at server start, or show progress, so the first search doesn't stall",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "epic": "proof-search",
+      "body": "Measured 28 Nov with scratchpad lsp-search-time/time_search.py (stitchwort/search over stdio, aoc/src/Aoc/Year2020/Day08/Day08.sw, main at about 3d909a131, load 5-8). First search: 33.35 s with the existing aoc cache, 31.54 s with an empty one; 1.48 s and 1.76 s in later fresh sessions; every later search in a session 0.30-0.42 s. Likely cause, inferred and not verified: today's crates/core changes altered the kernel fingerprint, so no entries carried over (elab cache Store::kernel). Check what the editor shows during the wait. Measure before building.",
       "created": "2026-11-28",
       "updated": "2026-11-28",
       "commits": []
