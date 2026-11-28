@@ -53,13 +53,10 @@ type Outcome =
 
 def operation(): {Parse Char} Operation := Parse.pick ([Acc, Jmp, Nop].map (operation => (operation.word, operation)))
 
---| "+3" or "-99": a sign and a whole number.
-def argument(): {Parse Char} Int := Parse.int()
-
 def instruction(): {Parse Char} Instruction :=
   let operation := operation()
   Parse.char ' '
-  let argument := argument()
+  let argument := Parse.int()
   { operation, argument }
 
 def parseProgram (input: Text): {Fail} Program := { instructions = Parse.eachLine input instruction }

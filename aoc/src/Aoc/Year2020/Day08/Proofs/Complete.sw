@@ -53,7 +53,7 @@ theorem runsInstruction ∀ (read: List Char) (item: Instruction)
               () _
               byComputing
               (Parse.runsChar ' ' _)
-              (Parse.runsBind argument _ argumentRead [] _ [] item.argument _
+              (Parse.runsBind Parse.int _ argumentRead [] _ [] item.argument _
                 (List.appendNil _).flipped
                 (Parse.runsIntRead argumentRead item.argument argumentWritten [] byComputing)
                 (Parse.runsPure _ []))))
