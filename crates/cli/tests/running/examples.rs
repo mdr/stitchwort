@@ -502,8 +502,9 @@ fn assert_goals(
                 result.outcome == Outcome::Failed,
                 "{name}: test \"{test}\" was expected to fail, but it passed"
             );
+            // Not run for a gap, or run and stopped at a `?` (D3777).
             assert!(
-                result.unfinished.is_some(),
+                result.unfinished.is_some() || result.stopped.is_some(),
                 "{name}: test \"{test}\" failed, but not because it reaches an open goal"
             );
         }
