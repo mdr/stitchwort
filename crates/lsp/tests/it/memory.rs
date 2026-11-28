@@ -1029,3 +1029,131 @@ fn restored_body() {
     );
     assert_eq!(second.published, first.published);
 }
+
+/// Types `keys` edits into `src/First.sw` of a project of six namespaces,
+/// each key's check done before the next is sent, as a page's worker does
+/// between keys; then lets the rest of the project settle. The number of
+/// namespaces checked during the typing, and the diagnostics last published
+/// for each file.
+fn type_into_project(
+    sweep_quiet: std::time::Duration,
+    keys: usize,
+) -> (usize, std::collections::BTreeMap<String, Value>) {
+    let mut files: Vec<(String, String)> = vec![(
+        "src/First.sw".into(),
+        "namespace First\n\ndef one: Nat := 1\n".into(),
+    )];
+    for i in 1..=5 {
+        let body = if i == 3 { "\"oops\"" } else { "2" };
+        files.push((
+            format!("src/Other{i}.sw"),
+            format!("namespace Other{i}\n\ndef value: Nat := {body}\n"),
+        ));
+    }
+    let memory = common::cached_memory(STACK);
+    memory.add(MemoryProject {
+        root: "/memory/proj".into(),
+        sources: vec!["src".into()],
+        files: Arc::new(files.iter().cloned().collect()),
+    });
+    let mut options = Options::new(STACK);
+    options.sweep_quiet = sweep_quiet;
+    let checks = options.checks.clone();
+    let mut server = Inline::new(options, memory).unwrap();
+    let mut last = std::collections::BTreeMap::new();
+    let mut take = |out: Vec<String>| {
+        for m in out {
+            let m: Value = serde_json::from_str(&m).unwrap();
+            if m["method"] == "textDocument/publishDiagnostics" {
+                last.insert(
+                    m["params"]["uri"].as_str().unwrap().to_string(),
+                    m["params"]["diagnostics"].clone(),
+                );
+            }
+        }
+    };
+    let send = |server: &mut Inline, message: Value| {
+        let out = server.receive(&message.to_string());
+        out.iter()
+            .for_each(|m| drop(serde_json::from_str::<Value>(m).unwrap()));
+    };
+    send(
+        &mut server,
+        json!({"jsonrpc": "2.0", "id": 1, "method": "initialize", "params": {"capabilities": {}}}),
+    );
+    send(
+        &mut server,
+        json!({"jsonrpc": "2.0", "method": "initialized", "params": {}}),
+    );
+    let uri = "file:///memory/proj/src/First.sw";
+    let message = |version: usize| {
+        let text = format!("{}\n-- {version}\n", files[0].1);
+        if version == 1 {
+            json!({"jsonrpc": "2.0", "method": "textDocument/didOpen", "params": {"textDocument": {
+                "uri": uri, "languageId": "stitchwort", "version": 1, "text": text,
+            }}})
+        } else {
+            json!({"jsonrpc": "2.0", "method": "textDocument/didChange", "params": {
+                "textDocument": {"uri": uri, "version": version},
+                "contentChanges": [{"text": text}],
+            }})
+        }
+    };
+    // The first check, to the end.
+    send(&mut server, message(1));
+    loop {
+        let (out, more) = server.tick();
+        take(out);
+        if !more {
+            break;
+        }
+        std::thread::sleep(std::time::Duration::from_millis(2));
+    }
+    let before = checks.load(std::sync::atomic::Ordering::SeqCst);
+    for version in 2..2 + keys {
+        send(&mut server, message(version));
+        // Ticks until the edit is answered, and the sweep, if it isn't
+        // held back, has run to its end; a held-back one is left waiting.
+        while let (out, true) = server.tick() {
+            take(out);
+            if server.wait().is_some() {
+                break;
+            }
+        }
+    }
+    let typing = checks.load(std::sync::atomic::Ordering::SeqCst) - before;
+    loop {
+        let (out, more) = server.tick();
+        take(out);
+        if !more {
+            break;
+        }
+        std::thread::sleep(std::time::Duration::from_millis(2));
+    }
+    (typing, last)
+}
+
+#[test]
+fn a_burst_of_edits_checks_fewer_namespaces_than_edits_would_sweep() {
+    // The edit's own namespace is checked per key; the other five only
+    // when typing has paused.
+    let keys = 6;
+    std::thread::Builder::new()
+        .stack_size(STACK)
+        .spawn(move || {
+            let (eager, eager_answers) = type_into_project(std::time::Duration::ZERO, keys);
+            let (held, held_answers) =
+                type_into_project(std::time::Duration::from_millis(150), keys);
+            assert!(
+                eager > keys * 2,
+                "without a pause, every key sweeps: {eager}"
+            );
+            assert!(held <= keys, "{held} checks for {keys} keys");
+            assert_eq!(held_answers, eager_answers);
+            let other = "file:///memory/proj/src/Other3.sw";
+            assert_eq!(held_answers[other].as_array().unwrap().len(), 1);
+        })
+        .unwrap()
+        .join()
+        .unwrap();
+}

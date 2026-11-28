@@ -272,6 +272,28 @@ in [../proposals/README.md](../proposals/README.md).
 - **Not reproduced, so no change.** What differs on Matt's machine: Firefox 160.0.1, a real
   window, his profile's extensions, and his foreground priority against the lanes.
 
+### SW-4928: typing no longer re-checks the rest of the project on every key
+
+- **Problem.** SW-4925 found the language server's worker running 11.7 of 11.8 s while 20
+  keys were typed 400 ms apart in 2021 day 18, a core held busy while you type.
+- **Cause (measured, native `Inline`, `sw4928_typing` in `crates/lsp/tests/it/profile.rs`).**
+  Each key rewinds the session to the edited namespace; the check of Day18 answers at once
+  (about 115 ms for the check, 180 ms for the answers), and then the checker goes on to
+  check again, from the cache, the other 90 or so namespaces the rewind threw away (a few
+  ms each, 0.4 s in all). The next key arrives before that ends and throws it away again.
+  20 keys: 91 namespace checks and 8.4 s busy of 8.4 s.
+- **Change.** The rest of a project waits until typing has paused for 300 ms
+  (`Options::sweep_quiet`, counted from the edit's answer; `initializationOptions.sweepQuietMs`;
+  the playground sets 300, the native server's default stays zero). The edited file's own
+  diagnostics are not held back; those of other files that the edit changes appear 300 ms
+  after the last key's answer. The worker's loop sleeps for the wait the tick reports
+  (`wait`) and an edit's message cuts it short.
+- **Measured (native, one run each, 20 keys 400 ms apart).** Before: 91 checks, 8.4 s busy of
+  8.4 s. After: 20 checks, 6.3 s busy of 8.2 s. The rest per key is the Day18 check (115 ms),
+  `index_data_of` in the answers (about 134 ms) and the plan (analysis of all 726 files); the
+  index is the next hotspot.
+- Test: `a_burst_of_edits_checks_fewer_namespaces_than_edits_would_sweep` (memory.rs).
+
 ### SW-4925: typing in a playground project no longer restarts the compiler's worker on every key
 
 - **Problem.** Matt: typing in an AoC day (2021 day 18) on the public playground lagged up to

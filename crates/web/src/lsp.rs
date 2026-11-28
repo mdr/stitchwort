@@ -109,10 +109,13 @@ impl LanguageServer {
         array(self.inner.receive(message))
     }
 
-    /// The next piece of background work: `{"sent": [...], "more": bool}`.
+    /// The next piece of background work: `{"sent": [...], "more": bool,
+    /// "wait": ms}`, the time to leave before the next tick when it only
+    /// waits for typing to pause (0 otherwise).
     pub fn tick(&mut self) -> String {
         let (sent, more) = self.inner.tick();
-        format!(r#"{{"sent":{},"more":{more}}}"#, array(sent))
+        let wait = self.inner.wait().map_or(0, |d| d.as_millis() as u64 + 1);
+        format!(r#"{{"sent":{},"more":{more},"wait":{wait}}}"#, array(sent))
     }
 
     /// Stops a check whenever `globalThis.stitchwortEditsWaiting()` says
@@ -236,7 +239,11 @@ pub fn checking_namespace() -> String {
 /// playground sessions' guard (`STITCHWORT_GUARD`, see `build.rs`).
 pub(crate) fn options() -> stitchwort_lsp::Options {
     crate::GUARD_READ.with(|r| r.set(true));
-    stitchwort_lsp::Options::new(stack_for_guard(crate::guard()))
+    let mut options = stitchwort_lsp::Options::new(stack_for_guard(crate::guard()));
+    // A key pressed 400 ms after the last found the worker still sweeping
+    // the rest of the project, which the key threw away (SW-4928).
+    options.sweep_quiet = std::time::Duration::from_millis(300);
+    options
 }
 
 /// Proof searches run in a worker of their own, with the same guard.
