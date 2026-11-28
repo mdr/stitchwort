@@ -21937,17 +21937,21 @@
     {
       "id": 4951,
       "title": "search patterns: a project type clashing with a std one can't be named (Pair → Nat gives E-ARITY via Std.Pair) though a project's lowercase length wins over std's",
-      "status": "review",
+      "status": "done",
       "agent": "",
       "where": "",
       "labels": [
         "bug"
       ],
       "epic": "proof-search",
-      "body": "[Opus] From SW-4947 (27 Nov): shadowing in patterns is inconsistent.\n\n[Opus lane, 28 Nov] Reproduced on main: `Pair → Nat` in a project defining `Pair` is E-ARITY (std line `import Std (Pair)` outranks `import Probe (..)`), from `stitchwort search` and the editor search from a file importing the namespace; `length _` already the project's. Rule: a pattern names what the same text names in the project's code (docs/syntax.md short-name order). Fix: project imports first, library line skips names already given a meaning (Elaborator::brought_here). Tests: search_match::a_pattern_naming_a_projects_own_{pair_finds_its_functions,length_finds_it}; server search::in_std_loads_the_project... updated (it asserted the bug). Commit d9fe2c9c1.\n",
+      "body": "[Opus] From SW-4947 (27 Nov): shadowing in patterns is inconsistent.\n\n[Opus lane, 28 Nov] Reproduced on main: `Pair → Nat` in a project defining `Pair` is E-ARITY (std line `import Std (Pair)` outranks `import Probe (..)`), from `stitchwort search` and the editor search from a file importing the namespace; `length _` already the project's. Rule: a pattern names what the same text names in the project's code (docs/syntax.md short-name order). Fix: project imports first, library line skips names already given a meaning (Elaborator::brought_here). Tests: search_match::a_pattern_naming_a_projects_own_{pair_finds_its_functions,length_finds_it}; server search::in_std_loads_the_project... updated (it asserted the bug). Commit d9fe2c9c1.\n\nDone (Opus): cause was search's own 'import Std (Pair, ...)' line, a by-name import, outranking the project's import N (..) (docs/syntax.md 'A short name'). Fix: project imports first; the library line drops namespaces the project already names (Elaborator::brought_here). Orchestrator call: follows the language's existing shadowing rule, so not a new D question. Checks: search_match, search_at, server search, lsp search 85 pass; wasm ok. Not done: qualifier clashes (a project sub-namespace named like a library one). ~16 min (est. 35).",
       "created": "2026-11-27",
       "updated": "2026-11-28",
-      "commits": []
+      "commits": [
+        "d9fe2c9c1",
+        "d26b7f7e4",
+        "3ae25ebe2"
+      ]
     },
     {
       "id": 4952,
