@@ -21329,17 +21329,20 @@
     {
       "id": 4916,
       "title": "[DeepSeek] Read-back: give the reference kernel's quote (crates/core/src/reference.rs:1049) and arm_display.rs:738 and :770 the same level < depth check value.rs's visit now has in release (SW-3593), each failing as an internal error rather than wrapping; a should_panic test each",
-      "status": "doing",
+      "status": "done",
       "agent": "",
       "where": "",
       "labels": [
         "core"
       ],
       "epic": "elaborator-kernel",
-      "body": "From SW-3593's report: these compute Term::Var(level - 1 - l) unchecked, so a quoting bug there prints a wrong name instead of failing. Release builds have overflow checks off.",
+      "body": "From SW-3593's report: these compute Term::Var(level - 1 - l) unchecked, so a quoting bug there prints a wrong name instead of failing. Release builds have overflow checks off.\n\nDone (DeepSeek): reference.rs quote and elab arm_display.rs (not core; ticket path was stale) assert l < level with value.rs's SW-3593 message; arm display's closures extracted to level_var/shown_level; three should_panic tests. Orchestrator checks: tools/fmt, aoc, rogue, sf, book check --no-cache clean (no assertion trips); example kinds, goal_index, stitchwort-core lib 75 pass. Model result: deepseek, worked, ~10 min (est. 20).",
       "created": "2026-11-27",
       "updated": "2026-11-28",
-      "commits": []
+      "commits": [
+        "d3719458f",
+        "8f6553b10"
+      ]
     },
     {
       "id": 4917,
