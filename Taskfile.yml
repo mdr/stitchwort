@@ -477,6 +477,11 @@ tasks:
     cmds:
       - node --test web/tests/colour.test.mjs
 
+  test:bundles:
+    desc: Check the playground project manifests (web/bundle-projects.sh; no WebAssembly build or browser)
+    cmds:
+      - python3 dev/bundle-projects_test.py
+
   board:test:
     desc: The board's tests (node --test)
     dir: board
