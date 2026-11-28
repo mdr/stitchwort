@@ -3450,9 +3450,7 @@ fn workspace_symbols(nav: &Nav, query: &str) -> Vec<SymbolInformation> {
 /// cancel flag are set: the one place they're made, so that a
 /// [`LibraryBundle`] made with [`library_bundle`] has the keys they look up.
 fn session_for(options: &Options) -> Session {
-    let mut session = Session::navigable_for_stack(options.stack);
-    session.elab.enable_expression_types();
-    session
+    Session::editor_for_stack(options.stack)
 }
 
 /// [`session_for`] for a host that runs programs and checks in sessions of

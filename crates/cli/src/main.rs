@@ -2975,9 +2975,10 @@ fn carry_over_from_environment() -> bool {
         && std::io::stderr().is_terminal()
 }
 
-/// `dev std-cache`: writes the library's check cache for this binary to `out`.
+/// `dev std-cache`: writes the library's check cache for this binary to `out`: the CLI's
+/// entries and the language server's.
 fn std_cache_command(out: &Path) -> ExitCode {
-    match stitchwort_driver::check_cache::cli_library_bundle(STACK) {
+    match stitchwort_driver::check_cache::installed_library_bundle(STACK) {
         Ok((bundle, summary)) => match std::fs::write(out, bundle.encode()) {
             Ok(()) => {
                 println!("{}: {summary}", out.display());

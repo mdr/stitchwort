@@ -21973,14 +21973,14 @@
     {
       "id": 4960,
       "title": "Prebuilt std cache: add the editor's modes (checker +nav+ty, search +nav) to the installed bundle so VS Code skips the cold std fill too",
-      "status": "doing",
+      "status": "review",
       "agent": "",
       "where": "",
       "labels": [
         "perf"
       ],
       "epic": "dev-loop-speed",
-      "body": "[Sonnet] From SW-2163 (27 Nov): the bundle holds the CLI's mode only; the reader already serves any std.* unit, so the build adds stitchwort_lsp::library_bundle entries. Watch the server's native limits: a key mismatch is a silent all-miss, so test a hit count.",
+      "body": "[Sonnet] From SW-2163 (27 Nov): the bundle holds the CLI's mode only; the reader already serves any std.* unit, so the build adds stitchwort_lsp::library_bundle entries. Watch the server's native limits: a key mismatch is a silent all-miss, so test a hit count.\n\nLane (Sonnet): dev std-cache now writes CLI + editor (Session::editor_for_stack, +nav+ty) entries: 216 entries, 37.5 MB (8.6 MB gz) from 15 MB (3.3 MB gz). Test a_bundle_with_the_editors_modes_serves_the_language_servers_sessions: hits == loaded > 0 in editor mode, no folder writes; CLI-only bundle gives 0 hits. Search with no library bundle uses Session::for_stack (CLI mode), so it is covered by the CLI entries.",
       "created": "2026-11-27",
       "updated": "2026-11-28",
       "commits": []

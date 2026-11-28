@@ -757,6 +757,22 @@ impl LibraryBundle {
         self.entries.len()
     }
 
+    /// The entries of both. They are keyed by unit, which names the modes
+    /// they were made in, so bundles of different modes don't collide.
+    pub fn merged(a: &LibraryBundle, b: &LibraryBundle) -> LibraryBundle {
+        let mut entries = a.entries.clone();
+        entries.extend(b.entries.iter().map(|(k, v)| (k.clone(), v.clone())));
+        let left_out: std::collections::BTreeSet<String> =
+            a.left_out.union(&b.left_out).cloned().collect();
+        let id = Self::content_id(&a.compiler, &entries, &left_out);
+        LibraryBundle {
+            compiler: a.compiler.clone(),
+            entries,
+            left_out,
+            id,
+        }
+    }
+
     pub fn is_empty(&self) -> bool {
         self.entries.is_empty()
     }
@@ -862,8 +878,43 @@ impl LibraryBundle {
 /// session with the installed bundle would: a key that didn't match would
 /// make a shipped bundle save nothing. The `String` says what it holds.
 pub fn cli_library_bundle(stack: usize) -> Result<(std::sync::Arc<LibraryBundle>, String), String> {
-    use crate::driver::Session;
-    let mut session = Session::for_stack(stack);
+    library_bundle_with(|| crate::driver::Session::for_stack(stack))
+}
+
+/// [`cli_library_bundle`] for the language server's sessions
+/// (`Session::editor_for_stack`: navigation and expression types, whose
+/// entries are keyed `+nav+ty`), which a server run from the installed
+/// binary reads the library's entries from (SW-4960).
+pub fn editor_library_bundle(
+    stack: usize,
+) -> Result<(std::sync::Arc<LibraryBundle>, String), String> {
+    library_bundle_with(|| crate::driver::Session::editor_for_stack(stack))
+}
+
+/// The bundle an installed binary ships: the CLI's entries and the
+/// editor's, whose unit names differ by their modes (`std.List+nav+ty`), so
+/// that one file serves both. Each is checked as in [`cli_library_bundle`].
+pub fn installed_library_bundle(
+    stack: usize,
+) -> Result<(std::sync::Arc<LibraryBundle>, String), String> {
+    let (cli, cli_summary) = cli_library_bundle(stack)?;
+    let (editor, editor_summary) = editor_library_bundle(stack)?;
+    let merged = LibraryBundle::merged(&cli, &editor);
+    let summary = format!(
+        "{} entries: CLI {} ({cli_summary}), editor {} ({editor_summary})",
+        merged.len(),
+        cli.len(),
+        editor.len()
+    );
+    Ok((std::sync::Arc::new(merged), summary))
+}
+
+/// Checks the library in a session made by `make`, records its entries, and
+/// loads it again from them (see [`cli_library_bundle`]).
+fn library_bundle_with(
+    make: impl Fn() -> crate::driver::Session,
+) -> Result<(std::sync::Arc<LibraryBundle>, String), String> {
+    let mut session = make();
     let recorder = std::rc::Rc::new(BundleRecorder::default());
     session.elab.set_check_cache(recorder.clone());
     session.elab.load_all_libraries().map_err(|ds| {
@@ -874,7 +925,7 @@ pub fn cli_library_bundle(stack: usize) -> Result<(std::sync::Arc<LibraryBundle>
     })?;
     let made = session.elab.check_cache_stats();
     let bundle = std::sync::Arc::new(recorder.finish(Default::default()));
-    let mut again = Session::for_stack(stack);
+    let mut again = make();
     again
         .elab
         .set_check_cache(std::rc::Rc::new(BundleStore(bundle.clone())));
