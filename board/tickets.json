@@ -22406,12 +22406,12 @@
     {
       "id": 4981,
       "title": "E-MUTUAL-SIGNATURE goes through a kernel refusal first: a match whose annotated type mentions another match that calls the owner or local function records a kernel E-MALFORMED before the elaborator reports; refuse before declaring the helper",
-      "status": "doing",
+      "status": "review",
       "agent": "",
       "where": "",
       "labels": [],
       "epic": "elaborator-kernel",
-      "body": "[Sonnet] From SW-4913 (28 Nov): probe shapes a1, a3, r4, r5, r8; oracle 3 misses it because the messages differ. Also fix Draft::span's comment (for a local def it is only the signature; LocalDraft::whole is the definition).",
+      "body": "[Sonnet] From SW-4913 (28 Nov): probe shapes a1, a3, r4, r5, r8; oracle 3 misses it because the messages differ. Also fix Draft::span's comment (for a local def it is only the signature; LocalDraft::whole is the definition).\n\nFixed on lane/SW-4981: early E-MUTUAL-SIGNATURE check in lift.rs resolve_batch; test oracle_3_match_type_mentions_unfinished_match.",
       "created": "2026-11-28",
       "updated": "2026-11-28",
       "commits": []
