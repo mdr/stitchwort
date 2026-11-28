@@ -1,5 +1,7 @@
 # Proposal: infinite streams
 
+**See also:** [streams-one-type.md](streams-one-type.md) (SW-4988, 28 Nov) replaces D3772 and changes the shape of D3770's type: one `Stream` type that is fast to walk, with no `Stream.Gen`.
+
 **Status:** draft 1, 27 November 2026. Ticket SW-4962 (Fable, paper), from
 Matt's question the same day: "how might we best implement infinite streams
 in Stitchwort? ... How might we prove things about them? How can we augment
