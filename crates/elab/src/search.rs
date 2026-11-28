@@ -148,6 +148,18 @@ pub struct Pattern {
     pub via: Option<Via>,
     /// Its rows with abilities left open.
     pub(crate) rows: Vec<RowHole>,
+    /// Its explicit parameters' types, what they conclude and how many
+    /// binders were opened, for [`reordered`]: opening a long chain of
+    /// arrows costs a quadratic copy of the environment, so it is done once,
+    /// not once per candidate (SW-4969).
+    pub(crate) opened_params: std::cell::OnceCell<Opened>,
+}
+
+/// A function-type pattern with its binders opened with rigid variables.
+pub(crate) struct Opened {
+    params: Vec<Value>,
+    concl: Value,
+    level: usize,
 }
 
 impl Pattern {
@@ -1319,6 +1331,7 @@ impl Elaborator {
                     ty: ty.clone(),
                     via,
                     rows: rows.clone(),
+                    opened_params: Default::default(),
                 }
             };
             // The instance double search: each dictionary elaboration
@@ -1629,6 +1642,7 @@ impl Elaborator {
                 .filter(|m| g.meta_solution(*m).is_none())
                 .collect(),
             decisive: Vec::new(),
+            opened_params: Default::default(),
             distinct: true,
             ty,
             via: None,
@@ -1974,7 +1988,8 @@ impl Elaborator {
                             .map(|(h, at)| eval(g, &env[..*at], h))
                             .collect::<Res<_>>()?;
                         let concl = eval(g, &env, &conclusion)?;
-                        let same = reordered(g, &pattern.value, &theirs, &concl)?;
+                        let same =
+                            reordered(g, &pattern.value, &pattern.opened_params, &theirs, &concl)?;
                         return Ok(Some((same, false)));
                     }
                     // Of another type, it isn't a match, and unifying could
@@ -2230,30 +2245,46 @@ fn is_dictionary(g: &Ev, arg: &Term) -> bool {
 fn reordered(
     g: &crate::unify::Unifier<'_>,
     pattern: &Value,
+    cache: &std::cell::OnceCell<Opened>,
     theirs: &[Value],
     concl: &Value,
 ) -> Res<bool> {
-    let mut ours: Vec<Value> = Vec::new();
-    let mut v = force(g, pattern.clone())?;
-    // Rigid variables, not unknowns: a hole under the arrows is an unknown
-    // applied to them (`?m x y`), which unification can solve only when
-    // they are variables.
-    let mut level = 0;
-    while let Value::Pi(_, icit, dom, closure, _) = v {
-        if icit == Icit::Explicit {
-            ours.push((*dom).clone());
+    let Opened {
+        params: ours,
+        concl: v,
+        level,
+    } = match cache.get() {
+        Some(opened) => opened,
+        None => {
+            let mut ours: Vec<Value> = Vec::new();
+            let mut v = force(g, pattern.clone())?;
+            // Rigid variables, not unknowns: a hole under the arrows is an
+            // unknown applied to them (`?m x y`), which unification can
+            // solve only when they are variables.
+            let mut level = 0;
+            while let Value::Pi(_, icit, dom, closure, _) = v {
+                if icit == Icit::Explicit {
+                    ours.push((*dom).clone());
+                }
+                v = force(g, closure.apply(g, Value::var(level))?)?;
+                level += 1;
+            }
+            cache.get_or_init(|| Opened {
+                params: ours,
+                concl: v,
+                level,
+            })
         }
-        v = force(g, closure.apply(g, Value::var(level))?)?;
-        level += 1;
-    }
+    };
+    let (v, level) = (v, *level);
     if ours.is_empty()
         || ours.len() > theirs.len()
-        || !crate::unify::unify_solving_arguments(g, level, &v, concl)?
+        || !crate::unify::unify_solving_arguments(g, level, v, concl)?
     {
         return Ok(false);
     }
     let mut used = vec![false; theirs.len()];
-    for want in &ours {
+    for want in ours {
         let mut found = false;
         for (i, have) in theirs.iter().enumerate() {
             if used[i] {

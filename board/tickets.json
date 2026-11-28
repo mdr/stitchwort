@@ -22122,14 +22122,14 @@
     {
       "id": 4969,
       "title": "search: a pattern of 10,000 chained arrows ran past 100 s (killed); check whether a deep chain is slow rather than failing cleanly",
-      "status": "doing",
+      "status": "review",
       "agent": "",
       "where": "",
       "labels": [
         "perf"
       ],
       "epic": "proof-search",
-      "body": "[Sonnet] From SW-4964 (27 Nov); 10,000 nested parentheses around ?a fail cleanly (exit 2). Reproduce with a timeout first.",
+      "body": "[Sonnet] From SW-4964 (27 Nov); 10,000 nested parentheses around ?a fail cleanly (exit 2). Reproduce with a timeout first.\n\nLane (Sonnet): quadratic cost found and part fixed in 0bec67842. Remaining at 3,000 arrows 11.7 s (was >60 s), 10,000 still >40 s: measure's quote_folded of a whole-pattern solution per matching candidate (core env copy per closure) and the printer's per-link mentions walk; both general core, so stopped. Needs a decision: linear quote/printer, or a pattern-size E-RESOURCE.",
       "created": "2026-11-27",
       "updated": "2026-11-28",
       "commits": []

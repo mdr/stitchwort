@@ -317,6 +317,7 @@ impl Elaborator {
                 ty: Some(Ty::Type),
                 via: None,
                 rows: Vec::new(),
+                opened_params: Default::default(),
             };
             Ok(Goal {
                 pattern,
@@ -413,6 +414,7 @@ impl Elaborator {
                     ty: goal.pattern.ty.clone(),
                     via: None,
                     rows: Vec::new(),
+                    opened_params: Default::default(),
                 };
                 (pattern, sym)
             }),
@@ -754,6 +756,7 @@ impl Elaborator {
             ty,
             via: None,
             rows: Vec::new(),
+            opened_params: Default::default(),
         })
     }
 

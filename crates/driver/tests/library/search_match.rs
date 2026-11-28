@@ -518,3 +518,27 @@ def loopCount (n: Nat): {Partial} Nat :=
         assert!(all.contains(&format!("Main.loopCount.{helper}")), "{all:?}");
     }
 }
+
+/// A pattern that is a long chain of arrows is searched in a time that
+/// grows slowly with its length (SW-4969). Opening its binders once per
+/// candidate, and printing it with a walk of the rest of the chain at every
+/// link, were each quadratic in the chain: 10,000 arrows ran past 100 s.
+#[test]
+fn a_long_chain_of_arrows_is_searched_promptly() {
+    const ARROWS: usize = 2000;
+    let source: String = (0..30)
+        .map(|i| format!("def f{i} (a: Nat) (b: Nat): Nat := a\n\n"))
+        .collect();
+    let query = vec!["Nat"; ARROWS].join(" → ");
+    let started = std::time::Instant::now();
+    with_session(STACK, Session::for_stack, |session| {
+        session.load("chain.sw", &source).expect("the file checks");
+        let outcome = session.search(&query, &Options::default(), &Scope::File);
+        assert!(outcome.is_ok() || outcome.is_err_and(|d| d.code.starts_with("E-")));
+    });
+    let took = started.elapsed();
+    assert!(
+        took < std::time::Duration::from_secs(10),
+        "{ARROWS} arrows took {took:?}"
+    );
+}
