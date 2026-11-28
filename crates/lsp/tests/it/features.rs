@@ -2105,9 +2105,13 @@ fn go_to_definition_on_a_standard_library_type_goes_to_its_declaration() {
             .strip_prefix("file://")
             .unwrap_or_else(|| panic!("not a file: {found}"));
         assert!(path.ends_with("std/core/Data.sw"), "{found}");
+        let source = std::fs::read_to_string(path).expect("the core file");
+        let line = source
+            .lines()
+            .position(|l| l.starts_with("type Bool"))
+            .expect("`type Bool` in the core");
         let start = &found["range"]["start"];
-        // `type Bool` is line 43 (index 42), the name at `type`.
-        assert_eq!(start["line"], 42, "{found}");
+        assert_eq!(start["line"], line, "{found}");
         assert_eq!(start["character"], "type ".len(), "{found}");
     });
 }
