@@ -4571,17 +4571,22 @@
     {
       "id": 1877,
       "title": "[DeepSeek] Parse message sweep: labels that add information, 'a pattern or =' per call site, BOM skipped, U+XXXX for invisible characters, 'the end of the input' for expressions, E-RESOURCE past u32::MAX bytes",
-      "status": "doing",
+      "status": "done",
       "agent": "",
       "where": "",
       "labels": [
         "syntax"
       ],
       "epic": "diagnostics",
-      "body": "From the syntax code review (docs/reviews/code-review-syntax.md, tickets to file, 5; F6, F9, F10). 60 min.\n\nAudit note (22 Nov): Audit 22 Nov: no commit touches it; part of it (BOM, invisible characters as U+XXXX) is in crates/syntax/src/lexer.rs:1478 (invisible()); recheck which items remain.\n",
+      "body": "From the syntax code review (docs/reviews/code-review-syntax.md, tickets to file, 5; F6, F9, F10). 60 min.\n\nAudit note (22 Nov): Audit 22 Nov: no commit touches it; part of it (BOM, invisible characters as U+XXXX) is in crates/syntax/src/lexer.rs:1478 (invisible()); recheck which items remain.\n\nDone (DeepSeek): invisible characters named by U+ code; 'end of the declaration' kept for files, 'end of the input' for parse_expression only; pattern messages say what was wanted; E-PARSE labels 'here' instead of repeating the message; sources over u32::MAX bytes are E-RESOURCE; parse_namespace_line/docs entry points take the caller's stack (equivalence::parse_shape left on DEFAULT_STACK: fmt has no stack threading). 96 snapshots. Review fixes: first run said 'end of the input' for file declarations and left an empty label line (sent back); orchestrator fixup 4c6756323: the LSP skipped a 'here' label, else every editor syntax error ended with a 'here' line (test fails without). Checks: tools/fmt, aoc, rogue, sf, book --no-cache clean; example kinds and doc tests 26 pass; wasm ok. BOM still named, not skipped. Model result: deepseek, needed fixes (end-of-input wording, empty labels), ~35 min (est. 30).",
       "created": "2026-11-07",
       "updated": "2026-11-28",
-      "commits": []
+      "commits": [
+        "f76618c6a",
+        "6b18de327",
+        "4c6756323",
+        "c33322693"
+      ]
     },
     {
       "id": 1878,
